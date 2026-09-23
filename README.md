@@ -3,75 +3,76 @@
 > A *redoubt* is a small, self-contained, defensible stronghold — the last, smallest
 > position you can actually hold and trust.
 
-**Redoubt is a fun, open-source, security-focused operating system for a RISC-V FPGA
-soft-core.** The goal: a real, hackable, inspectable security OS you can build, run on
-hardware you hold in your hand, attack, and learn from — with everything open, end to end.
+**Redoubt is a hardware-rooted reference-monitor OS for AI agents.** It is a tiny,
+inspectable, unbypassable trust anchor on an open RISC-V FPGA soft-core that mediates every
+tool call and external effect an autonomous agent makes — enforcing capabilities,
+typed-argument predicates, and information-flow labels **deterministically** — so a fully
+hijacked agent (prompt injection, goal hijack, tool poisoning) still **cannot exceed its
+granted authority**.
 
-> **Status: research & design phase.** No OS code yet. This repo currently documents the
-> architecture study and the buildable-stack research that the design is being grounded
-> in. Nothing here is decided by fiat — the design is being worked out in the open.
+Open source, end to end, and built to be audited: the whole point is a trust base small
+enough for one person to read.
+
+> **Status: research & design phase.** No OS code yet. This repo currently holds the
+> architecture study and the full v1 architecture. Design is being worked out in the open.
 
 ---
 
-## The idea
+## Why (the purpose)
 
-Most security work — parsing hostile files, running untrusted code — happens on a stack
-you can't actually trust: a monolithic OS with a multi-million-line kernel on a closed
-CPU. Redoubt explores the opposite: a **small, auditable, hardware-isolated, open**
-security OS on a RISC-V soft-core you can inspect down to the RTL, where the interesting
-security properties are *visible and hackable*, not just claimed.
+Autonomous AI agents break the assumption every existing secure OS makes — that the "user"
+has stable, honest intent. An agent's intent is **hijackable** (prompt injection), it runs
+**arbitrary untrusted tools**, and it is simultaneously the **user and the threat**. No
+existing OS (seL4, Xous/Baochip, Qubes) was designed for that user. Current agent-security
+efforts (Progent, IFC-for-agents, ActPlane, Governed-MCP, MS/NVIDIA) build the enforcement
+**in software on Linux** — a huge, unverifiable TCB. **Redoubt makes the reference monitor
+the hardware-rooted, tiny, inspectable trust anchor below the agent runtime** — so it holds
+even if the agent *and* the OS above are fully compromised. That's the white space.
 
-It's inspired directly by bunnie Huang's **Precursor / Betrusted / Baochip** line (an
-open security device running the **Xous** Rust microkernel on a **VexRiscv** FPGA
-soft-core) and informed by studying how **Apple** builds security at scale.
+The key discipline: enforce at the **structured tool-call boundary** (tool id + typed args
++ data labels) with **non-AI logic** — never by judging the agent's fuzzy reasoning.
 
-## The buildable stack (all open toolchain)
+## The stack (all open toolchain)
 
-| Layer | Choice | Notes |
-|-------|--------|-------|
-| Board | **ULX3S** (Lattice ECP5-85F) | Fully open toolchain (yosys/nextpnr/verilator); runs RISC-V soft-cores. |
-| SoC builder | **LiteX** | Generates the SoC (DRAM, UART, SD, JTAG, MMU option) so we don't hand-build hardware bring-up. |
-| CPU | **VexRiscv** (RV32, MMU-capable) | Same core as Precursor/Baochip. |
-| OS | **Redoubt** — fork Xous *or* from-scratch Rust microkernel | The open design decision; see the studies. |
+| Layer | Choice |
+|-------|--------|
+| Board | **ULX3S** (Lattice ECP5-85F) — open yosys/nextpnr toolchain |
+| SoC builder | **LiteX** (VexRiscv + LiteDRAM + peripherals) |
+| CPU | **VexRiscv** (RV32, M/S/U + PMP; MMU optional) |
+| OS | **Redoubt** — M-mode reference monitor (TCB) + Warden (S) + compartments (U) |
 
-## Research in this repo
+Topology: the LLM/agent runs on an untrusted **host**; Redoubt on the FPGA owns egress
+(network/storage) and secrets and mediates every request — an **HSM + firewall for agent
+tool calls**.
 
+## Documents
+
+**Architecture**
+- [`docs/design/2026-09-22-redoubt-architecture-v1.md`](docs/design/2026-09-22-redoubt-architecture-v1.md)
+  — the full v1 architecture (threat model, privilege model, reference monitor, capability
+  & policy model, tool-call ABI, egress, IFC labels, PMP memory map, SoC, boot/RoT, TCB
+  budget, worked example, security analysis).
+- [`docs/design/2026-09-22-hardware-plan.md`](docs/design/2026-09-22-hardware-plan.md)
+  — board choice (ULX3S), topology, rooting (M-mode + PMP + measured boot), v2 RTL gate.
+
+**Research / study**
 - [`docs/study/2026-09-22-architecture-study-apple-baochip.md`](docs/study/2026-09-22-architecture-study-apple-baochip.md)
-  — grounded study of **Apple platform security** (SEP, PAC, Memory Integrity
-  Enforcement, SPTM/TXM/Exclaves) and the **Baochip-1x** (VexRiscv+MMU, secure elements,
-  glitch sensors, "mostly open" RTL, Xous). Extracts the design principles both share.
+  — Apple platform security (SEP, PAC, MIE, SPTM/TXM/Exclaves) + Baochip-1x; shared principles.
+- [`docs/study/2026-09-22-baochip-precision-deep-dive.md`](docs/study/2026-09-22-baochip-precision-deep-dive.md)
+  — a precise read of Baochip's design taste (BIO blocking registers) and its lessons.
 - [`docs/study/2026-09-22-fpga-build-path.md`](docs/study/2026-09-22-fpga-build-path.md)
-  — how a fun, open-source security OS on an FPGA actually gets built: Precursor as the
-  existence proof, the ULX3S + LiteX + VexRiscv stack, and the genuine "fun-decisions."
-- [`docs/superpowers/specs/2026-09-22-redoubt-m0-m1-design.md`](docs/superpowers/specs/2026-09-22-redoubt-m0-m1-design.md)
-  — an **early** microkernel design draft (QEMU-first). Predates the "fun/FPGA/open"
-  reframing and the architecture study; being rescoped toward the FPGA + LiteX path.
-  Kept for history, not current gospel.
+  — how a security OS on an FPGA is actually built (Precursor, ULX3S/LiteX/VexRiscv).
+- [`docs/study/2026-09-22-security-os-landscape-and-whitespace.md`](docs/study/2026-09-22-security-os-landscape-and-whitespace.md)
+  — the secure-OS landscape and where the genuine white space is (the AI-agent era).
+- [`docs/study/2026-09-22-agent-threat-model-and-minimal-primitive.md`](docs/study/2026-09-22-agent-threat-model-and-minimal-primitive.md)
+  — OWASP agentic threat model + the minimal deterministic enforcement primitive.
 
-## Key findings so far (short version)
-
-- Apple and Baochip independently converged on two moves: **a tiny hyper-privileged trust
-  anchor beneath the kernel** (Apple SPTM/SEP) and **compartmentalizing the kernel's
-  power** (Apple Exclaves; Xous servers). *The kernel is not the most-trusted thing.*
-- Apple's memory safety is now **hardware-tag-centric** (synchronous EMTE + type-aware
-  allocators); on open RISC-V, tagging is still research (HDFI/HyperFlow/Raft).
-- **Precursor proves** an individual can build the open, inspectable, MMU-isolated,
-  capability-OS-on-FPGA stack. That's the template Redoubt builds on.
-
-## Open decisions (being worked out)
-
-1. **Fork Xous vs. write a from-scratch Rust microkernel** (vs. hybrid: boot something on
-   the FPGA first, then decide).
-2. **The "security fun hook"** — live-attackable isolation with visible containment,
-   physical glitch/tamper detection, a hardware RNG, a secure-boot-bypass CTF, or a
-   secure-vault gadget.
-3. Board (**ULX3S** recommended) and whether to add a small SPI LCD for demos.
+*(An early QEMU-microkernel design draft lives under `docs/superpowers/specs/` — superseded
+by the agent-reference-monitor direction; kept for history.)*
 
 ## Related
-
-- Earlier exploration this project grew out of:
-  [grounded-vuln-confirmation](https://github.com/Hem1700/grounded-vuln-confirmation)
-  (a separate repo — differential sanitizer oracle for vulnerability confirmation).
+- [grounded-vuln-confirmation](https://github.com/Hem1700/grounded-vuln-confirmation) — an
+  earlier exploration this project grew out of.
 
 ## License
 
