@@ -1,0 +1,463 @@
+<title>Boot &amp; Root of Trust</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --paper:#FFFFFF; --ink:#17181A; --muted:#5C5F66; --faint:#8A8D94; --line:#D5D7DB;
+    --rule:#222; --accent:#2E4A6B; --code-bg:#F4F5F6; --code-ink:#22252A;
+    --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --paper:#17181B; --ink:#E4E3DF; --muted:#A2A5AC; --faint:#7B7E85; --line:#33353A;
+    --rule:#C9CACE; --accent:#9CB6D6; --code-bg:#1E2024; --code-ink:#D2D4D8;
+  }}
+  :root[data-theme="dark"]{
+    --paper:#17181B; --ink:#E4E3DF; --muted:#A2A5AC; --faint:#7B7E85; --line:#33353A;
+    --rule:#C9CACE; --accent:#9CB6D6; --code-bg:#1E2024; --code-ink:#D2D4D8;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:18px;line-height:1.6;-webkit-text-size-adjust:100%}
+  .page{max-width:660px;margin:0 auto;padding-inline:24px;padding-block:0}
+  p{margin:.75rem 0;text-align:justify;hyphens:auto;-webkit-hyphens:auto}
+  p,li{max-width:64ch}
+  a{color:var(--accent);text-underline-offset:2px}
+  h1{font-weight:700;font-size:2.15rem;line-height:1.14;margin:.2rem 0;text-align:left;hyphens:none}
+  h2{font-weight:700;font-size:1.4rem;line-height:1.2;margin:2.6rem 0 .5rem;hyphens:none}
+  h3{font-weight:600;font-size:1.14rem;margin:1.7rem 0 .2rem;hyphens:none}
+  h4{font-weight:600;font-size:1rem;margin:1.2rem 0 .1rem;font-style:italic;hyphens:none}
+  h2 .n{font-family:var(--mono);font-weight:500;font-size:1rem;color:var(--muted);margin-right:.6em}
+  .masthead{border-top:3px solid var(--rule);border-bottom:1px solid var(--line);padding:1.4rem 0 1.1rem;margin-top:1.2rem}
+  .docmeta{font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;color:var(--muted);text-transform:uppercase;margin:0 0 .6rem;display:flex;flex-wrap:wrap;gap:4px 22px}
+  .docmeta b{color:var(--ink);font-weight:500}
+  .abstract{font-size:1.02rem;color:var(--ink);margin-top:1rem}
+  .abstract .lbl{font-variant:small-caps;letter-spacing:.06em;font-weight:600;color:var(--muted);font-size:.82rem;margin-right:.5em}
+  code{font-family:var(--mono);font-size:.8em;background:var(--code-bg);color:var(--code-ink);padding:.08em .32em;border-radius:3px}
+  pre{font-family:var(--mono);background:var(--code-bg);color:var(--code-ink);border:1px solid var(--line);border-left:3px solid var(--rule);padding:14px 16px;overflow-x:auto;font-size:.76rem;line-height:1.55;margin:1.2rem 0;text-align:left}
+  pre code{background:none;padding:0}
+  figure{margin:1.8rem 0;text-align:center}
+  figure svg{display:block;max-width:100%;height:auto;margin:0 auto;color:var(--ink);border:1px solid var(--line);padding:14px;background:var(--paper)}
+  figcaption{font-size:.85rem;color:var(--muted);margin-top:.6rem;text-align:left;max-width:60ch}
+  figcaption .fl{font-weight:600;color:var(--ink)}
+  figure svg text{fill:currentColor}
+  .s-ln{stroke:var(--line)}.s-acc{stroke:var(--accent)}.s-cur{stroke:currentColor}.s-mut{stroke:var(--muted)}
+  .f-s1{fill:var(--paper)}.f-s2{fill:var(--code-bg)}.f-acc{fill:none}.f-none{fill:none}
+  .t-acc{fill:var(--accent)}.t-mut{fill:var(--muted)}.mk{fill:currentColor}.mk-acc{fill:var(--accent)}.dash{stroke-dasharray:4 4}
+  table{border-collapse:collapse;width:100%;font-size:.85rem;margin:1.1rem 0}
+  .tblwrap{overflow-x:auto}
+  th,td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}
+  th{border-bottom:2px solid var(--rule);font-weight:600}
+  .note{border:1px solid var(--line);border-left:3px solid var(--accent);padding:14px 18px;margin:1.6rem 0;font-size:.95rem;background:var(--paper)}
+  .note .lbl{font-variant:small-caps;letter-spacing:.06em;font-weight:600;color:var(--accent);font-size:.82rem}
+  .note dt{font-weight:600;margin-top:.6rem;text-align:left}
+  .note dd{margin:.1rem 0 0;color:var(--muted);text-align:justify;hyphens:auto}
+  .aside{color:var(--muted);font-style:italic;border-left:2px solid var(--line);padding-left:16px;margin:1.2rem 0}
+  ul,ol{padding-left:1.4rem} li{margin:.35rem 0}
+  dl.gloss dt{font-family:var(--mono);font-size:.82rem;color:var(--accent);margin-top:.9rem;text-align:left}
+  dl.gloss dd{margin:.15rem 0 0}
+  sup a{text-decoration:none;font-size:.72em;padding:0 1px}
+  .notes{font-size:.85rem;color:var(--muted);border-top:1px solid var(--line);margin-top:2.4rem;padding-top:1rem}
+  .notes li{margin:.3rem 0;max-width:70ch;text-align:left}
+  .notes li span{color:var(--faint);font-family:var(--mono);font-size:.85em;margin-right:.4em}
+  .rej{margin-top:.9rem} .rej b{font-style:italic}
+  footer{margin:3rem 0 2rem;padding-top:1rem;border-top:3px solid var(--rule);font-size:.82rem;color:var(--muted);text-align:left}
+  hr{border:none;border-top:1px solid var(--line);margin:2rem 0}
+</style>
+
+<div class="page">
+<div class="masthead">
+  <div class="docmeta">
+    <span>Redoubt Architecture</span><span>Component Specification</span>
+    <span>Doc <b>RDBT-ARCH-05</b></span><span>Status <b>Draft</b></span><span>Chapter <b>5 / 13</b></span>
+  </div>
+  <h1>Boot &amp; Root of Trust</h1>
+  <p class="abstract"><span class="lbl">Abstract.</span> Every guarantee Redoubt makes rests on one
+  assumption: that the Monitor which starts running after a reset is the exact Monitor we wrote, not a
+  substitute an attacker slipped in. This chapter explains how that assumption is earned rather than
+  merely hoped for. It walks the machine from power-on to the first mediated tool call, one step at a
+  time — the FPGA loading its circuit, a tiny boot ROM weighing the Monitor against a known fingerprint
+  and halting if they differ, the Monitor raising the hardware walls before anything untrusted can run,
+  seeding its secrets and its randomness, compiling the policy, and finally handing control down to the
+  layers above. It sets out why the <em>order</em> of those steps is itself a security property, how the
+  boot leaves behind a tamper-evident record that a remote party can check, and — plainly — the one link
+  in the chain that version 1 does not yet secure.</p>
+</div>
+
+<div class="note">
+<span class="lbl">Note to first-time readers.</span>
+<p style="text-align:justify">This chapter leans on a few ideas that sound more forbidding than they
+are. Here is each in plain language; no hardware background is assumed.</p>
+<dl>
+<dt>Root of trust</dt><dd>The one thing you decide to trust without checking, because everything else is
+checked <em>by</em> it. You cannot verify infinitely far down, so somewhere the regress has to stop. The
+art is making that starting point as small and as fixed as possible.</dd>
+<dt>Bitstream</dt><dd>An FPGA is a blank field of logic gates; a bitstream is the file that wires them
+into a specific circuit — here, our RISC-V processor and its surrounding hardware. On power-up the chip
+reads the bitstream from a small flash memory and becomes that circuit.</dd>
+<dt>Measurement</dt><dd>Computing a cryptographic hash of a piece of software before running it — a short
+fingerprint that changes completely if even one byte of the software changes. To "measure" the Monitor
+is to fingerprint it and compare against the fingerprint we expect.</dd>
+<dt>Boot ROM (BROM)</dt><dd>A very small program, fixed in the hardware and unchangeable at runtime, that
+runs first after reset. Its only job is to measure the next thing and refuse to continue if the
+measurement is wrong.</dd>
+<dt>PMP</dt><dd>Physical Memory Protection: machine-mode-only registers that fence off regions of memory
+from less-privileged code. It is the wall the whole design leans on, specified in Chapter 3.</dd>
+</dl>
+</div>
+
+<h2><span class="n">5.1</span>What a root of trust actually is</h2>
+<p>Suppose someone hands you a sealed letter and swears it is genuine. You could check the seal — but
+only if you already trust the stamp that made it. You could check the stamp against a registry, but only
+if you trust the registry. Verification always leans on something you did not verify, and at some point
+the leaning has to stop against a surface you simply accept. That surface is the root of trust.</p>
+<p>For a security system the whole game is choosing that surface well. A good root of trust is small,
+so there is little in it to be wrong; fixed, so an attacker cannot quietly edit it; and first, so that
+everything after it is measured before it gets to act. Redoubt's root is two tiny things taken together:
+a boot ROM baked into the hardware, and an expected fingerprint of the Monitor stored alongside it. The
+boot ROM cannot be rewritten while the machine runs, and the fingerprint is a fixed constant. Between
+them they answer a single question — <em>is the software about to run in machine mode really ours?</em>
+— and they refuse to let the machine proceed if the answer is no.</p>
+<p>Notice what this buys and what it does not. It does not stop anyone from putting different software on
+the flash chip; nothing in version 1 can. What it guarantees is that if different software is there, the
+machine will notice and stop, rather than running the impostor as though it were trusted. A halted
+Redoubt does nothing, and doing nothing is safe. A Redoubt that boots the wrong Monitor would hand an
+attacker the keys and the network in one motion, so refusing to boot is exactly the right failure.</p>
+
+<h2><span class="n">5.2</span>The boot sequence, step by step</h2>
+<p>From the instant power arrives to the first tool call the agent can make, the machine passes through
+five stages. Each hands to the next only after it has done its own job completely. The diagram traces
+the path; the paragraphs below walk it slowly.</p>
+
+<figure>
+<svg viewBox="0 0 860 470" role="img" aria-label="The boot chain from power-on to the first tool call: the ECP5 FPGA loads its bitstream from QSPI flash and becomes the RISC-V SoC; the boot ROM computes a BLAKE2s hash of the Monitor image and compares it to a baked-in expected hash, halting on mismatch and continuing on match; the Monitor then programs and locks the PMP entries, initializes secrets and the random-number generator, compiles the policy into tables, and returns via mret to the Warden, which starts the compartments.">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk"/></marker>
+    <marker id="aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk-acc"/></marker>
+  </defs>
+  <!-- stage 0: FPGA loads bitstream -->
+  <rect x="20" y="30" width="150" height="52" class="f-s2 s-ln"/>
+  <text x="95" y="52" text-anchor="middle" font-size="10">0 · ECP5 loads</text>
+  <text x="95" y="66" text-anchor="middle" font-size="10">bitstream</text>
+  <rect x="20" y="96" width="150" height="30" class="f-none s-mut dash"/>
+  <text x="95" y="115" text-anchor="middle" font-size="8.5" class="t-mut">QSPI flash</text>
+  <line x1="95" y1="96" x2="95" y2="84" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/>
+  <!-- stage 1: BROM measures -->
+  <rect x="20" y="150" width="150" height="60" class="f-s1 s-ln"/>
+  <text x="95" y="172" text-anchor="middle" font-size="10">1 · BROM measures</text>
+  <text x="95" y="188" text-anchor="middle" font-size="9" class="t-mut">H = BLAKE2s(Monitor)</text>
+  <text x="95" y="201" text-anchor="middle" font-size="9" class="t-mut">vs H_expected</text>
+  <line x1="95" y1="82" x2="95" y2="148" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/>
+  <!-- decision -->
+  <path d="M95 234 L150 264 L95 294 L40 264 Z" class="f-s1 s-acc" stroke-width="1.5"/>
+  <text x="95" y="268" text-anchor="middle" font-size="9" class="t-acc">equal?</text>
+  <line x1="95" y1="210" x2="95" y2="232" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/>
+  <!-- halt branch -->
+  <rect x="14" y="330" width="120" height="40" class="f-none s-mut"/>
+  <text x="74" y="349" text-anchor="middle" font-size="9">HALT</text>
+  <text x="74" y="362" text-anchor="middle" font-size="8" class="t-mut">no · never boots</text>
+  <line x1="74" y1="294" x2="74" y2="328" class="s-cur s-mut dash" stroke-width="1.2" marker-end="url(#a)"/>
+  <!-- yes: to Monitor stages, arrow right -->
+  <line x1="150" y1="264" x2="360" y2="264" class="s-acc" stroke-width="1.5" marker-end="url(#aa)"/>
+  <text x="250" y="256" text-anchor="middle" font-size="8.5" class="t-acc">yes</text>
+  <!-- Monitor box containing the ordered init -->
+  <rect x="366" y="40" width="300" height="300" class="f-none s-ln"/>
+  <text x="516" y="32" text-anchor="middle" font-size="9" class="t-mut">2 · Monitor runs (machine mode)</text>
+  <g font-size="9">
+    <rect x="392" y="60" width="248" height="40" class="f-s1 s-acc" stroke-width="1.5"/>
+    <text x="516" y="78" text-anchor="middle" class="t-acc">a · program + LOCK the PMP</text>
+    <text x="516" y="92" text-anchor="middle" font-size="8" class="t-mut">walls up before anything untrusted runs</text>
+    <rect x="392" y="112" width="248" height="38" class="f-s1 s-ln"/>
+    <text x="516" y="130" text-anchor="middle">b · load secrets, wipe load buffer</text>
+    <text x="516" y="143" text-anchor="middle" font-size="8" class="t-mut">start + health-test the TRNG</text>
+    <rect x="392" y="162" width="248" height="38" class="f-s1 s-ln"/>
+    <text x="516" y="180" text-anchor="middle">c · compile policy manifest</text>
+    <text x="516" y="193" text-anchor="middle" font-size="8" class="t-mut">into fixed decision tables</text>
+    <rect x="392" y="212" width="248" height="38" class="f-s1 s-ln"/>
+    <text x="516" y="230" text-anchor="middle">d · build initial session cspace</text>
+    <text x="516" y="243" text-anchor="middle" font-size="8" class="t-mut">install trap vector; seed audit chain</text>
+    <rect x="392" y="262" width="248" height="40" class="f-s2 s-ln"/>
+    <text x="516" y="280" text-anchor="middle">e · mret &#8595; to Warden</text>
+    <text x="516" y="294" text-anchor="middle" font-size="8" class="t-mut">first drop to supervisor mode</text>
+  </g>
+  <line x1="516" y1="100" x2="516" y2="110" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/>
+  <line x1="516" y1="150" x2="516" y2="160" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/>
+  <line x1="516" y1="200" x2="516" y2="210" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/>
+  <line x1="516" y1="250" x2="516" y2="260" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/>
+  <!-- Warden + compartments -->
+  <rect x="392" y="360" width="130" height="46" class="f-s2 s-ln"/>
+  <text x="457" y="380" text-anchor="middle" font-size="9">3 · Warden (S)</text>
+  <text x="457" y="394" text-anchor="middle" font-size="8" class="t-mut">starts compartments</text>
+  <rect x="546" y="360" width="120" height="46" class="f-s2 s-ln"/>
+  <text x="606" y="380" text-anchor="middle" font-size="9">4 · Endpoint (U)</text>
+  <text x="606" y="394" text-anchor="middle" font-size="8" class="t-mut">+ drivers</text>
+  <line x1="516" y1="302" x2="457" y2="358" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/>
+  <line x1="522" y1="383" x2="544" y2="383" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/>
+  <!-- first tool call arrow back up -->
+  <line x1="606" y1="406" x2="606" y2="430" class="s-cur" stroke-width="1.2"/>
+  <line x1="606" y1="430" x2="150" y2="430" class="s-cur s-mut dash" stroke-width="1.2"/>
+  <text x="378" y="444" text-anchor="middle" font-size="8.5" class="t-mut">later: a tool call ecalls back up into the Monitor (Ch. 6)</text>
+</svg>
+<figcaption><span class="fl">Figure 5-1.</span> The boot chain. Control flows top-to-bottom, then down
+the right column and out to the untrusted layers. The accented step (a) is the pivot of the whole
+chapter: the hardware walls go up while only the Monitor is running, so there is never a moment when
+untrusted code exists and the walls do not. The dashed halt branch is where a tampered Monitor dies.</figcaption>
+</figure>
+
+<h3>Stage 0 — the FPGA becomes a computer</h3>
+<p>Redoubt is not a fixed chip with a processor etched into it. It is a Lattice ECP5 FPGA, a blank
+canvas of programmable logic. When power arrives the ECP5 reads a bitstream out of a small QSPI flash
+memory and configures itself into the circuit that bitstream describes — in our case a VexRiscv RISC-V
+core, memory controllers, the OLED and network links, and the random-number source, all wired together
+by LiteX (Chapter 4 covers that hardware in detail). Only once this configuration finishes is there a
+processor at all. The very first instruction the new processor executes lives in the boot ROM at
+address <code>0x0000_0000</code>.</p>
+<p>This stage is also the honest weak point of version 1, and §5.7 says so at length. For now the thing
+to hold onto is that the bitstream is loaded before any measuring happens, because there is nothing to
+do the measuring until the circuit exists.</p>
+
+<h3>Stage 1 — the boot ROM weighs the Monitor</h3>
+<p>The processor starts in machine mode, the most privileged level, running the boot ROM. The boot ROM
+is deliberately minute — under three hundred lines of code — because it, too, is part of the trusted
+base and every line in the trusted base is a line that must be right. It does exactly one interesting
+thing. It reads the Monitor image out of its code region and computes a BLAKE2s-256 hash of it: a
+32-byte fingerprint.<sup><a href="#n1">1</a></sup> Then it compares that fingerprint, byte for byte,
+against <code>H_expected</code> — a constant compiled straight into the bitstream, sitting in on-chip
+block RAM where runtime code cannot rewrite it.</p>
+<p>If the two fingerprints match, the boot ROM jumps into the Monitor. If they differ by so much as a
+single bit, it halts. Not "logs a warning and carries on" — halts, permanently, until the next reset.
+There is no third option and no override, because an override is precisely the door an attacker would
+aim for.</p>
+
+<h3>Stage 2 — the Monitor raises the walls and prepares itself</h3>
+<p>Now our code is running, and running in machine mode, which is the only mode that can configure the
+hardware walls. Its first act — before it does anything else at all — is to program the PMP entries that
+fence the secrets and the egress hardware off from every less-privileged mode, and then set the lock
+bits so those entries cannot be changed again until reset (the register-level detail is Chapter 3).
+Section 5.3 explains why this has to come first and why "first" is not a stylistic preference but a
+security property.</p>
+<p>With the walls up, the Monitor prepares the rest of its world in a fixed order: it loads the secrets
+from their machine-only flash area into the machine-only SECRETS region and wipes the temporary buffer
+it used; it starts the ring-oscillator random-number generator and runs its start-up health tests; it
+compiles the policy manifest into the flat decision tables the Monitor will consult on every request
+(Chapter 8); it builds the initial capability space for the first session (Chapter 7); it installs its
+trap vector so that later <code>ecall</code>s land in the right place; and it writes the opening entry
+of the audit hash-chain so attestation has a genesis to build on.</p>
+
+<h3>Stage 3 — control drops to the untrusted layers</h3>
+<p>Only when all of that is done does the Monitor execute an <code>mret</code>, the instruction that
+returns from machine mode down to supervisor mode, landing in the Warden microkernel. This is the first
+moment any code below machine mode runs on this boot. The Warden schedules and starts the compartments —
+the Endpoint that speaks USB, the network and storage drivers — all in user mode. From here on the
+machine is live: an agent on the host can frame a request, the Endpoint can deliver it, and it will
+<code>ecall</code> up into the Monitor along the path Chapter 6 describes. The dashed line in Figure 5-1
+shows that later return trip; it is not part of boot, but it is where boot was leading.</p>
+
+<h2><span class="n">5.3</span>Why the ordering matters: no unguarded window</h2>
+<p>It would be easy to read the previous section as a checklist where order is a matter of taste. It is
+not. The single most important property of the whole sequence is that <em>the walls go up while only
+the Monitor is running.</em> Between the boot ROM's approval and the <code>mret</code> to the Warden,
+nothing untrusted executes — not one instruction. So there is never an interval in which the secrets and
+the network are reachable <em>and</em> some untrusted code is alive to reach them.</p>
+<p>Call that missing interval the unguarded window, and picture how a careless design might open one.
+Suppose the Monitor started the Warden first, "to get the system responsive," and locked the PMP a few
+milliseconds later. In those milliseconds a subverted Warden could read every key out of the SECRETS
+region and hand it to the host before the wall it was meant to sit behind ever existed. The attack needs
+no cleverness; it just needs the window. We close it by construction: locking the PMP is step (a), the
+very first thing the Monitor does, and nothing that could abuse the openness runs until step (e).</p>
+<p>The lock bit earns its own emphasis here. Programming a PMP entry is not enough on its own, because
+a later machine-mode bug — or, in the threat model's stretch case, a machine-mode fault an attacker
+induces — might reprogram it. Setting the lock makes the entry immutable until the hardware resets, so
+even the Monitor cannot loosen it afterward. We are willing to give up our own ability to change the
+rule in exchange for the certainty that no one else can either. (Chapter 3 discusses the Smepmp variant
+that also denies the region to machine mode itself; where it is unavailable, the locked-rule fallback
+still keeps the region unreachable from the Warden and below.)</p>
+<p class="aside">This "measure, then lock, then descend" shape is not ours; we borrowed it. It is the
+same discipline a measured boot follows on a phone or a server's TEE, where each stage vouches for the
+next before surrendering control, and privilege only ever narrows as you go.<sup><a href="#n2">2</a></sup>
+We have simply pointed it at one small target and refused to let it grow.</p>
+
+<h2><span class="n">5.4</span>Measurement: what BLAKE2s buys us</h2>
+<p>The comparison in stage 1 rests on a cryptographic hash, so it is worth being precise about what such
+a hash does and does not promise. A hash reads an arbitrary amount of data and emits a short, fixed-size
+digest. The property we rely on is that it is infeasible to find two different inputs with the same
+digest, and that changing any bit of the input scrambles the whole output unpredictably. So if the
+Monitor image the boot ROM sees produces the same 32 bytes as the image we hashed when we built the
+system, we can be confident to a cryptographic certainty that the images are identical.</p>
+<p>We use BLAKE2s specifically, and the choice is not arbitrary. BLAKE2s is fast, has a small and simple
+implementation — which matters when the code doing the hashing is itself inside the trusted base and
+counted against a line budget — and it is the same primitive the audit log uses for its hash-chain
+(Chapter 12) and that the Monitor uses elsewhere, so there is only one hash to review, not three.</p>
+<pre><code>at power-on, in the boot ROM:
+
+    H        := BLAKE2s-256( bytes of MON_CODE region )
+    if H != H_expected:          # H_expected is baked into the bitstream
+        halt forever             # no log, no retry, no fallback image
+    else:
+        jump into the Monitor    # now trusted to run in machine mode</code></pre>
+<p>One subtlety deserves a beginner's attention: what exactly gets hashed. It is the Monitor's code
+image, the thing that must be exactly ours. It is not the Monitor's live data, which changes every boot
+and could never match a fixed constant, and it is not the policy manifest, which an operator is meant to
+change. Getting the boundary of "the measured thing" right is half of doing measured boot correctly; hash
+too little and you leave something unmeasured that an attacker can swap, hash too much and the machine
+refuses to boot every time anything legitimately varies.</p>
+
+<h2><span class="n">5.5</span>Measured boot and attestation</h2>
+<p>Measuring the Monitor protects <em>this</em> machine from booting an impostor. But there is a second,
+outward-facing use for measurement: letting someone else, who is not standing at the machine, gain
+justified confidence about what it is running. That is attestation, and Redoubt offers a modest form of
+it.</p>
+<p>Two facts combine to make it work. First, the boot only proceeds if the Monitor measured correctly,
+so the mere fact that a Redoubt is running mediations at all already implies its Monitor matched
+<code>H_expected</code>. Second, from its genesis entry onward the Monitor keeps a tamper-evident audit
+log: every decision it makes is recorded, and each entry is hashed together with the hash of the entry
+before it, forming a chain (the structure is specified in Chapter 12). Because each link depends on all
+the links before it, you cannot quietly delete or edit a past entry without breaking every hash that
+follows.</p>
+<p>The head of that chain — the single hash summarising everything logged so far — can be read out over
+the wire with the <code>ATTEST_READ</code> opcode (<code>0x52440020</code>), the read-only member of the
+mediation ABI catalogued in Chapter 6. A verifier who knows what the head hash should be, or who simply
+records it and watches that it only ever advances, can detect truncation or tampering of the log. It is
+not a full remote-attestation protocol with signed quotes and a challenge nonce; version 1 exposes the
+raw chain head and leaves the signing envelope to a later revision. What it does give, honestly, is a
+cheap and checkable witness that the record has not been rewritten.</p>
+<pre><code>host                          Redoubt (Monitor)
+  |  ecall a7=ATTEST_READ  ---> |
+  |                             |  read head of audit hash-chain
+  |  <---  status=ALLOW, 32 B  <-|  (h_n = BLAKE2s over the whole chain)
+  |                             |
+  compare h_n to the last value you saw; it must only ever move forward</code></pre>
+
+<h2><span class="n">5.6</span>Secret provisioning</h2>
+<p>The Monitor is useless without its secrets — the API keys and credentials it injects on the agent's
+behalf — but the moment those secrets exist in memory is a delicate one, so provisioning gets its own
+short, strict routine. At build or personalisation time the keys are written into a machine-only area of
+the QSPI flash, a region the PMP map keeps out of reach of supervisor and user code. During stage 2 the
+Monitor copies them into the SECRETS region of RAM, which is likewise machine-only, and then immediately
+wipes the temporary buffer it used to move them so no stray copy lingers on the stack.</p>
+<p>From that point the secrets obey the use-only discipline described in the Monitor and Capabilities
+chapters: exactly one part of the Monitor ever reads a key, and only to splice it into an outgoing
+request at the final performing step, wiping its working copy straight after. There is no boot-time path,
+and no ABI, that copies a key toward the host. Provisioning is the one time raw key bytes travel across
+memory, which is exactly why it happens while only the Monitor is running and behind walls that are
+already locked.</p>
+<p class="aside">Version 1 provisions from flash because it is simple and enough to prove the
+architecture. A sturdier scheme — deriving per-device keys from a hardware secret so that dumping the
+flash of one unit does not compromise a fleet, or provisioning over an authenticated channel after boot
+— is a natural version-2 improvement and is flagged among the open questions.</p>
+
+<h2><span class="n">5.7</span>The honest caveat: bitstream authenticity</h2>
+<p>Here is the part it would be dishonest to bury. Everything above assumes the bitstream loaded in
+stage 0 is ours — that the boot ROM doing the measuring, and the <code>H_expected</code> it measures
+against, are the ones we put there. Version 1 does not verify that assumption. The ECP5 loads whatever
+bitstream sits in the QSPI flash, and an attacker with physical access who can reflash that chip could
+install a bitstream whose boot ROM measures nothing, or whose <code>H_expected</code> is the fingerprint
+of their own Monitor. The root of trust, in other words, is rooted in the flash, and version 1 does not
+defend the flash.</p>
+<p>We state this plainly rather than gesture past it, for two reasons. First, it bounds the claim
+correctly: Redoubt's guarantees hold against a fully compromised host and even a subverted Warden — the
+software adversary — but not yet against an attacker who can physically rewrite the board's boot flash.
+Second, the fix is understood, just deferred. FPGA families and companion secure elements can verify a
+bitstream's signature before loading it, anchoring trust in a key that cannot be reflashed, and moving
+to such a part (or adding an external verifier) is the planned version-2 upgrade. It sits alongside the
+other physical-tampering and fault-injection concerns that version 1 explicitly leaves out of
+scope.<sup><a href="#n3">3</a></sup> Calling it done now would be a lie; calling it a known, scoped gap
+is the truth.</p>
+
+<h2><span class="n">5.8</span>Failure modes and edge cases</h2>
+<p>A boot process is judged as much by how it fails as by how it succeeds. The interesting cases:</p>
+<ul>
+<li><em>Measurement mismatch.</em> The Monitor image does not match <code>H_expected</code>. The boot
+ROM halts and the machine never leaves stage 1. This is the designed response to a tampered or corrupted
+Monitor, and it is also, incidentally, what a bit-rotted flash chip triggers — a corrupted image is
+indistinguishable from a malicious one, and both deserve a halt.</li>
+<li><em>TRNG health-test failure at start-up.</em> If the random-number generator fails its NIST SP
+800-90B start-up tests, it is not producing trustworthy entropy.<sup><a href="#n4">4</a></sup> Any
+operation that consumes randomness blocks rather than proceed with weak randomness; boot does not paper
+over a broken entropy source.</li>
+<li><em>Interrupted provisioning.</em> Power lost midway through copying secrets leaves a partially
+populated SECRETS region, but since nothing untrusted has run yet and the walls are already up, no
+attacker can observe the half-state. The next clean boot repeats the copy from flash from scratch.</li>
+<li><em>An impossible fault during Monitor init.</em> If the Monitor trips over a protection it just
+set — a bug, not an attack — it stops, exactly as it does at runtime (Chapter 9). A confused Monitor is
+more dangerous than a halted one, so it never tries to soldier on through an inconsistent state.</li>
+<li><em>A wrong-but-well-formed policy manifest.</em> Measurement covers the Monitor's code, not the
+policy, so a mis-authored manifest will compile and boot happily. Boot cannot catch a policy that is
+valid but too permissive; that is the policy compiler's and the operator's problem, discussed in
+Chapter 8. It is worth naming so no one mistakes a green boot for a correct policy.</li>
+</ul>
+
+<h2><span class="n">5.9</span>Invariants the boot establishes</h2>
+<p>Boot exists to hand the running system a set of guarantees it can then rely on. These are the ones a
+successful boot must have made true by the time the Warden first runs:</p>
+<ol>
+<li>The machine-mode software that is running is bit-for-bit the Monitor we built, or the machine
+halted.</li>
+<li>The PMP entries protecting SECRETS and the egress hardware are programmed and locked before any
+supervisor- or user-mode instruction executes.</li>
+<li>Secrets reside only in the machine-only SECRETS region; the buffer used to load them has been
+wiped.</li>
+<li>The random-number generator has passed its start-up health tests, or entropy-consuming operations
+are blocked.</li>
+<li>The policy tables and the initial capability space were built once, by the Monitor, from the
+manifest, and are not rebuilt afterward.</li>
+<li>The audit hash-chain has a genesis entry, so every later decision extends an unbroken chain.</li>
+<li>The trap vector is installed, so the first tool call arrives at the Monitor and not at unowned
+code.</li>
+</ol>
+
+<h2><span class="n">5.10</span>Alternatives rejected</h2>
+<p>Several other boot designs were considered and set aside. The reasons are as instructive as the
+choice.</p>
+<p class="rej"><b>A signature check instead of a plain measurement.</b> The boot ROM could verify a
+digital signature over the Monitor rather than compare a hash to a baked-in constant. Signatures allow
+the Monitor to be updated in the field without re-baking the bitstream, which is genuinely nice. But they
+drag a public-key verifier — and key-management questions about which keys are trusted and how they are
+revoked — into the boot ROM, the smallest and most sacred piece of the trusted base. For version 1 a
+fixed hash is smaller, simpler, and has nothing to misconfigure. Signatures become attractive precisely
+when we also solve bitstream authenticity, so the two are deferred together.</p>
+<p class="rej"><b>A multi-stage bootloader.</b> Conventional systems chain a first-stage loader to a
+second stage to the OS, each measuring the next. That flexibility is exactly what we do not want here.
+Every extra stage is more trusted code and another link that can be attacked. Redoubt collapses the
+chain to the shortest thing that works: ROM measures Monitor, Monitor runs. There is no second-stage
+loader to compromise because there is no second stage.</p>
+<p class="rej"><b>Lock the PMP lazily, after the system is up.</b> Tempting for boot speed, and fatal for
+the reasons §5.3 lays out: it opens the unguarded window. Rejected outright. Locking is the Monitor's
+first act and nothing untrusted precedes it.</p>
+<p class="rej"><b>Fall back to a recovery image on measurement failure.</b> Many devices boot a backup
+image if the primary fails to verify. That is sensible for availability and wrong for us: a recovery
+path is a second thing an attacker can aim to trigger and then subvert, and Redoubt values a safe halt
+over continued availability. If the Monitor does not measure correctly, the right outcome is a machine
+that does nothing until a human intervenes.</p>
+<p class="rej"><b>Store <code>H_expected</code> in the same flash as the Monitor.</b> Convenient, and it
+would let an attacker who rewrites the Monitor rewrite the expected hash to match. We put
+<code>H_expected</code> in the bitstream's on-chip block RAM instead, so that within version 1's software
+threat model it cannot be edited independently of the bitstream. (That it can be edited by reflashing the
+bitstream is the §5.7 caveat, and the honest limit of this choice.)</p>
+
+<h2><span class="n">5.11</span>Open questions</h2>
+<p>Loose ends, named so no one mistakes this chapter for finished:</p>
+<ul>
+<li>Bitstream authenticity — the §5.7 gap. Which secure-element or signed-configuration part anchors
+trust below the flash in version 2, and what it costs in board complexity.</li>
+<li>Whether to move from a fixed-hash measurement to a signed, field-updatable Monitor once a hardware
+key store exists, and how updates interact with the audit chain's continuity.</li>
+<li>Per-device secret provisioning: deriving keys from a hardware unique secret so that compromising one
+unit's flash does not compromise a fleet, versus the simpler shared-flash scheme of version 1.</li>
+<li>Whether attestation should graduate from a raw chain-head read to a signed quote over a verifier's
+nonce, and where the signing key would live.</li>
+<li>Exact boot-time budget for TRNG conditioning before first use, balancing start-up latency against
+entropy confidence.<sup><a href="#n4">4</a></sup></li>
+</ul>
+
+<ol class="notes" id="notes">
+<li id="n1"><span>[1]</span> M-J. Saarinen, J-P. Aumasson, <em>The BLAKE2 Cryptographic Hash and MAC</em> (RFC 7693). BLAKE2s is the 32-bit-oriented variant; a 256-bit digest is used here for the Monitor measurement and, in Chapter 12, for the audit hash-chain.</li>
+<li id="n2"><span>[2]</span> The measure-then-descend discipline follows established TEE and secure-boot practice: each stage vouches for the next before yielding, privilege only narrows. See the TEE-attestation survey, arXiv:2206.03780, and Apple <em>Platform Security</em> (SPTM as a boot-time and runtime trust anchor more privileged than the kernel), arXiv:2510.09272.</li>
+<li id="n3"><span>[3]</span> Out-of-scope for v1, stated in the spec's threat model (§2.2): FPGA-bitstream authenticity, physical and fault-injection attacks. See also <em>Bypassing Isolated Execution on RISC-V with Fault Injection</em>, IACR eprint 2020/1193.</li>
+<li id="n4"><span>[4]</span> NIST <em>SP 800-90B</em>, entropy-source health tests (Repetition-Count and Adaptive-Proportion), applied continuously and at start-up to the ring-oscillator TRNG.</li>
+</ol>
+
+<footer>Redoubt Architecture · RDBT-ARCH-05 · Boot &amp; Root of Trust · Draft. Open source (MIT). One
+of thirteen component chapters; see Chapter 3 (PMP), Chapter 6 (wire &amp; ABI), Chapter 8 (policy),
+Chapter 9 (the Monitor), and Chapter 12 (audit log) for the mechanisms referenced here.</footer>
+</div>

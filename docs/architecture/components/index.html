@@ -1,0 +1,91 @@
+<title>Redoubt Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{--paper:#FFFFFF;--ink:#17181A;--muted:#5C5F66;--faint:#8A8D94;--line:#D5D7DB;--rule:#222;--accent:#2E4A6B;--code-bg:#F4F5F6;--code-ink:#22252A;
+    --serif:"Source Serif 4",Georgia,"Times New Roman",serif;--mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#17181B;--ink:#E4E3DF;--muted:#A2A5AC;--faint:#7B7E85;--line:#33353A;--rule:#C9CACE;--accent:#9CB6D6;--code-bg:#1E2024;--code-ink:#D2D4D8;}}
+  :root[data-theme="dark"]{--paper:#17181B;--ink:#E4E3DF;--muted:#A2A5AC;--faint:#7B7E85;--line:#33353A;--rule:#C9CACE;--accent:#9CB6D6;--code-bg:#1E2024;--code-ink:#D2D4D8;}
+  *{box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:18px;line-height:1.6;-webkit-text-size-adjust:100%}
+  .page{max-width:680px;margin:0 auto;padding-inline:24px}
+  p{margin:.75rem 0;text-align:justify;hyphens:auto} p{max-width:64ch}
+  a{color:var(--accent);text-underline-offset:2px}
+  h1{font-weight:700;font-size:2.4rem;line-height:1.12;margin:.2rem 0}
+  h2{font-weight:700;font-size:1.32rem;margin:2.4rem 0 .5rem}
+  .masthead{border-top:3px solid var(--rule);border-bottom:1px solid var(--line);padding:1.4rem 0 1.1rem;margin-top:1.2rem}
+  .docmeta{font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;color:var(--muted);text-transform:uppercase;margin:0 0 .6rem;display:flex;flex-wrap:wrap;gap:4px 22px}
+  .docmeta b{color:var(--ink);font-weight:500}
+  .abstract{font-size:1.04rem;margin-top:1rem}
+  .abstract .lbl{font-variant:small-caps;letter-spacing:.06em;font-weight:600;color:var(--muted);font-size:.82rem;margin-right:.5em}
+  ol.toc{list-style:none;padding:0;margin:1rem 0;counter-reset:none}
+  ol.toc li{display:flex;gap:14px;align-items:baseline;padding:.5rem 0;border-bottom:1px solid var(--line);max-width:none}
+  ol.toc .cn{font-family:var(--mono);font-size:.82rem;color:var(--muted);min-width:2.2em}
+  ol.toc .tt{font-weight:600}
+  ol.toc .ds{color:var(--muted);font-size:.92rem}
+  ol.toc a{text-decoration:none}
+  ol.toc .done{color:var(--faint)}
+  .part{font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:1.6rem 0 .2rem;border-bottom:1px solid var(--line);padding-bottom:.3rem}
+  code{font-family:var(--mono);font-size:.8em;background:var(--code-bg);color:var(--code-ink);padding:.08em .32em;border-radius:3px}
+  footer{margin:3rem 0 2rem;padding-top:1rem;border-top:3px solid var(--rule);font-size:.82rem;color:var(--muted);text-align:left}
+</style>
+
+<div class="page">
+<div class="masthead">
+  <div class="docmeta"><span>Redoubt Architecture</span><span>Component Manual</span><span>Doc <b>RDBT-ARCH-00</b></span><span>Status <b>Draft</b></span><span>13 chapters</span></div>
+  <h1>Redoubt</h1>
+  <p class="abstract"><span class="lbl">Abstract.</span> Redoubt is a hardware-rooted
+  reference-monitor operating system for AI agents. An autonomous agent can be hijacked — a hidden
+  instruction in a web page is enough — so we assume it has been, and we put the one part that has to
+  stay honest somewhere the hijacked parts can't reach: the most privileged corner of an open RISC-V
+  chip. From there it checks every action the agent tries to take against a set of unforgeable
+  permissions, using plain deterministic logic with no AI in the decision. A fully compromised agent
+  still can't send data it wasn't allowed to send or spend a key it was never given. This manual
+  explains the whole system, one component per chapter, in enough detail to build it and plainly
+  enough to follow without a hardware background.</p>
+</div>
+
+<p>Each chapter stands on its own and links to the others. If you're new, read them in order — the
+early chapters set up the ideas the later ones lean on. If you're here for one piece, jump to it.</p>
+
+<div class="part">Part I · Why &amp; what</div>
+<ol class="toc">
+  <li><span class="cn">01</span><span><a href="01-overview.html" class="tt">Overview &amp; the Problem</a> — <span class="ds">what an agent is, why a hijacked one is dangerous, and the one idea the whole design rests on.</span></a></span></li>
+  <li><span class="cn">02</span><span><a href="02-threat-model.html" class="tt">Threat Model &amp; Trust Tiers</a> — <span class="ds">who the attacker is, what we protect, and exactly what we promise.</span></span></li>
+</ol>
+
+<div class="part">Part II · The hardware it stands on</div>
+<ol class="toc">
+  <li><span class="cn">03</span><span><a href="03-isolation.html" class="tt">Privilege &amp; Isolation (RISC-V PMP)</a> — <span class="ds">the hardware wall that makes "unbypassable" literally true.</span></span></li>
+  <li><span class="cn">04</span><span><a href="04-soc.html" class="tt">SoC, Board &amp; Memory Map</a> — <span class="ds">the FPGA, the CPU, and where everything lives in memory.</span></span></li>
+  <li><span class="cn">05</span><span><a href="05-boot.html" class="tt">Boot &amp; Root of Trust</a> — <span class="ds">how we know the guard we're trusting is the one we meant to.</span></span></li>
+</ol>
+
+<div class="part">Part III · Talking to it</div>
+<ol class="toc">
+  <li><span class="cn">06</span><span><a href="06-wire.html" class="tt">Wire Protocol &amp; the Tool-Call ABI</a> — <span class="ds">how a request crosses the wire, and why arguments are typed, not text.</span></span></li>
+</ol>
+
+<div class="part">Part IV · The trusted core</div>
+<ol class="toc">
+  <li><span class="cn">07</span><span><a href="07-capabilities.html" class="tt">Capabilities</a> — <span class="ds">unforgeable tickets: how permission is represented.</span></span></li>
+  <li><span class="cn">08</span><span><a href="08-policy.html" class="tt">Policy &amp; the Compiler</a> — <span class="ds">how an operator writes the rules, and how they become fast tables.</span></span></li>
+  <li><span class="cn">09</span><span><a href="09-monitor.html" class="tt">The Monitor</a> <span class="done">✓</span> — <span class="ds">the guard at the one door; the part we actually trust.</span></span></li>
+  <li><span class="cn">10</span><span><a href="10-ifc.html" class="tt">Information-Flow Control</a> — <span class="ds">keeping secret data from leaving by the wrong door.</span></span></li>
+</ol>
+
+<div class="part">Part V · The untrusted stack &amp; the outside world</div>
+<ol class="toc">
+  <li><span class="cn">11</span><span><a href="11-stack.html" class="tt">Warden, Compartments &amp; Sessions</a> — <span class="ds">the small OS around the Monitor, and how an agent's run is scoped and cancelled.</span></span></li>
+  <li><span class="cn">12</span><span><a href="12-egress.html" class="tt">Egress &amp; Secrets</a> — <span class="ds">the network and storage the Monitor owns, and how keys are used but never given out.</span></span></li>
+</ol>
+
+<div class="part">Part VI · Does it hold?</div>
+<ol class="toc">
+  <li><span class="cn">13</span><span><a href="13-assurance.html" class="tt">Assurance: TCB, Verification &amp; Roadmap</a> — <span class="ds">how small the trusted part is, how we test it, and what's next.</span></span></li>
+</ol>
+
+<footer>Redoubt Architecture · RDBT-ARCH-00 · Component Manual · Draft · open source (MIT). Written to
+be read by a newcomer and built by an engineer.</footer>
+</div>

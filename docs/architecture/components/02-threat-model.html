@@ -1,0 +1,461 @@
+<title>Redoubt — Threat Model &amp; Trust Tiers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --paper:#FFFFFF; --ink:#17181A; --muted:#5C5F66; --faint:#8A8D94; --line:#D5D7DB;
+    --rule:#222; --accent:#2E4A6B; --code-bg:#F4F5F6; --code-ink:#22252A;
+    --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --paper:#17181B; --ink:#E4E3DF; --muted:#A2A5AC; --faint:#7B7E85; --line:#33353A;
+    --rule:#C9CACE; --accent:#9CB6D6; --code-bg:#1E2024; --code-ink:#D2D4D8;
+  }}
+  :root[data-theme="dark"]{
+    --paper:#17181B; --ink:#E4E3DF; --muted:#A2A5AC; --faint:#7B7E85; --line:#33353A;
+    --rule:#C9CACE; --accent:#9CB6D6; --code-bg:#1E2024; --code-ink:#D2D4D8;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:18px;line-height:1.6;-webkit-text-size-adjust:100%}
+  .page{max-width:660px;margin:0 auto;padding-inline:24px;padding-block:0}
+  p{margin:.75rem 0;text-align:justify;hyphens:auto;-webkit-hyphens:auto}
+  p,li{max-width:64ch}
+  a{color:var(--accent);text-underline-offset:2px}
+  h1{font-weight:700;font-size:2.15rem;line-height:1.14;margin:.2rem 0;text-align:left;hyphens:none}
+  h2{font-weight:700;font-size:1.4rem;line-height:1.2;margin:2.6rem 0 .5rem;hyphens:none}
+  h3{font-weight:600;font-size:1.14rem;margin:1.7rem 0 .2rem;hyphens:none}
+  h4{font-weight:600;font-size:1rem;margin:1.2rem 0 .1rem;font-style:italic;hyphens:none}
+  h2 .n{font-family:var(--mono);font-weight:500;font-size:1rem;color:var(--muted);margin-right:.6em}
+  .masthead{border-top:3px solid var(--rule);border-bottom:1px solid var(--line);padding:1.4rem 0 1.1rem;margin-top:1.2rem}
+  .docmeta{font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;color:var(--muted);text-transform:uppercase;margin:0 0 .6rem;display:flex;flex-wrap:wrap;gap:4px 22px}
+  .docmeta b{color:var(--ink);font-weight:500}
+  .abstract{font-size:1.02rem;color:var(--ink);margin-top:1rem}
+  .abstract .lbl{font-variant:small-caps;letter-spacing:.06em;font-weight:600;color:var(--muted);font-size:.82rem;margin-right:.5em}
+  code{font-family:var(--mono);font-size:.8em;background:var(--code-bg);color:var(--code-ink);padding:.08em .32em;border-radius:3px}
+  pre{font-family:var(--mono);background:var(--code-bg);color:var(--code-ink);border:1px solid var(--line);border-left:3px solid var(--rule);padding:14px 16px;overflow-x:auto;font-size:.76rem;line-height:1.55;margin:1.2rem 0;text-align:left}
+  pre code{background:none;padding:0}
+  figure{margin:1.8rem 0;text-align:center}
+  figure svg{display:block;max-width:100%;height:auto;margin:0 auto;color:var(--ink);border:1px solid var(--line);padding:14px;background:var(--paper)}
+  figcaption{font-size:.85rem;color:var(--muted);margin-top:.6rem;text-align:left;max-width:60ch}
+  figcaption .fl{font-weight:600;color:var(--ink)}
+  figure svg text{fill:currentColor}
+  .s-ln{stroke:var(--line)}.s-acc{stroke:var(--accent)}.s-cur{stroke:currentColor}.s-mut{stroke:var(--muted)}
+  .f-s1{fill:var(--paper)}.f-s2{fill:var(--code-bg)}.f-acc{fill:none}.f-none{fill:none}
+  .t-acc{fill:var(--accent)}.t-mut{fill:var(--muted)}.mk{fill:currentColor}.mk-acc{fill:var(--accent)}.dash{stroke-dasharray:4 4}
+  table{border-collapse:collapse;width:100%;font-size:.85rem;margin:1.1rem 0}
+  .tblwrap{overflow-x:auto}
+  th,td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}
+  th{border-bottom:2px solid var(--rule);font-weight:600}
+  .note{border:1px solid var(--line);border-left:3px solid var(--accent);padding:14px 18px;margin:1.6rem 0;font-size:.95rem;background:var(--paper)}
+  .note .lbl{font-variant:small-caps;letter-spacing:.06em;font-weight:600;color:var(--accent);font-size:.82rem}
+  .note dt{font-weight:600;margin-top:.6rem;text-align:left}
+  .note dd{margin:.1rem 0 0;color:var(--muted);text-align:justify;hyphens:auto}
+  .aside{color:var(--muted);font-style:italic;border-left:2px solid var(--line);padding-left:16px;margin:1.2rem 0}
+  ul,ol{padding-left:1.4rem} li{margin:.35rem 0}
+  dl.gloss dt{font-family:var(--mono);font-size:.82rem;color:var(--accent);margin-top:.9rem;text-align:left}
+  dl.gloss dd{margin:.15rem 0 0}
+  sup a{text-decoration:none;font-size:.72em;padding:0 1px}
+  .notes{font-size:.85rem;color:var(--muted);border-top:1px solid var(--line);margin-top:2.4rem;padding-top:1rem}
+  .notes li{margin:.3rem 0;max-width:70ch;text-align:left}
+  .notes li span{color:var(--faint);font-family:var(--mono);font-size:.85em;margin-right:.4em}
+  .rej{margin-top:.9rem} .rej b{font-style:italic}
+  footer{margin:3rem 0 2rem;padding-top:1rem;border-top:3px solid var(--rule);font-size:.82rem;color:var(--muted);text-align:left}
+  hr{border:none;border-top:1px solid var(--line);margin:2rem 0}
+</style>
+
+<div class="page">
+<div class="masthead">
+  <div class="docmeta">
+    <span>Redoubt Architecture</span><span>Component Specification</span>
+    <span>Doc <b>RDBT-ARCH-02</b></span><span>Status <b>Draft</b></span><span>Chapter <b>2 / 13</b></span>
+  </div>
+  <h1>Threat Model &amp; Trust Tiers</h1>
+  <p class="abstract"><span class="lbl">Abstract.</span> A security claim means nothing until you name
+  the enemy, the prize, and the exact sentence you are willing to defend. This chapter does all three.
+  It states what the attacker is assumed to be able to do — five capabilities, up to and including
+  taking over the operating system that runs beneath the guard — and lists what is actually being
+  protected. It then works a concrete attack all the way through: an agent, fully hijacked, trying to
+  steal an API key, and shows every branch of that attack running into a specific, named mechanism that
+  stops it. It gives the trust tiers as a table, states the formal security property in one careful
+  sentence, and ends with an honest list of the attacks Redoubt does <em>not</em> stop, so no one
+  mistakes the scope. It assumes only Chapter 1.</p>
+</div>
+
+<div class="note">
+<span class="lbl">Note to first-time readers.</span>
+<p style="text-align:justify">This chapter uses a few security-modeling terms. Here they are plainly,
+so the argument reads without a glossary at your elbow.</p>
+<dl>
+<dt>Threat model</dt><dd>An explicit statement of who the attacker is, what they can do, and what they
+are after. Its value is its honesty: a defense is only as good as the threat model it is measured
+against, and a threat model that quietly leaves out the hard cases is a comfort, not a guarantee.</dd>
+<dt>Adversary capability</dt><dd>One specific power we grant the attacker for the sake of argument.
+We list ours as A1 through A5. Granting a capability does not mean it is easy; it means we refuse to
+assume it away.</dd>
+<dt>Trusted computing base (TCB)</dt><dd>The set of parts that must be correct for the promise to hold.
+Everything else may fail arbitrarily. The whole design is an effort to make this set as small as
+possible.</dd>
+<dt>Attack tree</dt><dd>A picture of an attacker's goal at the top and the alternative ways to reach it
+branching below, so you can check that <em>every</em> branch is blocked, not just the obvious one.</dd>
+<dt>Complete mediation</dt><dd>The property that there is no path to the protected thing that skips the
+guard — no side door, no back door, no forgotten window.</dd>
+</dl>
+</div>
+
+<h2><span class="n">2.1</span>The stance: assume the inside is already lost</h2>
+<p>Most systems draw their trust boundary around the outside and defend it: keep the attacker off the
+machine, and everything on the machine is friends. Redoubt cannot work that way, because the attacker
+is not trying to get in — the attacker is already the thing we are running. The agent's reasoning is
+influenced by whatever it reads, and it reads attacker-controlled material as a matter of course. So
+we move the boundary inward and make a deliberately pessimistic assumption, then build only what
+survives it.</p>
+<p class="aside">The agent is compromised. The tools are hostile. The operating system beneath them may
+be subverted too. Given all of that at once, the security property must still hold. If a design only
+works when some of those are friendly, it is not our design.</p>
+<p>The rest of this chapter makes that stance precise. What, exactly, can the attacker do? What is the
+prize? And what is the one sentence that stays true regardless?</p>
+
+<h2><span class="n">2.2</span>Adversary capabilities</h2>
+<p>We grant the attacker five capabilities, labelled A1 through A5 so later chapters can point at them.
+They are ordered from the ordinary to the extreme; the last one is deliberately more than any real
+attacker is likely to have, because a guarantee that holds at A5 holds everywhere below it.</p>
+<div class="tblwrap">
+<table>
+<thead><tr><th>#</th><th>Capability</th><th>What it means in practice</th></tr></thead>
+<tbody>
+<tr><td><b>A1</b></td><td>Full agent hijack</td><td>The attacker controls the agent's goals and can make it emit any tool call — any tool, any arguments, any order — via prompt injection, direct or hidden in content the agent reads.<sup><a href="#n1">1</a></sup></td></tr>
+<tr><td><b>A2</b></td><td>Malicious tools</td><td>The host-side tools and MCP servers are untrusted: a tool's description can lie, and its code can do anything. "Tool poisoning."<sup><a href="#n2">2</a></sup></td></tr>
+<tr><td><b>A3</b></td><td>Host compromise</td><td>Arbitrary code runs on the host with full control, including the USB driver that talks to Redoubt. The entire computer the agent lives on is the attacker's.</td></tr>
+<tr><td><b>A4</b></td><td>Compartment compromise</td><td>The Endpoint and the egress drivers — Redoubt's own user-mode compartments (T2) — may be fully controlled.</td></tr>
+<tr><td><b>A5</b></td><td>Warden compromise (stretch)</td><td>The supervisor-mode microkernel (T1) itself may be subverted. The property must <em>still</em> hold. This is the one that forces the guard below the operating system.</td></tr>
+</tbody>
+</table>
+</div>
+<p>A5 is the demanding one and the reason the whole architecture looks the way it does. If we only had
+to survive a hijacked agent (A1), a software guard on the host might do. Because we insist on surviving
+a subverted kernel, the guard has to sit somewhere the kernel cannot reach — a more privileged
+processor mode, behind a hardware wall — which is the subject of Chapter&nbsp;3. Everything else is
+downstream of taking A5 seriously.</p>
+<p>One capability we do <em>not</em> grant is worth naming here so the model stays honest: we assume the
+attacker cannot physically open the device and probe its wires, and cannot rewrite the FPGA's
+configuration. Those are real attacks; they are out of scope for the first version, and §2.7 says so
+plainly rather than burying it.</p>
+
+<h2><span class="n">2.3</span>What we are protecting</h2>
+<p>Name the prize before defending it. Redoubt protects four assets, in rough order of how badly you
+would miss them.</p>
+<ul>
+<li><b>Secrets.</b> API keys, tokens, and credentials the agent needs to do its work but must never be
+able to steal or leak. These are the thing most worth stealing, and the design goes to the most trouble
+for them: the Monitor will <em>use</em> a key on the agent's behalf and never hand it over
+(Chapter&nbsp;12).</li>
+<li><b>Egress integrity.</b> The guarantee that nothing leaves — no network request, no file written —
+except an action that was actually permitted. Exfiltration is a leak out this door; so is a destructive
+write.</li>
+<li><b>Authority.</b> The agent's granted permissions themselves. An attacker who could widen a
+capability, or forge one, would not need to leak anything directly — they could simply grant themselves
+the power to. The capability system (Chapter&nbsp;7) makes authority unforgeable and only ever
+narrowable.</li>
+<li><b>The audit trail.</b> The tamper-evident record of what was decided. If an attacker could quietly
+erase evidence of an attempt, containment would be silent and unprovable. The log is hash-chained so
+truncation and tampering are detectable (Chapter&nbsp;9, §9.3; Chapter&nbsp;13).</li>
+</ul>
+<p>Notice what is not on the list. We do not promise the agent will finish its task, or that it cannot
+be made to waste its own time. Availability of the agent to its owner is explicitly not an asset we
+defend (§2.7). A Redoubt that refuses everything is annoying but safe, and safe is the priority.</p>
+
+<h2><span class="n">2.4</span>An attack, followed down every branch</h2>
+<p>Abstractions are easy to wave at, so let us fix a real goal and try genuinely hard to reach it. The
+agent has been prompt-injected (A1). Its assigned task involved calling a legitimate service, so it
+holds a <code>web</code> capability — permission to make an HTTPS request to <code>api.example.com</code>,
+with an API key that the Monitor will inject on its behalf. The attacker's goal is to get that key out.</p>
+<p>There is not one way to try this; there are several, and a serious threat model has to show that all
+of them fail, not just the first that comes to mind. The tree below lays the goal at the top and every
+branch beneath it, with the exact mechanism that severs each branch. This is the diagram to study if
+you read only one thing in the chapter.</p>
+
+<figure>
+<svg viewBox="0 0 860 470" role="img" aria-label="Attack tree. The attacker's goal at the top is to exfiltrate the API key. It splits into five branches. Branch A, send the key to an attacker-controlled host, is cut by the typed-argument predicate, which denies a host that is not on the allowlist. Branch B, send the key inside the body of a request to the allowed host, is cut by the information-flow check, which refuses to let a secret-labeled value enter a public sink. Branch C, ask the Monitor to return the key directly, is cut because no interface returns secret bytes; secrets are use-only. Branch D, forge or widen a capability, is cut because capabilities are unforgeable records and derivation can only narrow authority. Branch E, reach the network or storage hardware directly and bypass the Monitor, is cut by the PMP hardware wall, which makes egress memory unreachable from lower tiers. Each branch ends in a denial box.">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk"/></marker>
+  </defs>
+
+  <!-- GOAL -->
+  <rect x="300" y="16" width="260" height="46" class="f-s2 s-acc" stroke-width="1.6"/>
+  <text x="430" y="36" text-anchor="middle" font-size="11" class="t-acc">GOAL — exfiltrate the API key</text>
+  <text x="430" y="52" text-anchor="middle" font-size="8" class="t-mut">attacker controls a fully hijacked agent</text>
+
+  <!-- spine down to branch bus -->
+  <g class="s-cur" stroke-width="1.2"><line x1="430" y1="62" x2="430" y2="86"/></g>
+  <!-- branch bus -->
+  <g class="s-cur" stroke-width="1.2"><line x1="92" y1="86" x2="768" y2="86"/></g>
+  <g class="s-cur" stroke-width="1.2" marker-end="url(#a)">
+    <line x1="92" y1="86" x2="92" y2="108"/>
+    <line x1="262" y1="86" x2="262" y2="108"/>
+    <line x1="430" y1="86" x2="430" y2="108"/>
+    <line x1="598" y1="86" x2="598" y2="108"/>
+    <line x1="768" y1="86" x2="768" y2="108"/>
+  </g>
+
+  <!-- Branch A -->
+  <rect x="18" y="110" width="148" height="70" class="f-s1 s-ln"/>
+  <text x="92" y="128" text-anchor="middle" font-size="9">A · send key to</text>
+  <text x="92" y="141" text-anchor="middle" font-size="9">attacker host</text>
+  <text x="92" y="160" text-anchor="middle" font-size="7.5" class="t-mut">POST evil.tld</text>
+  <text x="92" y="172" text-anchor="middle" font-size="7.5" class="t-mut">body = key</text>
+  <!-- Branch B -->
+  <rect x="188" y="110" width="148" height="70" class="f-s1 s-ln"/>
+  <text x="262" y="128" text-anchor="middle" font-size="9">B · hide key in</text>
+  <text x="262" y="141" text-anchor="middle" font-size="9">body to allowed host</text>
+  <text x="262" y="160" text-anchor="middle" font-size="7.5" class="t-mut">POST api.example.com</text>
+  <text x="262" y="172" text-anchor="middle" font-size="7.5" class="t-mut">body = key</text>
+  <!-- Branch C -->
+  <rect x="356" y="110" width="148" height="70" class="f-s1 s-ln"/>
+  <text x="430" y="128" text-anchor="middle" font-size="9">C · ask Monitor to</text>
+  <text x="430" y="141" text-anchor="middle" font-size="9">hand over the key</text>
+  <text x="430" y="160" text-anchor="middle" font-size="7.5" class="t-mut">read-secret call?</text>
+  <!-- Branch D -->
+  <rect x="524" y="110" width="148" height="70" class="f-s1 s-ln"/>
+  <text x="598" y="128" text-anchor="middle" font-size="9">D · forge / widen</text>
+  <text x="598" y="141" text-anchor="middle" font-size="9">a capability</text>
+  <text x="598" y="160" text-anchor="middle" font-size="7.5" class="t-mut">invent a handle;</text>
+  <text x="598" y="172" text-anchor="middle" font-size="7.5" class="t-mut">grant self a Secret cap</text>
+  <!-- Branch E -->
+  <rect x="694" y="110" width="148" height="70" class="f-s1 s-ln"/>
+  <text x="768" y="128" text-anchor="middle" font-size="9">E · bypass Monitor,</text>
+  <text x="768" y="141" text-anchor="middle" font-size="9">drive HW directly</text>
+  <text x="768" y="160" text-anchor="middle" font-size="7.5" class="t-mut">even from a</text>
+  <text x="768" y="172" text-anchor="middle" font-size="7.5" class="t-mut">subverted Warden</text>
+
+  <!-- connectors to mechanism -->
+  <g class="s-cur" stroke-width="1.2" marker-end="url(#a)">
+    <line x1="92" y1="180" x2="92" y2="206"/>
+    <line x1="262" y1="180" x2="262" y2="206"/>
+    <line x1="430" y1="180" x2="430" y2="206"/>
+    <line x1="598" y1="180" x2="598" y2="206"/>
+    <line x1="768" y1="180" x2="768" y2="206"/>
+  </g>
+
+  <!-- mechanism row -->
+  <rect x="18" y="208" width="148" height="66" class="f-s2 s-ln"/>
+  <text x="92" y="228" text-anchor="middle" font-size="8.5" class="t-mut">blocked by</text>
+  <text x="92" y="244" text-anchor="middle" font-size="9">typed-argument</text>
+  <text x="92" y="257" text-anchor="middle" font-size="9">predicate</text>
+  <text x="92" y="269" text-anchor="middle" font-size="7.5" class="t-mut">host not in allowlist</text>
+
+  <rect x="188" y="208" width="148" height="66" class="f-s2 s-ln"/>
+  <text x="262" y="228" text-anchor="middle" font-size="8.5" class="t-mut">blocked by</text>
+  <text x="262" y="244" text-anchor="middle" font-size="9">information-flow</text>
+  <text x="262" y="257" text-anchor="middle" font-size="9">check</text>
+  <text x="262" y="269" text-anchor="middle" font-size="7.5" class="t-mut">SECRET into public sink</text>
+
+  <rect x="356" y="208" width="148" height="66" class="f-s2 s-ln"/>
+  <text x="430" y="228" text-anchor="middle" font-size="8.5" class="t-mut">blocked by</text>
+  <text x="430" y="244" text-anchor="middle" font-size="9">use-only secrets</text>
+  <text x="430" y="269" text-anchor="middle" font-size="7.5" class="t-mut">no ABI returns key bytes</text>
+
+  <rect x="524" y="208" width="148" height="66" class="f-s2 s-ln"/>
+  <text x="598" y="228" text-anchor="middle" font-size="8.5" class="t-mut">blocked by</text>
+  <text x="598" y="244" text-anchor="middle" font-size="9">unforgeable caps</text>
+  <text x="598" y="257" text-anchor="middle" font-size="9">+ attenuation-only</text>
+  <text x="598" y="269" text-anchor="middle" font-size="7.5" class="t-mut">derive can only narrow</text>
+
+  <rect x="694" y="208" width="148" height="66" class="f-s2 s-acc" stroke-width="1.6"/>
+  <text x="768" y="228" text-anchor="middle" font-size="8.5" class="t-mut">blocked by</text>
+  <text x="768" y="244" text-anchor="middle" font-size="9" class="t-acc">PMP hardware wall</text>
+  <text x="768" y="269" text-anchor="middle" font-size="7.5" class="t-mut">egress is M-only; load faults</text>
+
+  <!-- to denial -->
+  <g class="s-cur" stroke-width="1.2" marker-end="url(#a)">
+    <line x1="92" y1="274" x2="92" y2="300"/>
+    <line x1="262" y1="274" x2="262" y2="300"/>
+    <line x1="430" y1="274" x2="430" y2="300"/>
+    <line x1="598" y1="274" x2="598" y2="300"/>
+    <line x1="768" y1="274" x2="768" y2="300"/>
+  </g>
+  <!-- denial bar -->
+  <rect x="18" y="302" width="824" height="40" class="f-none s-acc" stroke-width="1.4"/>
+  <text x="430" y="320" text-anchor="middle" font-size="10" class="t-acc">DENIED — key never touched, nothing left the chip, the attempt is logged</text>
+  <text x="430" y="334" text-anchor="middle" font-size="7.5" class="t-mut">reason codes: A→DENY_ARG · B→DENY_FLOW · C→no such call · D→DENY_NO_CAP · E→hardware fault, no software path</text>
+
+  <!-- note strip -->
+  <text x="18" y="372" font-size="8.5" class="t-mut">Branches A–D are refused by the Monitor's decision pipeline (Chapter 9). Branch E never reaches software at all:</text>
+  <text x="18" y="386" font-size="8.5" class="t-mut">the network and storage addresses are outside every memory region a lower tier is permitted to touch, so the</text>
+  <text x="18" y="400" font-size="8.5" class="t-mut">attempt faults in silicon. That is why A5 (a compromised Warden) does not widen the attacker's reach.</text>
+</svg>
+<figcaption><span class="fl">Figure 2-1.</span> The attack tree for stealing an API key. Four branches
+die at a specific software check inside the Monitor; the fifth — trying to skip the Monitor entirely —
+dies in hardware, which is what lets the guarantee survive even a subverted operating system (A5). Note
+that no branch depends on the agent behaving; each holds against a fully hijacked one.</figcaption>
+</figure>
+
+<p>The branches, in words, because the picture rewards a little narration:</p>
+<p><b>A — send it somewhere the attacker controls.</b> The obvious move: <code>POST</code> the key to
+<code>evil.tld</code>. The capability names one allowed host, and the Monitor checks the request's
+<em>host</em> field against that allowlist before anything leaves. <code>evil.tld</code> is not on it.
+Denied, reason <code>DENY_ARG</code>. Crucially, the check runs on the structured host field the action
+will actually use, not on a re-parsed string, so the old tricks that slip a different host past a naive
+filter — a sneaky <code>%2e</code>, a userinfo <code>@</code>, a trailing dot — have nothing to work
+on.<sup><a href="#n3">3</a></sup></p>
+<p><b>B — hide it in a request to the allowed host.</b> Cleverer: the attacker aims at the real
+<code>api.example.com</code>, which passes the host check, but tucks the key into the request body.
+This is where a second, independent net catches it. Values carry information-flow labels; the API key
+is labelled <code>SECRET</code>, and the flow check refuses to let a <code>SECRET</code> value enter a
+sink the policy has not cleared for it. Denied, reason <code>DENY_FLOW</code>. Two different checks
+catch two different attacks, which is the point of having both.</p>
+<p><b>C — just ask for the key.</b> Simplest of all: call the Monitor and request the secret directly.
+There is no such call. Secrets are use-only: the Monitor will splice a key into an outgoing request
+where the policy says to, but no interface anywhere returns key bytes to the caller. The branch has no
+first step.<sup><a href="#n4">4</a></sup></p>
+<p><b>D — manufacture the authority.</b> If you cannot use the capability to leak, forge a better one.
+But a capability is an unforgeable record the host never holds directly — the host holds only an opaque
+handle, an index, and an invented index resolves to an empty slot (<code>DENY_NO_CAP</code>). Nor can
+authority be widened: the only way to make a new capability from an old one narrows it, and there is no
+operation anywhere that adds a right. Granting yourself a fresh Secret capability is not a hard
+operation; it is an absent one.<sup><a href="#n5">5</a></sup></p>
+<p><b>E — go around the guard.</b> The deepest attack: stop asking, and drive the network chip yourself.
+This is where A5 earns its keep. Suppose Warden is fully subverted and tries to write to the network
+controller's registers. Those registers live at addresses that the hardware permission settings mark
+reachable only from machine mode, and Warden runs in supervisor mode. The write does not get refused by
+a check; it faults, because the address is not accessible from where the instruction runs. There is no
+software path to bypass because no software is consulted. This branch, and only this branch, is what
+forces the guard onto separate, more-privileged hardware — everything in Chapter&nbsp;3.</p>
+
+<h2><span class="n">2.5</span>Trust tiers</h2>
+<p>The attack tree already leaned on the idea that different parts of the system are trusted for
+different things. Here is that sorting made explicit. Redoubt places every piece of software into one of
+three tiers by privilege, plus the host, which is off the device entirely. What matters in the table is
+the "trusted for" column: it says what has to be correct, and by omission, what may fail without
+breaking the promise.</p>
+<div class="tblwrap">
+<table>
+<thead><tr><th>Tier</th><th>Component</th><th>CPU mode</th><th>In the TCB?</th><th>Trusted for</th></tr></thead>
+<tbody>
+<tr><td><b>T0</b></td><td>Monitor + boot ROM + PMP configuration</td><td>Machine (M)</td><td><b>yes</b></td><td>The security property, the secrets, the egress. This is the whole trusted base.</td></tr>
+<tr><td>T1</td><td>Warden microkernel</td><td>Supervisor (S)</td><td>no</td><td>Liveness and scheduling only. A subverted Warden (A5) cannot break the property.</td></tr>
+<tr><td>T2</td><td>Endpoint, egress drivers</td><td>User (U)</td><td>no</td><td>Nothing security-relevant. They frame and format; they never decide.</td></tr>
+<tr><td>—</td><td>Host: LLM, agent, tools</td><td>off-device</td><td>no</td><td>Nothing. Conceded to the attacker in full (A1–A3).</td></tr>
+</tbody>
+</table>
+</div>
+<p>Read down the "in the TCB" column and the design goal is right there: exactly one "yes." The
+guarantee rests on T0 alone. Everything in a "no" row is permitted to be arbitrarily hostile. That is
+not a hope about how well those parts are written; it is a claim the hardware wall of Chapter&nbsp;3 is
+built to make true. The reason the tiers map onto CPU privilege modes — M above S above U — is that the
+mode boundary is exactly the wall we can enforce in silicon: a more privileged tier can fence memory
+off from a less privileged one, and never the reverse.<sup><a href="#n6">6</a></sup></p>
+
+<h2><span class="n">2.6</span>The security property, stated once and carefully</h2>
+<p>Everything above can be compressed into a single sentence that either holds or does not. This is the
+sentence the entire book is trying to earn.</p>
+<div class="note">
+<span class="lbl">Security property.</span>
+<p style="text-align:justify">For every execution, and for every external effect <em>e</em> that actually
+occurs on the egress hardware, there exists a capability <em>c</em> in the active session's capability
+space such that <em>c</em> is bound to the tool of <em>e</em>, the policy predicate of <em>c</em> holds
+on the arguments of <em>e</em>, and the information-flow rule of <em>c</em> permits the labels of
+<em>e</em>. This holds for arbitrary behaviour of the host, the compartments, and even a compromised
+Warden.</p>
+</div>
+<p>Unpack it slowly, because every clause is doing work. "For every external effect that actually
+occurs" means the property is about what <em>happens</em>, not about what was asked — an attacker may
+request anything (A1); the claim is only about what gets out. "There exists a capability" means nothing
+happens by ambient authority; every effect is backed by a specific, held grant. The three conditions on
+that capability — right tool, arguments satisfy the predicate, labels satisfy the flow rule — are
+exactly the three checks the attack tree showed severing branches A, B, and E's software cousins. And
+the last clause is the hard promise: this is true even when Warden, the operating system, is the
+attacker's.<sup><a href="#n7">7</a></sup></p>
+<p>This is the classical reference-monitor guarantee — complete mediation, tamper-proof, small enough to
+verify — instantiated for a new mediated operation (a typed tool call) and a new adversary (a
+hijackable agent).<sup><a href="#n1">1</a></sup> It is enforced structurally: the effect is impossible
+without the Monitor's involvement, because the egress hardware sits in a machine-only memory region that
+lower tiers cannot address. It does not rest on trusting any software above T0. That structural
+enforcement, rather than a pile of careful checks, is what lets the property survive A5.</p>
+<p class="aside">Notice one thing the property does not say. It does not adjudicate the agent's
+<em>intent</em>. It never asks "did the agent mean well?" — an unanswerable and attacker-influenced
+question. It asks only whether the concrete, structured effect is covered by a held capability. That
+restraint is deliberate; judging intent is the AI-reviewing-AI trap Chapter&nbsp;1 rejected.</p>
+
+<h2><span class="n">2.7</span>Out of scope — stated, not hidden</h2>
+<p>An honest threat model is as clear about what it does not stop as about what it does. Redoubt v1
+makes no claim against the following, and it is better to say so loudly than to let a reader assume
+coverage that is not there.</p>
+<ul>
+<li><b>Microarchitectural and timing side channels.</b> A determined attacker might infer a secret from
+how long an operation takes, or from cache effects, rather than by reading it. Even formally verified
+systems have had confidentiality claims broken this way.<sup><a href="#n8">8</a></sup> Redoubt does not
+defend against it in v1; some mitigation (constant-time secret injection) is an open question in
+Chapter&nbsp;9.</li>
+<li><b>Physical and fault-injection attacks.</b> Opening the case, probing wires, or glitching the power
+to skip a check. We assume the device is physically in the owner's hands.<sup><a href="#n9">9</a></sup></li>
+<li><b>FPGA bitstream authenticity.</b> Redoubt trusts that the logic loaded onto the chip is the logic
+we designed. Verifying the bitstream itself against tampering is a v2 root-of-trust problem
+(Chapter&nbsp;5 notes where this bites).</li>
+<li><b>ESP32 firmware integrity.</b> The network chip's own firmware sits in the egress path and is a
+closed module we do not audit. A wired-Ethernet successor that lets the Monitor own the network
+controller directly is a v2 upgrade (Chapter&nbsp;12 is candid about this caveat).</li>
+<li><b>Host-side poisoning of the agent's own memory.</b> If the attacker corrupts what the agent
+remembers across sessions, that is within the conceded host (A3); Redoubt bounds what the agent can
+<em>do</em>, not what it believes.</li>
+<li><b>Multi-agent collusion.</b> Several agents combining their separate authorities to achieve
+together what none could alone. Interesting and out of scope for v1.</li>
+<li><b>Availability and self-denial-of-service.</b> Nothing stops a hijacked agent from wasting its own
+allotted work or getting itself into a state where it accomplishes nothing. A stuck or useless agent is
+safe, and safety is what we defend; usefulness is not a security asset.</li>
+</ul>
+<p>None of these are dismissals. Each is a real attack that a complete system would eventually address;
+each is named so that the guarantee of §2.6 is read against its true boundary and not a wished-for one.
+Chapter&nbsp;13 returns to this list when it assesses coverage against the OWASP agentic top ten.<sup><a href="#n10">10</a></sup></p>
+
+<h2><span class="n">2.8</span>Alternatives considered and rejected</h2>
+<p>The threat model could have been drawn differently, and a few of the roads not taken are instructive.</p>
+<p class="rej"><b>Trust the operating system (drop A5).</b> If we assumed Warden stays honest, the guard
+could be an ordinary privileged process and the whole hardware story would vanish. We refused, because
+kernels are exactly the layer that gets compromised, and a guarantee that evaporates on a kernel bug is
+the kind of guarantee this project exists to avoid. Keeping A5 is what makes the promise worth having.</p>
+<p class="rej"><b>Include physical attacks in v1.</b> Tamper-resistant packaging and fault-injection
+countermeasures are real engineering, and a truly high-assurance device needs them. They are also a
+large, specialized effort orthogonal to the novel part — the agent reference monitor — so v1 scopes them
+out openly rather than doing them badly.</p>
+<p class="rej"><b>Model the attacker as external.</b> The conventional threat model keeps the adversary
+off the machine. Adopting it would have been comfortable and wrong: our adversary is the workload. The
+whole value of the design comes from taking that seriously.</p>
+<p class="rej"><b>Promise availability.</b> We could have added "the agent completes its task" to the
+protected assets. We declined, because defending availability against a workload you have already
+conceded is nearly impossible, and conflating it with the containment guarantee would weaken the claim
+that actually holds. Better a narrow promise kept than a broad one broken.</p>
+
+<h2><span class="n">2.9</span>Open questions</h2>
+<p>Loose ends in the model itself, so the boundary stays honest as the design firms up:</p>
+<ul>
+<li>Exactly which OWASP agentic items are in scope for v1. Goal hijack, tool misuse, and exfiltration
+are clearly core; memory poisoning and multi-agent collusion are deferred, but the line deserves a
+firmer justification than "later."</li>
+<li>How to characterize a realistic attacker's side-channel budget, so that the v1 exclusion is a
+measured decision rather than an omission — and which mitigations are cheap enough to pull forward.</li>
+<li>Whether A4 and A5 should be split further. "Compartment compromise" lumps the Endpoint together with
+the egress drivers, though they sit at different points in a request's path and may warrant separate
+treatment.</li>
+<li>What the trust story is for the ESP32 link precisely — how much of it the Monitor can own today
+versus what must wait for the wired-Ethernet successor.</li>
+</ul>
+
+<ol class="notes" id="notes">
+<li id="n1"><span>[1]</span> J. P. Anderson, <em>Computer Security Technology Planning Study</em> (1972): the reference monitor must provide complete mediation, be tamper-proof, and be small enough to verify. The security property of §2.6 is these criteria instantiated for typed tool calls.</li>
+<li id="n2"><span>[2]</span> OWASP, <em>Top 10 for Agentic Applications 2026</em> — ASI01 (goal hijack) grounds A1; tool poisoning grounds A2. The model treats the agent as a principal whose goals, tools, and memory are separate attack surfaces.</li>
+<li id="n3"><span>[3]</span> The parser-mismatch class — a filter and the eventual consumer disagreeing on how to read a string — underlies many real SSRF and path bugs; Redoubt closes it by checking the re-derived structured field rather than re-parsing text (Chapter 6, §on TypedArg; Chapter 8).</li>
+<li id="n4"><span>[4]</span> The use-only-secret discipline mirrors a phone's secure enclave: software receives the use of a key, never the key material (Apple Platform Security; SEP key-wrapping). Applied here to injected credentials (Chapter 12).</li>
+<li id="n5"><span>[5]</span> Capability discipline after seL4: unforgeable, held only as an opaque handle, and derivable only by attenuation. Redoubt keeps the discipline but a flat, fixed-size form to shrink the TCB (Chapter 7).</li>
+<li id="n6"><span>[6]</span> RISC-V Privileged ISA — machine / supervisor / user modes, and Physical Memory Protection (PMP), whose configuration registers are writable only in machine mode. This is the silicon fact the tiers rest on (Chapter 3).</li>
+<li id="n7"><span>[7]</span> The privilege-control and IFC-for-agents literature (Progent, arXiv:2504.11703; <em>Securing AI Agents with Information-Flow Control</em>, arXiv:2505.23643) argues for deterministic enforcement at the structured tool-call boundary that holds regardless of how the LLM reasons — the shape of §2.6.</li>
+<li id="n8"><span>[8]</span> seL4's confidentiality proof did not cover speculative execution; Spectre broke the guarantee the proof did not make. A caution that verification bounds only what it models — see the OS formal-methods report (arXiv:1608.00678).</li>
+<li id="n9"><span>[9]</span> <em>Bypassing Isolated Execution on RISC-V with Fault Injection</em> (IACR eprint 2020/1193) — glitching can skip an isolation check; a v1 assumption of physical custody, not a claim of resistance.</li>
+<li id="n10"><span>[10]</span> Chapter 13 maps the property onto OWASP Agentic Top-10 coverage: goal hijack contained; tool misuse and exfiltration mitigated; side channels, physical, host memory poisoning, collusion, and availability out of scope, consistent with §2.7.</li>
+</ol>
+
+<footer>Redoubt Architecture · RDBT-ARCH-02 · Threat Model &amp; Trust Tiers · Draft. Open source (MIT).
+Chapter 2 of thirteen; the hardware wall that makes tier T0 unbypassable is Chapter 3, Privilege &amp;
+Isolation.</footer>
+</div>

@@ -1,0 +1,471 @@
+<title>Wire Protocol &amp; the Tool-Call ABI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --paper:#FFFFFF; --ink:#17181A; --muted:#5C5F66; --faint:#8A8D94; --line:#D5D7DB;
+    --rule:#222; --accent:#2E4A6B; --code-bg:#F4F5F6; --code-ink:#22252A;
+    --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --paper:#17181B; --ink:#E4E3DF; --muted:#A2A5AC; --faint:#7B7E85; --line:#33353A;
+    --rule:#C9CACE; --accent:#9CB6D6; --code-bg:#1E2024; --code-ink:#D2D4D8;
+  }}
+  :root[data-theme="dark"]{
+    --paper:#17181B; --ink:#E4E3DF; --muted:#A2A5AC; --faint:#7B7E85; --line:#33353A;
+    --rule:#C9CACE; --accent:#9CB6D6; --code-bg:#1E2024; --code-ink:#D2D4D8;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:18px;line-height:1.6;-webkit-text-size-adjust:100%}
+  .page{max-width:660px;margin:0 auto;padding-inline:24px;padding-block:0}
+  p{margin:.75rem 0;text-align:justify;hyphens:auto;-webkit-hyphens:auto}
+  p,li{max-width:64ch}
+  a{color:var(--accent);text-underline-offset:2px}
+  h1{font-weight:700;font-size:2.15rem;line-height:1.14;margin:.2rem 0;text-align:left;hyphens:none}
+  h2{font-weight:700;font-size:1.4rem;line-height:1.2;margin:2.6rem 0 .5rem;hyphens:none}
+  h3{font-weight:600;font-size:1.14rem;margin:1.7rem 0 .2rem;hyphens:none}
+  h4{font-weight:600;font-size:1rem;margin:1.2rem 0 .1rem;font-style:italic;hyphens:none}
+  h2 .n{font-family:var(--mono);font-weight:500;font-size:1rem;color:var(--muted);margin-right:.6em}
+  .masthead{border-top:3px solid var(--rule);border-bottom:1px solid var(--line);padding:1.4rem 0 1.1rem;margin-top:1.2rem}
+  .docmeta{font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;color:var(--muted);text-transform:uppercase;margin:0 0 .6rem;display:flex;flex-wrap:wrap;gap:4px 22px}
+  .docmeta b{color:var(--ink);font-weight:500}
+  .abstract{font-size:1.02rem;color:var(--ink);margin-top:1rem}
+  .abstract .lbl{font-variant:small-caps;letter-spacing:.06em;font-weight:600;color:var(--muted);font-size:.82rem;margin-right:.5em}
+  code{font-family:var(--mono);font-size:.8em;background:var(--code-bg);color:var(--code-ink);padding:.08em .32em;border-radius:3px}
+  pre{font-family:var(--mono);background:var(--code-bg);color:var(--code-ink);border:1px solid var(--line);border-left:3px solid var(--rule);padding:14px 16px;overflow-x:auto;font-size:.76rem;line-height:1.55;margin:1.2rem 0;text-align:left}
+  pre code{background:none;padding:0}
+  figure{margin:1.8rem 0;text-align:center}
+  figure svg{display:block;max-width:100%;height:auto;margin:0 auto;color:var(--ink);border:1px solid var(--line);padding:14px;background:var(--paper)}
+  figcaption{font-size:.85rem;color:var(--muted);margin-top:.6rem;text-align:left;max-width:60ch}
+  figcaption .fl{font-weight:600;color:var(--ink)}
+  figure svg text{fill:currentColor}
+  .s-ln{stroke:var(--line)}.s-acc{stroke:var(--accent)}.s-cur{stroke:currentColor}.s-mut{stroke:var(--muted)}
+  .f-s1{fill:var(--paper)}.f-s2{fill:var(--code-bg)}.f-acc{fill:none}.f-none{fill:none}
+  .t-acc{fill:var(--accent)}.t-mut{fill:var(--muted)}.mk{fill:currentColor}.mk-acc{fill:var(--accent)}.dash{stroke-dasharray:4 4}
+  table{border-collapse:collapse;width:100%;font-size:.85rem;margin:1.1rem 0}
+  .tblwrap{overflow-x:auto}
+  th,td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}
+  th{border-bottom:2px solid var(--rule);font-weight:600}
+  .note{border:1px solid var(--line);border-left:3px solid var(--accent);padding:14px 18px;margin:1.6rem 0;font-size:.95rem;background:var(--paper)}
+  .note .lbl{font-variant:small-caps;letter-spacing:.06em;font-weight:600;color:var(--accent);font-size:.82rem}
+  .note dt{font-weight:600;margin-top:.6rem;text-align:left}
+  .note dd{margin:.1rem 0 0;color:var(--muted);text-align:justify;hyphens:auto}
+  .aside{color:var(--muted);font-style:italic;border-left:2px solid var(--line);padding-left:16px;margin:1.2rem 0}
+  ul,ol{padding-left:1.4rem} li{margin:.35rem 0}
+  dl.gloss dt{font-family:var(--mono);font-size:.82rem;color:var(--accent);margin-top:.9rem;text-align:left}
+  dl.gloss dd{margin:.15rem 0 0}
+  sup a{text-decoration:none;font-size:.72em;padding:0 1px}
+  .notes{font-size:.85rem;color:var(--muted);border-top:1px solid var(--line);margin-top:2.4rem;padding-top:1rem}
+  .notes li{margin:.3rem 0;max-width:70ch;text-align:left}
+  .notes li span{color:var(--faint);font-family:var(--mono);font-size:.85em;margin-right:.4em}
+  .rej{margin-top:.9rem} .rej b{font-style:italic}
+  footer{margin:3rem 0 2rem;padding-top:1rem;border-top:3px solid var(--rule);font-size:.82rem;color:var(--muted);text-align:left}
+  hr{border:none;border-top:1px solid var(--line);margin:2rem 0}
+</style>
+
+<div class="page">
+<div class="masthead">
+  <div class="docmeta">
+    <span>Redoubt Architecture</span><span>Component Specification</span>
+    <span>Doc <b>RDBT-ARCH-06</b></span><span>Status <b>Draft</b></span><span>Chapter <b>6 / 13</b></span>
+  </div>
+  <h1>Wire Protocol &amp; the Tool-Call ABI</h1>
+  <p class="abstract"><span class="lbl">Abstract.</span> Between the untrusted host, where the AI agent
+  lives, and the Monitor, which decides what the agent may do, there is a single serial cable and a
+  precisely defined language spoken across it. This chapter specifies that language from the wire up: the
+  USB serial transport; the framing that turns a stream of bytes into discrete, integrity-checked
+  messages; and — the part that carries the security weight — the way a tool call's arguments are encoded
+  as <em>typed</em> values rather than as text. It explains why that typing choice quietly closes a whole
+  family of real-world bugs, lays out the request and response formats byte by byte, tabulates the small
+  set of operations the Monitor exposes and the codes it answers with, and pins down the deliberately
+  humble role of the Endpoint compartment that shuttles these frames: it moves bytes and checks nothing
+  that matters. The chapter is written to be read whether or not you have met a serial protocol before.</p>
+</div>
+
+<div class="note">
+<span class="lbl">Note to first-time readers.</span>
+<p style="text-align:justify">A few terms recur below. Here is each in plain language; no networking or
+low-level background is assumed.</p>
+<dl>
+<dt>Transport</dt><dd>The physical way bytes get from one place to another — here, a USB cable that
+presents itself as an old-fashioned serial port. The transport carries bytes and understands nothing
+about their meaning.</dd>
+<dt>Framing</dt><dd>A serial line is just an unbroken stream of bytes with no natural "start" or "stop".
+Framing is the trick of marking where one message ends and the next begins, so the reader can chop the
+stream into whole messages.</dd>
+<dt>Checksum (CRC32)</dt><dd>A short number computed from a message's bytes and sent alongside it. Recompute
+it on arrival; if it differs, the message was corrupted in transit. It catches accidental damage, not a
+determined forger.</dd>
+<dt>TLV</dt><dd>Tag-Length-Value: a simple, self-describing way to encode a piece of data as a small tag
+saying what it is, a length saying how big it is, then the bytes themselves. Easy to parse without
+guessing.</dd>
+<dt>ABI</dt><dd>Application Binary Interface: the exact, machine-level contract for calling a piece of
+code — which register holds the operation number, which holds the argument pointer, what comes back.
+The Monitor's ABI is the list of things you can ask it to do and how you ask.</dd>
+</dl>
+</div>
+
+<h2><span class="n">6.1</span>What this protocol has to accomplish</h2>
+<p>Redoubt splits the world in two. On one side is the host: the language model, the agent, the tool
+code, the USB driver — everything we assume an attacker owns. On the other is the Monitor, which holds
+the keys and the network. The only thing connecting them is a serial cable. So every tool call an agent
+wants to make has to be reduced to bytes, pushed across that cable, and reconstructed on the far side
+into something the Monitor can judge. This chapter is about those bytes.</p>
+<p>Getting the encoding right matters more than it might seem, because the wire is a boundary between a
+place we distrust completely and a place we trust absolutely. Whatever crosses it is attacker-controlled
+until proven otherwise. The design's answer is to make the messages as simple, as bounded, and as
+unambiguous as we can — simple because complex parsers are where bugs breed, bounded because the Monitor
+must never be made to allocate or loop without limit, and unambiguous because, as §6.4 shows, ambiguity
+about how to read a value is itself an exploitable flaw.</p>
+<p>Three layers stack up, and it helps to keep them apart. The <em>transport</em> is USB serial; it moves
+raw bytes. The <em>framing</em> layer turns that byte stream into discrete, integrity-checked frames. And
+inside each frame rides the <em>payload</em> — a request or a response, whose arguments are themselves
+typed values. We take them from the bottom up.</p>
+
+<h2><span class="n">6.2</span>Transport: USB CDC-ACM serial</h2>
+<p>The host talks to Redoubt over USB, using the CDC-ACM class — the standard that makes a USB device
+appear to the operating system as a plain serial port. On the ULX3S board this rides the on-board
+USB-serial bridge. The choice is pedestrian on purpose. A serial port is about the simplest interface a
+computer offers: an ordered stream of bytes in each direction, nothing more. It needs no complicated
+driver stack inside Redoubt, and — importantly — the entire USB stack lives on the untrusted host and in
+the untrusted Endpoint compartment, never in the Monitor.</p>
+<p>What the transport gives us is modest and worth stating exactly: bytes arrive in order, and mostly
+arrive intact. What it does not give us is any notion of where a message starts or stops, any guarantee
+against corruption, and above all any trust. A serial port will happily deliver whatever an attacker
+chooses to send. Everything protective is built in the layers above.</p>
+
+<h2><span class="n">6.3</span>Framing: COBS and a CRC32</h2>
+<p>To carve the byte stream into messages we use a delimiter: a single reserved byte value — zero — that
+marks the end of every frame. Read bytes until you hit a zero, and you have exactly one frame. This is
+trivial to implement and self-synchronising: if a reader ever loses its place, the next zero re-aligns
+it on a clean boundary.</p>
+<p>There is one snag with using zero as a delimiter — what if the message itself contains a zero byte? We
+solve it with Consistent Overhead Byte Stuffing, COBS, a small reversible transform that removes every
+zero from the payload while adding a tightly bounded, predictable amount of overhead.<sup><a href="#n1">1</a></sup>
+After COBS encoding, the only zero in a frame is the delimiter at its end, so the framing is never
+confused by the data it carries. COBS is a good fit here precisely because its worst-case overhead is
+small and fixed, which keeps buffer sizes bounded — a recurring requirement on the trusted side.</p>
+<p>Inside each frame, before COBS is applied, the bytes are laid out like this:</p>
+<pre><code>Frame (before COBS encoding):
+
+  len : u16     length of payload, in bytes
+  ver : u8      protocol version
+  type: u8      frame type (request / response / ...)
+  payload[len]  the request or response (see 6.5)
+  crc32: u32    IEEE CRC-32 over ver..payload
+
+  then the whole thing is COBS-encoded and a 0x00 delimiter appended</code></pre>
+<p>The CRC32 is a checksum over everything from <code>ver</code> through the end of the payload. On
+receipt the reader recomputes it and compares. If either the COBS decode fails or the CRC does not
+match, the frame is corrupt, and the rule is blunt: drop it. The frame is not partially processed, not
+repaired, not acted upon. A dropped-frame counter ticks up, and a request that never fully arrives simply
+never happens — which, from a security standpoint, is a perfectly safe outcome.</p>
+<h4>What error handling does and does not promise</h4>
+<p>Be clear about the CRC's job. It catches accidental corruption on the wire — a flipped bit, a dropped
+byte. It does not, and cannot, stop a deliberate attacker, who can recompute a valid CRC over whatever
+malicious payload they like. That is fine, because the CRC is not a security control. Integrity against a
+hostile host is not the framing layer's job at all; it is the Monitor's, enforced by re-deriving every
+security-relevant fact from the typed payload and checking it against policy. The framing layer's only
+duty is to hand the Monitor whole, uncorrupted frames or none, so the Monitor is never made to parse a
+half-message. A malformed or truncated frame that does reach the Monitor is answered with
+<code>DENY_MALFORMED</code> (§6.7); a garbled one that fails CRC never gets that far.</p>
+
+<figure>
+<svg viewBox="0 0 860 430" role="img" aria-label="Anatomy of a wire frame and the layers inside it. Top: a COBS-encoded frame on the serial line, ending in a zero delimiter. Middle: the decoded frame revealing length, version, type, payload, and CRC32 fields. Bottom: the payload expanded into a Request — magic RDBT, session id, request id, capability handle, tool id, argument count, a sequence of TypedArg TLVs, and label count and labels. One TypedArg is expanded to show its tag, length, and value, with a URL value further broken into scheme, host, port, and path.">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk"/></marker>
+  </defs>
+  <!-- layer 1: on the wire -->
+  <text x="20" y="26" font-size="9" class="t-mut">on the serial line (COBS-encoded, zero-delimited)</text>
+  <rect x="20" y="34" width="620" height="30" class="f-s2 s-ln"/>
+  <text x="330" y="53" text-anchor="middle" font-size="9.5">COBS( len | ver | type | payload | crc32 )</text>
+  <rect x="640" y="34" width="34" height="30" class="f-s1 s-acc" stroke-width="1.5"/>
+  <text x="657" y="53" text-anchor="middle" font-size="9" class="t-acc">00</text>
+  <text x="657" y="78" text-anchor="middle" font-size="8" class="t-mut">delim</text>
+  <!-- layer 2: decoded frame -->
+  <line x1="330" y1="64" x2="330" y2="98" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/>
+  <text x="20" y="112" font-size="9" class="t-mut">decoded frame</text>
+  <g font-size="9">
+    <rect x="20" y="120" width="70" height="34" class="f-s1 s-ln"/><text x="55" y="141" text-anchor="middle">len u16</text>
+    <rect x="90" y="120" width="60" height="34" class="f-s1 s-ln"/><text x="120" y="141" text-anchor="middle">ver u8</text>
+    <rect x="150" y="120" width="66" height="34" class="f-s1 s-ln"/><text x="183" y="141" text-anchor="middle">type u8</text>
+    <rect x="216" y="120" width="330" height="34" class="f-s1 s-acc" stroke-width="1.5"/><text x="381" y="141" text-anchor="middle" class="t-acc">payload[len]</text>
+    <rect x="546" y="120" width="94" height="34" class="f-s1 s-ln"/><text x="593" y="141" text-anchor="middle">crc32 u32</text>
+  </g>
+  <text x="593" y="171" text-anchor="middle" font-size="8" class="t-mut">CRC over ver..payload</text>
+  <!-- layer 3: Request payload -->
+  <line x1="381" y1="154" x2="381" y2="196" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/>
+  <text x="20" y="210" font-size="9" class="t-mut">payload = Request</text>
+  <g font-size="8.5">
+    <rect x="20" y="218" width="86" height="34" class="f-s2 s-ln"/><text x="63" y="234" text-anchor="middle">magic</text><text x="63" y="246" text-anchor="middle" class="t-mut">'RDBT'</text>
+    <rect x="106" y="218" width="72" height="34" class="f-s1 s-ln"/><text x="142" y="234" text-anchor="middle">session</text><text x="142" y="246" text-anchor="middle" class="t-mut">u16</text>
+    <rect x="178" y="218" width="66" height="34" class="f-s1 s-ln"/><text x="211" y="234" text-anchor="middle">req_id</text><text x="211" y="246" text-anchor="middle" class="t-mut">u16</text>
+    <rect x="244" y="218" width="78" height="34" class="f-s1 s-ln"/><text x="283" y="234" text-anchor="middle">cap_handle</text><text x="283" y="246" text-anchor="middle" class="t-mut">u16</text>
+    <rect x="322" y="218" width="66" height="34" class="f-s1 s-ln"/><text x="355" y="234" text-anchor="middle">tool_id</text><text x="355" y="246" text-anchor="middle" class="t-mut">u16</text>
+    <rect x="388" y="218" width="58" height="34" class="f-s1 s-ln"/><text x="417" y="234" text-anchor="middle">n_args</text><text x="417" y="246" text-anchor="middle" class="t-mut">u8</text>
+    <rect x="446" y="218" width="118" height="34" class="f-s1 s-acc" stroke-width="1.5"/><text x="505" y="234" text-anchor="middle" class="t-acc">args: TypedArg[]</text><text x="505" y="246" text-anchor="middle" class="t-mut">n_args of them</text>
+    <rect x="564" y="218" width="60" height="34" class="f-s1 s-ln"/><text x="594" y="234" text-anchor="middle">n_labels</text><text x="594" y="246" text-anchor="middle" class="t-mut">u8</text>
+    <rect x="624" y="218" width="86" height="34" class="f-s1 s-ln"/><text x="667" y="234" text-anchor="middle">in_labels[]</text><text x="667" y="246" text-anchor="middle" class="t-mut">u8 each</text>
+  </g>
+  <!-- layer 4: TypedArg -->
+  <line x1="505" y1="252" x2="505" y2="292" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/>
+  <text x="20" y="306" font-size="9" class="t-mut">one TypedArg (TLV)</text>
+  <g font-size="8.5">
+    <rect x="20" y="314" width="70" height="34" class="f-s1 s-ln"/><text x="55" y="330" text-anchor="middle">tag u8</text><text x="55" y="342" text-anchor="middle" class="t-mut">0x01=URL</text>
+    <rect x="90" y="314" width="70" height="34" class="f-s1 s-ln"/><text x="125" y="330" text-anchor="middle">len u16</text>
+    <rect x="160" y="314" width="200" height="34" class="f-s1 s-acc" stroke-width="1.5"/><text x="260" y="333" text-anchor="middle" class="t-acc">value[len]</text>
+  </g>
+  <!-- URL value expansion -->
+  <line x1="260" y1="348" x2="260" y2="366" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/>
+  <g font-size="8">
+    <rect x="120" y="372" width="74" height="30" class="f-s2 s-ln"/><text x="157" y="390" text-anchor="middle">scheme</text>
+    <rect x="194" y="372" width="86" height="30" class="f-s2 s-ln"/><text x="237" y="390" text-anchor="middle">host</text>
+    <rect x="280" y="372" width="60" height="30" class="f-s2 s-ln"/><text x="310" y="390" text-anchor="middle">port</text>
+    <rect x="340" y="372" width="86" height="30" class="f-s2 s-ln"/><text x="383" y="390" text-anchor="middle">path</text>
+  </g>
+  <text x="440" y="391" font-size="8" class="t-mut">URL value = { scheme, host, port, path } — pre-parsed on host,</text>
+  <text x="440" y="401" font-size="8" class="t-mut">re-derived by the Monitor</text>
+</svg>
+<figcaption><span class="fl">Figure 6-1.</span> One frame, peeled open layer by layer. Each accented box
+is the field expanded on the line below it. The structure is flat and self-describing all the way down to
+the URL's parts, so the Monitor can read the host field directly — never by re-parsing a string.</figcaption>
+</figure>
+
+<h2><span class="n">6.4</span>Typed arguments, and why not text</h2>
+<p>Now the heart of the chapter. A tool call has arguments — the URL to fetch, the path to read, the
+method to use. The tempting way to carry them is as text: a string like
+<code>https://api.example.com/v1/data</code>, which the Monitor would parse to pull out the host and
+scheme it needs to check. We deliberately do not do this. Arguments cross the wire as <em>typed</em>
+values, encoded in TLV form, with the security-relevant fields already broken out.</p>
+<p>The reason is a bug class worth understanding, because once you see it you cannot unsee it. It arises
+whenever two pieces of code parse the same string and quietly disagree about what it means. The checker
+reads a URL one way and decides it is safe; the code that actually acts on the URL reads it a slightly
+different way and reaches somewhere else entirely. The classic instance is a host allowlist fooled by an
+encoded character — a <code>%2e</code> standing in for a dot, an <code>@</code> or a backslash placed so
+the checker sees one host and the fetcher connects to another. This is the engine behind a large fraction
+of real server-side request forgery and path-traversal vulnerabilities, and it is not a bug in any one
+parser; it is a bug in trusting text at a boundary where two parsers meet.<sup><a href="#n2">2</a></sup></p>
+<p>Redoubt refuses to play. Instead of shipping a URL as a string, the host sends it already decomposed
+into its parts — scheme, host, port, path — each as its own field. The Monitor then re-derives the
+security-relevant fields from that structured form and checks policy against exactly the value the
+performing step will use. There is no re-parsing of a string on the trusted side, so there is no second
+parser to disagree with a first. The ambiguity that powers the whole bug class simply has nowhere to
+live. (The host does the initial parse, but the host is untrusted, so its parse is treated as a claim the
+Monitor re-derives, not as truth.)</p>
+<p>The encoding is TLV: a one-byte tag naming the type, a two-byte length, then the value.</p>
+<pre><code>TypedArg = tag:u8 | len:u16 | value[len]
+
+  tag 0x01  URL     value = { scheme:enum8, host, port:u16, path }
+  tag 0x02  PATH    a filesystem path, as structured components
+  tag 0x03  ENUM    a small choice from a fixed set (e.g. method GET)
+  tag 0x04  INT     a little-endian integer
+  tag 0x05  BYTES   an opaque byte string (e.g. a request body)
+  tag 0x06  LABELSET an information-flow label set (Chapter 10)</code></pre>
+<div class="tblwrap">
+<table>
+<thead><tr><th>Tag</th><th>Type</th><th>What it carries</th><th>Why it is its own type</th></tr></thead>
+<tbody>
+<tr><td><code>0x01</code></td><td>URL</td><td>scheme, host, port, path — separately</td><td>lets the Monitor read <em>host</em> directly; the anti-<code>%2e</code> case</td></tr>
+<tr><td><code>0x02</code></td><td>PATH</td><td>a filesystem path in structured form</td><td>path-prefix checks without traversal ambiguity (<code>../</code>)</td></tr>
+<tr><td><code>0x03</code></td><td>ENUM</td><td>one value from a fixed set</td><td>a closed set can be checked by equality, never re-parsed</td></tr>
+<tr><td><code>0x04</code></td><td>INT</td><td>a little-endian integer</td><td>range checks (<code>RANGE</code>, <code>LEN_LE</code>) need a real number</td></tr>
+<tr><td><code>0x05</code></td><td>BYTES</td><td>an opaque blob, e.g. a body</td><td>never interpreted by the Monitor, only labelled and length-checked</td></tr>
+<tr><td><code>0x06</code></td><td>LABELSET</td><td>confidentiality/integrity labels</td><td>drives the flow check of Chapter 10</td></tr>
+</tbody>
+</table>
+</div>
+<p>Two guards apply to every TypedArg on arrival, and they are cheap. The tag must be one the Monitor
+knows; an unknown tag is a malformed request. And the length must fit within the request's declared bounds
+— an argument that claims to run past the end of the buffer is malformed too. Both failures land on
+<code>DENY_MALFORMED</code> before any policy is consulted.</p>
+
+<h2><span class="n">6.5</span>Request and response layout</h2>
+<p>With framing and argument encoding in hand, the payload itself is straightforward. A request names the
+session it belongs to, a request id the caller uses to match up the reply, the capability handle it is
+exercising, the tool it wants, then its typed arguments and their labels:</p>
+<pre><code>Request  = magic:u32 ('RDBT')
+         | session_id:u16
+         | req_id:u16
+         | cap_handle:u16
+         | tool_id:u16
+         | n_args:u8   | args:TypedArg[n_args]
+         | n_labels:u8 | in_labels:u8[n_labels]
+
+Response = req_id:u16
+         | status:u8            (reason code, 6.7)
+         | n_labels:u8 | out_labels:u8[n_labels]
+         | result:BYTES?        (present only on ALLOW)</code></pre>
+<p>A few fields carry more weight than their size suggests. The <code>magic</code> word <code>'RDBT'</code>
+is a cheap sanity check that lets the Monitor reject obvious garbage before doing anything else. The
+<code>cap_handle</code> is an opaque index the host holds — not a capability itself, just a number naming a
+slot in the session's capability space; forging it or running it out of range resolves to an empty slot
+and a denial (Chapter 7). The <code>req_id</code> is echoed back verbatim so the host can pair a response
+with the request that prompted it, since several may be in flight from the host's point of view even
+though the Monitor handles them strictly one at a time. On the way back, <code>status</code> is the verdict
+and <code>result</code> appears only when that verdict is <code>ALLOW</code> — a denial carries no body,
+and in particular a secret the Monitor injected never travels back in <code>result</code>.</p>
+<p>The whole request is bounded: at most eight arguments, a few hundred bytes total. Those limits are not
+arbitrary generosity withheld; they are what lets the Monitor use fixed-size buffers with no allocation
+and no unbounded loop, which is a property the trusted code depends on (Chapter 9).</p>
+
+<h2><span class="n">6.6</span>The mediation ABI</h2>
+<p>Framing and payloads describe how bytes are shaped. The ABI describes what the host can actually ask
+for. When a request reaches the Endpoint compartment, it makes a RISC-V <code>ecall</code> that traps up
+into the Monitor in machine mode, with the operation number in register <code>a7</code>, a pointer to the
+request in the shared buffer in <code>a0</code>, and its length in <code>a1</code>. The Monitor dispatches
+on <code>a7</code>. The set of legal operations is small on purpose — a short list is a small attack
+surface — and anything outside it is refused immediately, before a single table is touched.</p>
+<div class="tblwrap">
+<table>
+<thead><tr><th>Opcode (<code>a7</code>)</th><th>Name</th><th>What it does</th></tr></thead>
+<tbody>
+<tr><td><code>0x52440001</code></td><td>MEDIATE</td><td>The main event: judge one tool call against its capability and policy, and, if allowed, perform it (Chapter 9's pipeline).</td></tr>
+<tr><td><code>0x52440010</code></td><td>SESSION_OPEN</td><td>Begin a new agent session, allocating a fresh, empty capability space seeded from the manifest.</td></tr>
+<tr><td><code>0x52440011</code></td><td>REVOKE</td><td>Bump the session's epoch, invalidating every capability it ever issued in one O(1) step.</td></tr>
+<tr><td><code>0x52440012</code></td><td>SESSION_CLOSE</td><td>Tear a session down and release its slot.</td></tr>
+<tr><td><code>0x52440020</code></td><td>ATTEST_READ</td><td>Return the current head of the audit hash-chain, so an external party can check the log has not been rewritten (Chapters 5 and 12).</td></tr>
+</tbody>
+</table>
+</div>
+<p>Notice what is <em>not</em> in this table. There is no opcode that reads a secret, and none that drives
+the network or storage hardware directly. Those actions happen only <em>inside</em> the MEDIATE pipeline,
+after every check has passed, and they are internal to the Monitor — there is no side door that reaches
+them. The entire surface an attacker can probe is these five numbers, and four of the five do
+housekeeping; the security decision lives wholly in MEDIATE.<sup><a href="#n3">3</a></sup></p>
+<pre><code>the handoff, in registers:
+
+  a7 = MEDIATE (0x52440001)
+  a0 = pointer to the Request in the shared buffer
+  a1 = length of the Request
+  -- ecall traps into the Monitor (machine mode) --
+  a0 = status   (a reason code from 6.7)
+  a1 = length of the Response written back</code></pre>
+
+<h2><span class="n">6.7</span>Reason codes</h2>
+<p>Every mediation ends in exactly one code. One means yes; the rest explain a no or an error, and the
+Monitor is careful to say <em>which</em> no, both so the host can react sensibly and so the small display
+and the audit log can record a precise reason.</p>
+<div class="tblwrap">
+<table>
+<thead><tr><th>Code</th><th>Name</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>0x00</code></td><td>ALLOW</td><td>Every check passed; the action was performed.</td></tr>
+<tr><td><code>0x10</code></td><td>DENY_NO_CAP</td><td>No usable capability at that handle — empty, out of range, or the wrong type.</td></tr>
+<tr><td><code>0x11</code></td><td>DENY_TOOL</td><td>The capability is not bound to the tool that was requested.</td></tr>
+<tr><td><code>0x12</code></td><td>DENY_ARG</td><td>An argument failed the capability's typed predicate (e.g. host not on the allowlist).</td></tr>
+<tr><td><code>0x13</code></td><td>DENY_FLOW</td><td>The information-flow check refused it — e.g. a secret bound for a public sink (Chapter 10).</td></tr>
+<tr><td><code>0x14</code></td><td>DENY_MALFORMED</td><td>The request was ill-formed: bad bounds, unknown tag, too many args, bad magic.</td></tr>
+<tr><td><code>0x15</code></td><td>DENY_REVOKED</td><td>The capability's epoch is stale; its session was revoked.</td></tr>
+<tr><td><code>0x16</code></td><td>DENY_QUOTA</td><td>A rate or resource limit for the session was exceeded.</td></tr>
+<tr><td><code>0x20</code></td><td>ERR_EGRESS</td><td>The action was allowed but the egress hardware failed to carry it out.</td></tr>
+<tr><td><code>0x21</code></td><td>ERR_TIMEOUT</td><td>The egress hardware did not answer within the bounded wait.</td></tr>
+<tr><td><code>0x2F</code></td><td>ERR_INTERNAL</td><td>The Monitor detected an inconsistency in itself — a bug, not a policy outcome.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The codes fall into three natural bands, and the leading digit signals which. The <code>0x0</code>
+band is success. The <code>0x1</code> band is a policy denial — the request was well enough formed to be
+judged, and the answer was no; these are normal, expected, and logged. The <code>0x2</code> band is an
+error rather than a verdict: the machinery, not the policy, is at fault. The distinction matters to a
+caller, because a <code>DENY</code> means "you may not," which no amount of retrying will change, while an
+<code>ERR_TIMEOUT</code> means "the wire was slow," which retrying might. Retrying is the untrusted
+caller's business; the Monitor never retries on its own (Chapter 9).</p>
+
+<h2><span class="n">6.8</span>The Endpoint does framing only</h2>
+<p>It is worth being emphatic about the Endpoint compartment, because it is easy to over-trust the code
+that sits closest to the wire. The Endpoint runs in user mode, in the untrusted tier, and its whole job
+is clerical: pull bytes off the serial port, run COBS and the CRC to recover whole frames, place a
+request into the shared buffer, make the <code>ecall</code>, and hand the response back out. It decides
+nothing. It reads no policy, resolves no capability, touches no secret. If the Endpoint were entirely
+replaced by hostile code, the security property would not budge, because the Endpoint has no authority to
+misuse — it only moves bytes the Monitor will independently re-check.</p>
+<p>This is the same discipline the whole architecture runs on: push everything that can be pushed out of
+the trusted base, and let the trusted base re-derive anything it depends on. The Endpoint is a courier
+with a sealed envelope. It can lose the envelope, delay it, even forge a new one — but it cannot make the
+Monitor honour a request that policy forbids, because the Monitor checks the contents itself and trusts
+the courier for nothing.</p>
+
+<h2><span class="n">6.9</span>Edge cases and failure modes</h2>
+<ul>
+<li><em>Corrupt frame.</em> COBS decode fails or the CRC does not match. The frame is dropped and a
+counter incremented; no partial processing. A request that was in that frame simply never happened.</li>
+<li><em>Truncated or oversized request.</em> A frame decodes cleanly but the payload lies about its size,
+runs past the buffer, or exceeds the argument or byte limits. The Monitor answers
+<code>DENY_MALFORMED</code>; it never reads beyond the declared bounds.</li>
+<li><em>Unknown tag or unknown opcode.</em> A TypedArg tag the Monitor does not recognise, or an
+<code>a7</code> outside the five legal opcodes, is refused at once — <code>DENY_MALFORMED</code> — without
+consulting any table.</li>
+<li><em>Duplicate or replayed <code>req_id</code>.</em> The wire itself does not prevent a hostile host
+from resending a frame. Each MEDIATE is judged fresh against current policy and the session's current
+epoch, so a replayed request is simply re-decided; a revoked session's replays all fail
+<code>DENY_REVOKED</code>. The <code>req_id</code> is a matching convenience for the host, not a security
+token.</li>
+<li><em>Response never collected.</em> If the host never reads a response it asked for, nothing on the
+Monitor side is stuck: it handled the request to completion, wrote the answer, and moved on. Liveness of
+the host's own bookkeeping is the host's problem.</li>
+</ul>
+
+<h2><span class="n">6.10</span>Invariants the wire layer maintains</h2>
+<ol>
+<li>The Monitor acts only on whole, CRC-valid frames; a corrupt frame produces no effect at all.</li>
+<li>No security-relevant value is trusted as host-parsed text; the Monitor re-derives every field it
+checks from the structured TypedArg form.</li>
+<li>Every request is bounded — at most eight arguments and a fixed byte ceiling — so parsing needs no
+allocation and no unbounded loop.</li>
+<li>The only ways into the Monitor are the five ABI opcodes; there is no opcode that reads a secret or
+drives egress directly.</li>
+<li>The Endpoint holds no authority: replacing it with hostile code cannot cause an effect that policy
+forbids.</li>
+<li>An injected secret never appears in a response payload.</li>
+</ol>
+
+<h2><span class="n">6.11</span>Alternatives rejected</h2>
+<p class="rej"><b>Carry arguments as text and parse them in the Monitor.</b> This is the obvious design and
+the wrong one, for the whole of §6.4: re-parsing a string on the trusted side re-creates the
+checker-versus-doer disagreement that powers SSRF and traversal bugs. Typed arguments cost a little
+encoding effort on the host and buy the elimination of an entire vulnerability class. Easy trade.</p>
+<p class="rej"><b>Use JSON (or another rich text format) for the payload.</b> Human-readable and familiar,
+but a general text parser inside the trusted base is a large, subtle, bug-prone thing — exactly what the
+line budget exists to keep out — and it re-opens the parser-mismatch problem at the format level. A flat,
+fixed, self-describing binary layout is parsed with a few bounds checks and nothing more.</p>
+<p class="rej"><b>Let the CRC or a MAC stand in for authenticating the host.</b> A CRC catches accidents,
+not adversaries, and even a cryptographic MAC over the frame would only prove the host said something, not
+that what it said is permitted. Authenticating the sender is beside the point when the sender is assumed
+hostile; the Monitor's answer is to check the request against policy regardless of who sent it. So we keep
+the CRC for what it is good at — corruption — and rest security on mediation, not on the wire.</p>
+<p class="rej"><b>A richer ABI with many fine-grained opcodes.</b> More opcodes would let the host do more
+directly, and each is more surface to probe and more trusted code to get right. We keep exactly five and
+route every decision through MEDIATE, so there is one place to audit and no side doors.</p>
+<p class="rej"><b>A more capable transport (raw USB bulk, or the network itself).</b> Faster, and heavier:
+a real USB stack or network stack in the path is thousands of lines we would either have to trust or
+carefully distrust. A plain serial line is almost nothing, keeps the whole USB stack outside the trusted
+base, and the mediation is not throughput-bound anyway. Speed is a version-2 concern if it is a concern
+at all.</p>
+
+<h2><span class="n">6.12</span>Open questions</h2>
+<ul>
+<li>The exact canonicalization rules the Monitor applies when re-deriving URL and PATH fields — how much
+normalisation is safe, and where to draw the line so nothing ambiguous survives.<sup><a href="#n2">2</a></sup></li>
+<li>Whether the protocol version field should ever negotiate, or whether a single fixed version is
+healthier for a security boundary that prizes having no optional behaviour.</li>
+<li>The precise ceilings — maximum body size, maximum in-flight requests the host may usefully pipeline —
+once the FPGA's real buffer budget is known.</li>
+<li>Whether <code>ATTEST_READ</code> should eventually return a signed quote rather than a raw chain
+head, and how that interacts with the boot-time attestation story of Chapter 5.</li>
+<li>How <code>DENY_QUOTA</code>'s limits are defined and surfaced — per session, per tool, per unit
+time — which touches the availability questions version 1 leaves out of scope.</li>
+</ul>
+
+<ol class="notes" id="notes">
+<li id="n1"><span>[1]</span> S. Cheshire, M. Baker, <em>Consistent Overhead Byte Stuffing</em> — a framing method whose overhead is small and tightly bounded, which is why it suits a trusted reader with fixed buffers.</li>
+<li id="n2"><span>[2]</span> The parser-mismatch class — a filter and a consumer disagreeing on how to read a string — underlies a large share of real SSRF and path-traversal bugs (the <code>%2e</code>/encoded-host lineage). J. P. Anderson's reference-monitor criteria (1972) frame why <em>complete, unambiguous</em> mediation is the fix; see also OWASP's <em>Top 10 for Agentic Applications</em> (2026) on tool-argument abuse.</li>
+<li id="n3"><span>[3]</span> The "always invoked, no side door" property is one of Anderson's three reference-monitor requirements; here it is realised by having exactly one privileged entry (the <code>ecall</code> ABI) and no opcode that reaches secrets or egress except inside MEDIATE. RISC-V calling convention: operation in <code>a7</code>, arguments in <code>a0</code>/<code>a1</code>.</li>
+</ol>
+
+<footer>Redoubt Architecture · RDBT-ARCH-06 · Wire Protocol &amp; the Tool-Call ABI · Draft. Open source
+(MIT). One of thirteen component chapters; see Chapter 5 (boot &amp; attestation), Chapter 7
+(capabilities), Chapter 8 (policy), Chapter 9 (the Monitor's decision pipeline), and Chapter 10
+(information-flow control) for the mechanisms referenced here.</footer>
+</div>

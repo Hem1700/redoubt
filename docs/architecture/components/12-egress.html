@@ -1,0 +1,362 @@
+<title>Egress &amp; Secrets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --paper:#FFFFFF; --ink:#17181A; --muted:#5C5F66; --faint:#8A8D94; --line:#D5D7DB;
+    --rule:#222; --accent:#2E4A6B; --code-bg:#F4F5F6; --code-ink:#22252A;
+    --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --paper:#17181B; --ink:#E4E3DF; --muted:#A2A5AC; --faint:#7B7E85; --line:#33353A;
+    --rule:#C9CACE; --accent:#9CB6D6; --code-bg:#1E2024; --code-ink:#D2D4D8;
+  }}
+  :root[data-theme="dark"]{
+    --paper:#17181B; --ink:#E4E3DF; --muted:#A2A5AC; --faint:#7B7E85; --line:#33353A;
+    --rule:#C9CACE; --accent:#9CB6D6; --code-bg:#1E2024; --code-ink:#D2D4D8;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:18px;line-height:1.6;-webkit-text-size-adjust:100%}
+  .page{max-width:660px;margin:0 auto;padding-inline:24px;padding-block:0}
+  p{margin:.75rem 0;text-align:justify;hyphens:auto;-webkit-hyphens:auto}
+  p,li{max-width:64ch}
+  a{color:var(--accent);text-underline-offset:2px}
+  h1{font-weight:700;font-size:2.15rem;line-height:1.14;margin:.2rem 0;text-align:left;hyphens:none}
+  h2{font-weight:700;font-size:1.4rem;line-height:1.2;margin:2.6rem 0 .5rem;hyphens:none}
+  h3{font-weight:600;font-size:1.14rem;margin:1.7rem 0 .2rem;hyphens:none}
+  h4{font-weight:600;font-size:1rem;margin:1.2rem 0 .1rem;font-style:italic;hyphens:none}
+  h2 .n{font-family:var(--mono);font-weight:500;font-size:1rem;color:var(--muted);margin-right:.6em}
+  .masthead{border-top:3px solid var(--rule);border-bottom:1px solid var(--line);padding:1.4rem 0 1.1rem;margin-top:1.2rem}
+  .docmeta{font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;color:var(--muted);text-transform:uppercase;margin:0 0 .6rem;display:flex;flex-wrap:wrap;gap:4px 22px}
+  .docmeta b{color:var(--ink);font-weight:500}
+  .abstract{font-size:1.02rem;color:var(--ink);margin-top:1rem}
+  .abstract .lbl{font-variant:small-caps;letter-spacing:.06em;font-weight:600;color:var(--muted);font-size:.82rem;margin-right:.5em}
+  code{font-family:var(--mono);font-size:.8em;background:var(--code-bg);color:var(--code-ink);padding:.08em .32em;border-radius:3px}
+  pre{font-family:var(--mono);background:var(--code-bg);color:var(--code-ink);border:1px solid var(--line);border-left:3px solid var(--rule);padding:14px 16px;overflow-x:auto;font-size:.76rem;line-height:1.55;margin:1.2rem 0;text-align:left}
+  pre code{background:none;padding:0}
+  figure{margin:1.8rem 0;text-align:center}
+  figure svg{display:block;max-width:100%;height:auto;margin:0 auto;color:var(--ink);border:1px solid var(--line);padding:14px;background:var(--paper)}
+  figcaption{font-size:.85rem;color:var(--muted);margin-top:.6rem;text-align:left;max-width:60ch}
+  figcaption .fl{font-weight:600;color:var(--ink)}
+  figure svg text{fill:currentColor}
+  .s-ln{stroke:var(--line)}.s-acc{stroke:var(--accent)}.s-cur{stroke:currentColor}.s-mut{stroke:var(--muted)}
+  .f-s1{fill:var(--paper)}.f-s2{fill:var(--code-bg)}.f-acc{fill:none}.f-none{fill:none}
+  .t-acc{fill:var(--accent)}.t-mut{fill:var(--muted)}.mk{fill:currentColor}.mk-acc{fill:var(--accent)}.dash{stroke-dasharray:4 4}
+  table{border-collapse:collapse;width:100%;font-size:.85rem;margin:1.1rem 0}
+  .tblwrap{overflow-x:auto}
+  th,td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}
+  th{border-bottom:2px solid var(--rule);font-weight:600}
+  .note{border:1px solid var(--line);border-left:3px solid var(--accent);padding:14px 18px;margin:1.6rem 0;font-size:.95rem;background:var(--paper)}
+  .note .lbl{font-variant:small-caps;letter-spacing:.06em;font-weight:600;color:var(--accent);font-size:.82rem}
+  .note dt{font-weight:600;margin-top:.6rem;text-align:left}
+  .note dd{margin:.1rem 0 0;color:var(--muted);text-align:justify;hyphens:auto}
+  .aside{color:var(--muted);font-style:italic;border-left:2px solid var(--line);padding-left:16px;margin:1.2rem 0}
+  ul,ol{padding-left:1.4rem} li{margin:.35rem 0}
+  dl.gloss dt{font-family:var(--mono);font-size:.82rem;color:var(--accent);margin-top:.9rem;text-align:left}
+  dl.gloss dd{margin:.15rem 0 0}
+  sup a{text-decoration:none;font-size:.72em;padding:0 1px}
+  .notes{font-size:.85rem;color:var(--muted);border-top:1px solid var(--line);margin-top:2.4rem;padding-top:1rem}
+  .notes li{margin:.3rem 0;max-width:70ch;text-align:left}
+  .notes li span{color:var(--faint);font-family:var(--mono);font-size:.85em;margin-right:.4em}
+  .rej{margin-top:.9rem} .rej b{font-style:italic}
+  footer{margin:3rem 0 2rem;padding-top:1rem;border-top:3px solid var(--rule);font-size:.82rem;color:var(--muted);text-align:left}
+  hr{border:none;border-top:1px solid var(--line);margin:2rem 0}
+</style>
+
+<div class="page">
+<div class="masthead">
+  <div class="docmeta">
+    <span>Redoubt Architecture</span><span>Component Specification</span>
+    <span>Doc <b>RDBT-ARCH-12</b></span><span>Status <b>Draft</b></span><span>Chapter <b>12 / 13</b></span>
+  </div>
+  <h1>Egress &amp; Secrets</h1>
+  <p class="abstract"><span class="lbl">Abstract.</span> Everything else in Redoubt is about deciding.
+  This chapter is about the one place where a decision turns into an act in the world: bytes leaving on a
+  wire, a block written to a card, a key spliced into a request. The egress subsystem is the hardware the
+  Monitor keeps for itself and lets nothing else touch — the network link to the ESP32, the microSD
+  controller, the secret store, and the noise source that seeds our randomness. It specifies how each is
+  reached, how a secret is used without ever being surrendered, and where the honest seams are: the ESP32
+  firmware sits inside the egress path, and wired Ethernet is a version-two upgrade, not a thing we have
+  today. It closes with the sequence a real call follows from the agent's request to the wire and back.</p>
+</div>
+
+<div class="note">
+<span class="lbl">Note to first-time readers.</span>
+<p style="text-align:justify">A few pieces of hardware and one cryptographic idea recur below. Here is
+each in plain terms.</p>
+<dl>
+<dt>Egress</dt><dd>Anything leaving the trusted core toward the outside — a network packet, a file being
+saved. The word simply means "the way out," and this chapter is about owning it.</dd>
+<dt>ESP32</dt><dd>A small, cheap, self-contained networking chip that speaks Wi-Fi. Redoubt uses it as
+its network card. It is a separate computer with its own firmware, which is exactly the caveat we keep
+returning to.</dd>
+<dt>MMIO</dt><dd>Memory-mapped I/O. Hardware devices appear to the processor as special memory
+addresses; writing to the address commands the device. Because it looks like memory, the same PMP walls
+that protect memory can protect a device.</dd>
+<dt>Secret injection</dt><dd>Using a key on the agent's behalf — pasting it into an outgoing request —
+without ever handing the key back to the agent. The agent gets the <em>effect</em> of the key, never
+its bytes.</dd>
+<dt>TRNG</dt><dd>A true random-number generator: hardware that produces genuine unpredictability from a
+physical process, as opposed to a formula. Keys and session identifiers need this.</dd>
+</dl>
+</div>
+
+<h2><span class="n">12.1</span>Why the Monitor owns the exits</h2>
+<p>Recall the embassy guard of Chapter&nbsp;9. The reason the guard's decisions mean anything is that he
+alone works the radio and holds the keys to the gate. If any clerk could walk over and transmit a cable
+directly, the guard's careful adjudication would be theatre. The security of the whole system rests on a
+physical fact: the dangerous hardware is reachable only through the one component we trust.</p>
+<p>Egress is that hardware. The network link, the storage controller, the secret store, and the entropy
+source all live in a single machine-only region of the address map — <code>EGRESS_MMIO</code> at
+<code>0xF000_0000</code>, plus the <code>SECRETS</code> region at <code>0x1002_0000</code> — walled off
+by PMP entries that are written and locked at boot before any supervisor or user code runs
+(Chapter&nbsp;3). From that instant a compromised Warden or a hostile driver that reaches for the ESP32's
+registers does not get a refusal from some software check; it gets a fault from the silicon, because the
+address is simply not theirs to touch.<sup><a href="#n1">1</a></sup></p>
+<p>So the untrusted world can prepare an egress payload all it likes — format a packet, lay out a block
+to write — but it cannot <em>send</em>. The send is a Monitor action, reached only through the mediation
+ABI, and it happens only after the six checks have passed. This chapter is what lives on the far side of
+check&nbsp;six.</p>
+
+<h2><span class="n">12.2</span>Network: the ESP32 link</h2>
+<p>Redoubt has no Ethernet MAC of its own in version one. Its network card is an ESP32 module, reached
+over a link — UART or SPI — whose controller registers sit inside <code>EGRESS_MMIO</code>, and which is
+therefore M-owned like everything else in that region. A user-mode network driver may assemble the
+payload in its own compartment, but when it wants that payload to actually leave, it must ask the
+Monitor, which applies the <code>Net</code> capability check, injects any secret the policy directs, and
+only then drives the link.</p>
+<p>Now the honest part, and it is important enough that we will not bury it. The ESP32 runs its own
+firmware, a closed module we did not write and do not measure. That firmware is <em>in the egress
+path</em>. Concretely: once the Monitor hands vetted, secret-injected bytes to the ESP32, what the ESP32
+does with them — how it forms the TLS session, whether its own stack has bugs — is outside our trusted
+base. We can guarantee that nothing reaches the ESP32 except through the Monitor's checks. We cannot
+guarantee the ESP32 itself is flawless, and we do not claim to.<sup><a href="#n2">2</a></sup></p>
+<p>This is a real limitation, and the roadmap addresses it head-on. Version two moves to a wired-Ethernet
+board (an ECPIX-5 or Colorlight class device) where the Monitor owns the MAC directly in the FPGA
+fabric, removing the closed firmware from the trusted path entirely. Until then, the ESP32 buys us a
+working network on cheap, available hardware, and we are precise about what that costs. It is worth
+saying plainly that this seam does not widen the agent's authority — a hijacked agent still cannot get
+the Monitor to send to a disallowed host or leak a secret; the ESP32 caveat is about the integrity of
+the pipe, not about who may use it.</p>
+
+<h2><span class="n">12.3</span>Storage: LiteSDCard</h2>
+<p>Storage is simpler and cleaner than the network, because there is no third-party firmware in the way.
+A microSD card is driven by the LiteSDCard controller, whose MMIO also lives in the machine-only egress
+region. Block reads and writes are Monitor actions gated by <code>File</code> capabilities, and a
+<code>File</code> capability is not "you may use the disk" — it is far narrower.</p>
+<div class="tblwrap">
+<table>
+<thead><tr><th>Gate on a File capability</th><th>What it constrains</th></tr></thead>
+<tbody>
+<tr><td>path prefix</td><td>the capability names an allowed prefix, e.g. <code>/corpus/</code>; a
+<code>PATH</code> TypedArg not under it fails the predicate with <code>DENY_ARG</code></td></tr>
+<tr><td>mode</td><td>read, write, or both — a read-only corpus capability cannot be turned into a write</td></tr>
+<tr><td>result label</td><td>file contents returned to a caller are stamped <code>UNTRUSTED</code> (Chapter&nbsp;10)</td></tr>
+</tbody>
+</table>
+</div>
+<p>A small filesystem index lives in the Monitor's private data region so the path check is done against
+a structure the untrusted side cannot rewrite. The path itself is a typed <code>PATH</code> argument
+checked with the <code>PREFIX</code> predicate operator, so the same anti-parser-mismatch discipline
+from the wire protocol (Chapter&nbsp;6) applies: the Monitor checks the path exactly as it will use it,
+with no re-parsing step where a checker and a doer could come to disagree about what <code>/corpus/../secrets</code>
+means.<sup><a href="#n3">3</a></sup></p>
+
+<h2><span class="n">12.4</span>Secrets: used, never surrendered</h2>
+<p>Keys are the thing most worth stealing, so the secret store is the most carefully guarded path in the
+whole design. The governing principle is one sentence: the Monitor will <em>use</em> a secret on your
+behalf, but it will never <em>give</em> it to you. This is the same bargain a phone's secure element
+strikes — software receives the use of a key, never the key material.<sup><a href="#n4">4</a></sup></p>
+<h3>The lifecycle of a key</h3>
+<ul>
+<li><em>At boot.</em> Secrets are loaded once, from an M-only area of QSPI flash, into the
+<code>SECRETS</code> region. The temporary buffer used during the load is wiped the instant the copy is
+done, so the plaintext exists in two places for as short a time as we can arrange.</li>
+<li><em>At rest.</em> Keys live in <code>SECRETS</code> (region&nbsp;#3 of the memory map), reachable
+only from machine mode. No supervisor or user load instruction can read a byte of it; the attempt
+faults.</li>
+<li><em>In use.</em> Exactly one piece of code — the injector, part of the perform step — reads a key.
+It holds the plaintext only for the moment it takes to splice the secret into an outgoing request (as an
+HTTP <code>Authorization</code> header, say), then wipes its working copy.</li>
+<li><em>Never.</em> There is no ABI opcode, and no code path, that copies key bytes into a response. A
+capability of type <code>Secret</code> permits injection at a named site and nothing else; its
+<code>secret_ref</code> is an index the Monitor resolves internally, never a value the host can read
+back.</li>
+</ul>
+<p>The mechanics of injection matter because they are where a careless design would leak. The agent's
+request references a secret only by capability — it says, in effect, "make this call, and put credential
+number 2 where the policy says it goes." It never names the value, never sees the value, and cannot ask
+for the value. The Monitor looks up the site from the capability's <code>secret_ref</code>, reads the
+key from <code>SECRETS</code>, writes it into the outgoing bytes after the flow check has cleared the
+call, sends, and scrubs. The result that comes back is labeled <code>UNTRUSTED</code> and contains no
+trace of the key. Between "look up" and "scrub," the plaintext lives on the Monitor's own stack in
+machine-only memory and nowhere else.</p>
+<p class="aside">One subtlety we are watching: the injection should ideally be constant-time, so that the
+length or content of a secret cannot be inferred from how long the splice takes. That belongs to the
+broader side-channel question the project sets aside for version one, but it is flagged here because the
+secret path is exactly where such a leak would hurt most.</p>
+
+<h2><span class="n">12.5</span>One call, from request to wire</h2>
+<p>Here is the whole egress path in motion. The agent, on the untrusted host, wants to call an API that
+needs a credential it does not hold. It issues a tool call; the request is framed and delivered; the
+Monitor decides, injects, and sends; the answer comes back stamped untrusted. Watch where the secret
+appears and where it does not.</p>
+
+<figure>
+<svg viewBox="0 0 860 440" role="img" aria-label="A sequence diagram with four lifelines: Endpoint in user mode, Warden in supervisor mode, Monitor in machine mode, and the ESP32. The Endpoint frames the request and passes it to Warden, which makes the ecall into the Monitor. Inside the Monitor an activation box runs checks one through five, then injects the secret, then sends secret-spliced bytes to the ESP32. The ESP32 returns response bytes; the Monitor labels the result untrusted and returns status down through Warden to the Endpoint. A dashed rule marks that the secret never crosses below the Monitor.">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk"/></marker>
+    <marker id="aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk-acc"/></marker>
+  </defs>
+  <!-- lifeline heads -->
+  <rect x="40" y="24" width="118" height="34" class="f-s2 s-ln"/><text x="99" y="41" text-anchor="middle" font-size="9.5">Endpoint</text><text x="99" y="53" text-anchor="middle" font-size="8" class="t-mut">U-mode</text>
+  <rect x="242" y="24" width="118" height="34" class="f-s2 s-ln"/><text x="301" y="41" text-anchor="middle" font-size="9.5">Warden</text><text x="301" y="53" text-anchor="middle" font-size="8" class="t-mut">S-mode</text>
+  <rect x="470" y="24" width="118" height="34" class="f-s1 s-acc" stroke-width="1.5"/><text x="529" y="41" text-anchor="middle" font-size="9.5" class="t-acc">Monitor</text><text x="529" y="53" text-anchor="middle" font-size="8" class="t-mut">M-mode</text>
+  <rect x="708" y="24" width="118" height="34" class="f-s2 s-ln"/><text x="767" y="41" text-anchor="middle" font-size="9.5">ESP32</text><text x="767" y="53" text-anchor="middle" font-size="8" class="t-mut">closed fw</text>
+  <!-- lifelines -->
+  <g class="s-mut dash"><line x1="99" y1="58" x2="99" y2="408"/><line x1="301" y1="58" x2="301" y2="408"/><line x1="529" y1="58" x2="529" y2="408"/><line x1="767" y1="58" x2="767" y2="408"/></g>
+  <!-- Monitor activation box -->
+  <rect x="519" y="120" width="20" height="228" class="f-s2 s-acc"/>
+  <!-- messages -->
+  <line x1="99" y1="96" x2="299" y2="96" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/><text x="199" y="90" text-anchor="middle" font-size="8.5">frame (COBS+CRC32)</text>
+  <line x1="301" y1="124" x2="517" y2="124" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/><text x="409" y="118" text-anchor="middle" font-size="8.5">ecall MEDIATE (a7)</text>
+  <!-- internal checks -->
+  <rect x="452" y="146" width="154" height="30" class="f-s1 s-ln"/><text x="529" y="165" text-anchor="middle" font-size="8.5">checks 1&#8211;5 (cap, args, flow)</text>
+  <rect x="452" y="188" width="154" height="30" class="f-none s-acc" stroke-width="1.3"/><text x="529" y="207" text-anchor="middle" font-size="8.5" class="t-acc">inject secret (from SECRETS)</text>
+  <!-- send -->
+  <line x1="539" y1="244" x2="765" y2="244" class="s-acc" stroke-width="1.5" marker-end="url(#aa)"/><text x="652" y="238" text-anchor="middle" font-size="8.5" class="t-acc">send: secret-spliced bytes</text>
+  <!-- response -->
+  <line x1="765" y1="286" x2="541" y2="286" class="s-cur dash" stroke-width="1.2" marker-end="url(#a)"/><text x="652" y="280" text-anchor="middle" font-size="8.5" class="t-mut">response bytes</text>
+  <!-- label -->
+  <rect x="452" y="304" width="154" height="30" class="f-s1 s-ln"/><text x="529" y="323" text-anchor="middle" font-size="8.5">label result UNTRUSTED</text>
+  <!-- return down -->
+  <line x1="517" y1="366" x2="303" y2="366" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/><text x="409" y="360" text-anchor="middle" font-size="8.5">status + result (&#183;,UNTRUSTED)</text>
+  <line x1="299" y1="392" x2="101" y2="392" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/><text x="199" y="386" text-anchor="middle" font-size="8.5">framed response</text>
+  <!-- secret containment note -->
+  <line x1="600" y1="120" x2="600" y2="348" class="s-acc dash"/><text x="612" y="240" font-size="8" class="t-acc" transform="rotate(90 612 240)">secret stays right of here</text>
+</svg>
+<figcaption><span class="fl">Figure 12-1.</span> The egress sequence. The Endpoint only frames; Warden
+only relays; the Monitor is where every decision and the secret injection happen. The one accented send
+is the only line carrying secret-spliced bytes, and it goes outward to the ESP32 — never back down the
+return path. The response returns stamped <code>UNTRUSTED</code>, and the credential never crosses left
+of the Monitor's lifeline.</figcaption>
+</figure>
+
+<p>Two things about this picture repay a second look. First, Warden — the supervisor-mode microkernel —
+is on the path but decides nothing; it schedules the request to the Monitor and relays the answer, and
+if it were fully compromised the security property would still hold, because it never touches the
+egress hardware or the secret. Second, the secret's entire existence as plaintext is confined to the
+Monitor's activation box on the right of the diagram. It is read from <code>SECRETS</code>, spliced,
+sent, and wiped, all within machine mode. Nothing to the left of the Monitor's lifeline — not Warden,
+not the Endpoint, not the host — ever holds it.</p>
+
+<h2><span class="n">12.6</span>The TRNG: randomness you can trust</h2>
+<p>Several parts of Redoubt need genuine unpredictability: randomising capability handles so they cannot
+be guessed, seeding session identifiers, and any future key generation. A formula-based pseudo-random
+generator is not enough here, because its output is predictable to anyone who learns its seed. Redoubt
+therefore uses a hardware entropy source: a ring oscillator built in the FPGA fabric, whose jitter is a
+physical process no attacker can compute ahead of time.</p>
+<p>Raw physical entropy is never trusted blindly, though, because entropy sources fail — they can get
+stuck, or degrade with temperature, and a silently failing noise source that keeps handing out the same
+"random" value is worse than no source at all. So the TRNG output passes continuous health tests drawn
+from NIST SP 800-90B: the Repetition-Count Test, which trips if a value repeats too many times in a row,
+and the Adaptive-Proportion Test, which trips if one value dominates a window.<sup><a href="#n5">5</a></sup>
+If either test fails, entropy-consuming operations block rather than proceed on suspect randomness. A
+stalled key generator is safe; one running on a stuck source is not. This treatment of the entropy
+source as a first-class, isolated, self-checking element follows the same instinct as Baochip's
+high-assurance TRNG design.<sup><a href="#n6">6</a></sup></p>
+
+<h2><span class="n">12.7</span>Edge cases and failure modes</h2>
+<ul>
+<li><em>The ESP32 errors or stalls.</em> The send is bounded by a timer. If the link does not complete
+in time the Monitor abandons the attempt and returns <code>ERR_EGRESS</code> (0x20) or
+<code>ERR_TIMEOUT</code> (0x21) to the caller — never a half-finished action. Retrying is the untrusted
+caller's business, not the Monitor's.</li>
+<li><em>The SD card is absent or write-protected.</em> A storage action against missing or read-only
+media returns <code>ERR_EGRESS</code>; the capability check has already passed, so this is a hardware
+condition, reported as one.</li>
+<li><em>The TRNG health test fails mid-operation.</em> Entropy consumers block. This is a deliberate
+availability sacrifice: we would rather stall than issue a guessable handle.</li>
+<li><em>A secret injection where the send then fails.</em> The plaintext is wiped in the same path
+whether the send succeeded or errored; there is no error branch that skips the scrub.</li>
+<li><em>An impossible fault touching egress hardware.</em> If the Monitor trips over a protection it
+itself set while reaching the egress region, that is a Monitor bug, and it halts rather than continue in
+a possibly corrupt state (Chapter&nbsp;9). A halted Redoubt sends nothing, which is safe.</li>
+</ul>
+
+<h2><span class="n">12.8</span>The invariants it maintains</h2>
+<ol>
+<li>No effect reaches the network or storage hardware except from the Monitor's perform step, after all
+six checks have passed.</li>
+<li>Secret bytes never appear in a response, in the return path, or anywhere the untrusted side can
+read; plaintext exists only in machine-only memory, only during injection.</li>
+<li>Every egress result is labeled <code>UNTRUSTED</code> before it crosses back to the host.</li>
+<li>The load buffer for secrets, and the injector's working copy, are wiped on every path, including
+error paths.</li>
+<li>Randomness is issued only from a TRNG whose health tests are currently passing.</li>
+<li>Every egress operation is bounded by a timeout; a slow or stuck device cannot freeze the Monitor.</li>
+</ol>
+
+<h2><span class="n">12.9</span>Alternatives rejected</h2>
+<p>The exits are where hardware reality bites hardest, so several tempting shortcuts were declined.</p>
+<p class="rej"><b>Let a driver drive the ESP32 directly for speed.</b> Give the user-mode network driver
+raw access to the link and skip the trip through machine mode. This is faster and it also demolishes the
+entire guarantee: a compromised driver could then send anything anywhere and inject or read secrets. The
+send has to be a Monitor action or the wall means nothing.</p>
+<p class="rej"><b>Ship wired Ethernet in version one.</b> It is the right destination — the Monitor owning
+the MAC in fabric removes the ESP32 firmware from the trusted path. But it needs a different, more
+expensive board and considerably more FPGA work, and version one's job is to demonstrate the mediation
+architecture on cheap, available hardware. We took the ESP32 with eyes open and wrote the caveat down
+rather than pretending the seam is not there.</p>
+<p class="rej"><b>Hand the agent a short-lived token instead of injecting.</b> Rather than splice a
+secret the agent never sees, mint a scoped token and let the agent use it. Sometimes reasonable, but it
+moves a credential — even a narrow one — onto the untrusted host, where a hijacked agent can spend it
+however the token allows and can exfiltrate the token itself. Inject-only keeps every credential on the
+trusted side of the boundary, which is the stronger position.</p>
+<p class="rej"><b>Return secrets to trusted callers "just this once."</b> Add an ABI that reads a key,
+guarded by a special capability. Every such door is a door, and the moment one exists the invariant
+"secret bytes never leave" becomes "secret bytes never leave except when they do," which is not an
+invariant. There is no read-secret opcode, by design.</p>
+<p class="rej"><b>Use a software PRNG seeded once at boot.</b> Cheaper than a hardware source and free of
+health-test complexity. Also predictable to anyone who recovers the seed, and with no way to notice
+degradation. For handles and keys that must resist guessing, a checked physical source is worth its
+cost.</p>
+
+<h2><span class="n">12.10</span>Open questions</h2>
+<ul>
+<li>The exact M-owned link protocol to the ESP32, and how much of it is the Monitor's versus a
+user-mode driver's — the boundary is drawn in principle but the wire details are unsettled.</li>
+<li>Timeout values: how long to wait on the network link versus the SD controller before returning an
+error. These want measurement on real hardware, not a guess.</li>
+<li>Whether secret injection must be constant-time in version one, or whether that can wait with the
+rest of the side-channel work.</li>
+<li>How secrets are provisioned into the M-only QSPI area in the first place, and whether that
+provisioning step needs its own attested ceremony.</li>
+<li>Whether the version-two wired-Ethernet MAC should be accompanied by the Monitor owning a TLS
+implementation, or whether TLS stays outside the trusted base with only the transport owned.</li>
+</ul>
+
+<ol class="notes" id="notes">
+<li id="n1"><span>[1]</span> The egress and secrets regions are M-only PMP entries (#3 and #4 of the
+memory map), written and locked at boot before any T1/T2 code runs; see Chapter 3 and the RISC-V
+Privileged ISA, PMP.</li>
+<li id="n2"><span>[2]</span> ESP32 firmware integrity is explicitly out of scope for v1 (spec §2.2): it
+is a closed module in the egress path. v2 moves to wired Ethernet (ECPIX-5 / Colorlight) so the Monitor
+owns the MAC directly.</li>
+<li id="n3"><span>[3]</span> The typed <code>PATH</code> argument and <code>PREFIX</code> operator close
+the same checker-versus-doer parser-mismatch class discussed for URLs in Chapter 6; the Monitor checks
+the path as it will use it, without a re-parse.</li>
+<li id="n4"><span>[4]</span> Apple Secure Enclave key-wrapping: software is granted the use of a key,
+never its bytes. Redoubt applies the identical principle to injected secrets (spec §6.5, §9.3).</li>
+<li id="n5"><span>[5]</span> NIST SP 800-90B — entropy source validation and continuous health tests:
+the Repetition-Count Test (RCT) and Adaptive-Proportion Test (APT).</li>
+<li id="n6"><span>[6]</span> bunnie, <em>Baochip-1x</em> — a mostly-open high-assurance SoC that treats
+the TRNG and secure elements as first-class isolated components.</li>
+</ol>
+
+<footer>Redoubt Architecture · RDBT-ARCH-12 · Egress &amp; Secrets · Draft. Open source (MIT). One of
+thirteen component chapters; read alongside Chapter 9 (the Monitor) and Chapter 10 (Information-Flow
+Control).</footer>
+</div>

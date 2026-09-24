@@ -1,0 +1,405 @@
+<title>SoC, Board &amp; Memory Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --paper:#FFFFFF; --ink:#17181A; --muted:#5C5F66; --faint:#8A8D94; --line:#D5D7DB;
+    --rule:#222; --accent:#2E4A6B; --code-bg:#F4F5F6; --code-ink:#22252A;
+    --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --paper:#17181B; --ink:#E4E3DF; --muted:#A2A5AC; --faint:#7B7E85; --line:#33353A;
+    --rule:#C9CACE; --accent:#9CB6D6; --code-bg:#1E2024; --code-ink:#D2D4D8;
+  }}
+  :root[data-theme="dark"]{
+    --paper:#17181B; --ink:#E4E3DF; --muted:#A2A5AC; --faint:#7B7E85; --line:#33353A;
+    --rule:#C9CACE; --accent:#9CB6D6; --code-bg:#1E2024; --code-ink:#D2D4D8;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:18px;line-height:1.6;-webkit-text-size-adjust:100%}
+  .page{max-width:660px;margin:0 auto;padding-inline:24px;padding-block:0}
+  p{margin:.75rem 0;text-align:justify;hyphens:auto;-webkit-hyphens:auto}
+  p,li{max-width:64ch}
+  a{color:var(--accent);text-underline-offset:2px}
+  h1{font-weight:700;font-size:2.15rem;line-height:1.14;margin:.2rem 0;text-align:left;hyphens:none}
+  h2{font-weight:700;font-size:1.4rem;line-height:1.2;margin:2.6rem 0 .5rem;hyphens:none}
+  h3{font-weight:600;font-size:1.14rem;margin:1.7rem 0 .2rem;hyphens:none}
+  h4{font-weight:600;font-size:1rem;margin:1.2rem 0 .1rem;font-style:italic;hyphens:none}
+  h2 .n{font-family:var(--mono);font-weight:500;font-size:1rem;color:var(--muted);margin-right:.6em}
+  .masthead{border-top:3px solid var(--rule);border-bottom:1px solid var(--line);padding:1.4rem 0 1.1rem;margin-top:1.2rem}
+  .docmeta{font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;color:var(--muted);text-transform:uppercase;margin:0 0 .6rem;display:flex;flex-wrap:wrap;gap:4px 22px}
+  .docmeta b{color:var(--ink);font-weight:500}
+  .abstract{font-size:1.02rem;color:var(--ink);margin-top:1rem}
+  .abstract .lbl{font-variant:small-caps;letter-spacing:.06em;font-weight:600;color:var(--muted);font-size:.82rem;margin-right:.5em}
+  code{font-family:var(--mono);font-size:.8em;background:var(--code-bg);color:var(--code-ink);padding:.08em .32em;border-radius:3px}
+  pre{font-family:var(--mono);background:var(--code-bg);color:var(--code-ink);border:1px solid var(--line);border-left:3px solid var(--rule);padding:14px 16px;overflow-x:auto;font-size:.76rem;line-height:1.55;margin:1.2rem 0;text-align:left}
+  pre code{background:none;padding:0}
+  figure{margin:1.8rem 0;text-align:center}
+  figure svg{display:block;max-width:100%;height:auto;margin:0 auto;color:var(--ink);border:1px solid var(--line);padding:14px;background:var(--paper)}
+  figcaption{font-size:.85rem;color:var(--muted);margin-top:.6rem;text-align:left;max-width:60ch}
+  figcaption .fl{font-weight:600;color:var(--ink)}
+  figure svg text{fill:currentColor}
+  .s-ln{stroke:var(--line)}.s-acc{stroke:var(--accent)}.s-cur{stroke:currentColor}.s-mut{stroke:var(--muted)}
+  .f-s1{fill:var(--paper)}.f-s2{fill:var(--code-bg)}.f-acc{fill:none}.f-none{fill:none}
+  .t-acc{fill:var(--accent)}.t-mut{fill:var(--muted)}.mk{fill:currentColor}.mk-acc{fill:var(--accent)}.dash{stroke-dasharray:4 4}
+  table{border-collapse:collapse;width:100%;font-size:.85rem;margin:1.1rem 0}
+  .tblwrap{overflow-x:auto}
+  th,td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}
+  th{border-bottom:2px solid var(--rule);font-weight:600}
+  .note{border:1px solid var(--line);border-left:3px solid var(--accent);padding:14px 18px;margin:1.6rem 0;font-size:.95rem;background:var(--paper)}
+  .note .lbl{font-variant:small-caps;letter-spacing:.06em;font-weight:600;color:var(--accent);font-size:.82rem}
+  .note dt{font-weight:600;margin-top:.6rem;text-align:left}
+  .note dd{margin:.1rem 0 0;color:var(--muted);text-align:justify;hyphens:auto}
+  .aside{color:var(--muted);font-style:italic;border-left:2px solid var(--line);padding-left:16px;margin:1.2rem 0}
+  ul,ol{padding-left:1.4rem} li{margin:.35rem 0}
+  dl.gloss dt{font-family:var(--mono);font-size:.82rem;color:var(--accent);margin-top:.9rem;text-align:left}
+  dl.gloss dd{margin:.15rem 0 0}
+  sup a{text-decoration:none;font-size:.72em;padding:0 1px}
+  .notes{font-size:.85rem;color:var(--muted);border-top:1px solid var(--line);margin-top:2.4rem;padding-top:1rem}
+  .notes li{margin:.3rem 0;max-width:70ch;text-align:left}
+  .notes li span{color:var(--faint);font-family:var(--mono);font-size:.85em;margin-right:.4em}
+  .rej{margin-top:.9rem} .rej b{font-style:italic}
+  footer{margin:3rem 0 2rem;padding-top:1rem;border-top:3px solid var(--rule);font-size:.82rem;color:var(--muted);text-align:left}
+  hr{border:none;border-top:1px solid var(--line);margin:2rem 0}
+</style>
+
+<div class="page">
+<div class="masthead">
+  <div class="docmeta">
+    <span>Redoubt Architecture</span><span>Component Specification</span>
+    <span>Doc <b>RDBT-ARCH-04</b></span><span>Status <b>Draft</b></span><span>Chapter <b>4 / 13</b></span>
+  </div>
+  <h1>SoC, Board &amp; Memory Map</h1>
+  <p class="abstract"><span class="lbl">Abstract.</span> The previous chapter described the wall; this
+  one describes the building it stands in. Redoubt is not an abstract design — it is a specific processor,
+  built out of specific open-source pieces, running on a specific circuit board you can buy for about the
+  price of a nice dinner. This chapter walks through that board and why it was chosen, the configurable
+  RISC-V core we assemble on it and the exact plugins we switch on, the collection of peripherals wired
+  around the core, the full physical memory map that ties the addresses of Chapter 3 to real hardware,
+  and the unglamorous but load-bearing matters of clocking and reset. It closes with the network, screen,
+  and randomness peripherals that make the device do something visible, the alternatives we turned down,
+  and the questions still open. It assumes you have read Chapter 3 but nothing more.</p>
+</div>
+
+<div class="note">
+<span class="lbl">Note to first-time readers.</span>
+<p style="text-align:justify">A handful of hardware words recur below. Here they are in plain language.</p>
+<dl>
+<dt>FPGA</dt><dd>A field-programmable gate array: a chip full of blank logic that you configure into
+whatever digital circuit you like by loading a <em>bitstream</em>. We use one to build a RISC-V computer
+that does not otherwise exist as a physical part — which means the whole processor is something we, and
+you, can read and modify.</dd>
+<dt>Soft core</dt><dd>A processor implemented as an FPGA design rather than etched into fixed silicon.
+Ours is VexRiscv. Because it is "soft," we choose exactly which features it has.</dd>
+<dt>SoC</dt><dd>System-on-chip: the processor plus its memory controller and peripherals, all assembled
+into one design. We generate ours with a tool called LiteX so we do not hand-wire the tedious parts.</dd>
+<dt>Peripheral</dt><dd>Anything attached to the processor that is not the processor or plain memory: a
+serial port, an SD-card controller, a screen driver. Software talks to a peripheral by reading and
+writing special addresses (see MMIO).</dd>
+<dt>MMIO</dt><dd>Memory-mapped I/O: the trick of giving a hardware device an address, so that a store to
+that address pokes the device rather than storing to memory. It is why "the network hardware" can appear
+as a region in a memory map.</dd>
+<dt>Bus</dt><dd>The shared set of wires over which the processor reaches memory and peripherals. Ours is
+a Wishbone/CSR bus; every peripheral hangs off it at some address.</dd>
+</dl>
+</div>
+
+<h2><span class="n">4.1</span>The board, and why this one</h2>
+<p>Redoubt runs on the <b>ULX3S</b>, a small open-hardware development board built around a Lattice
+<b>ECP5-85F</b> FPGA.<sup><a href="#n1">1</a></sup> Choosing hardware for a security project is mostly an
+exercise in saying no to things, and the ULX3S survived a short, strict list of requirements.</p>
+<p>The first and least negotiable was a <em>fully open toolchain</em>. It would be faintly absurd to
+argue that a device is trustworthy because you can read all of its source, and then compile that source
+with a closed, unauditable vendor tool. The ECP5 is the sweet spot here: it is the largest FPGA family
+that the open toolchain — Yosys for synthesis, nextpnr for place-and-route, Project Trellis for the
+bitstream — supports well.<sup><a href="#n2">2</a></sup> Every step from our HDL to the bits that
+configure the chip runs on software we can inspect, and the device is flashed with an open loader
+(<code>openFPGALoader</code>). Nothing in the path asks us to trust a binary we cannot see into.</p>
+<p>The second was <em>enough room</em>. The "85F" denotes roughly 85,000 lookup tables of logic, which is
+comfortable headroom for a VexRiscv core, the LiteX SoC around it, and the Monitor's needs, without the
+constant fitting battles a smaller part would force. The third was <em>the right peripherals on the
+board already</em>: 32&nbsp;MB of SDRAM, a USB-serial bridge for the host link, an on-board ESP32 for
+network egress, a microSD slot for storage, QSPI flash for non-volatile state, eleven LEDs, and a
+footprint for a small SPI OLED. That inventory maps almost one-to-one onto what Redoubt needs, which
+means less adapter hardware and fewer things to get wrong. It is also, frankly, a board with a large and
+friendly tutorial base, and for a project meant to be built and hacked on rather than admired from a
+distance, that counts.<sup><a href="#n3">3</a></sup></p>
+<p class="aside">There is a deliberate lineage here. Precursor — the open secure-communications device —
+runs the Xous Rust microkernel on a VexRiscv soft core generated by LiteX, on an FPGA. Redoubt reuses
+that exact stack (VexRiscv, LiteX, an FPGA, a small Rust kernel) and aims it at a different job. Walking
+a proven path leaves us free to spend our novelty budget on the one thing that is new: mediating an
+agent's tool calls.</p>
+
+<h2><span class="n">4.2</span>The processor: VexRiscv, and the switches we flip</h2>
+<p>VexRiscv is a RISC-V core written in SpinalHDL, and its defining trait is that it is assembled from
+<em>plugins</em>.<sup><a href="#n4">4</a></sup> You do not get a fixed processor; you get a kit, and you
+choose which capabilities to include. That is unusually valuable for us, because the security argument of
+Chapter 3 depends on the core actually having certain features — three privilege modes, real PMP — and
+lets us leave off anything we do not need, keeping the design small. The target instruction set is
+<b>RV32IMAC</b>: 32-bit base, integer multiply/divide, atomics, and the compressed encoding.</p>
+<p>Here is the configuration, plugin by plugin, with why each is present.</p>
+<dl class="gloss">
+<dt>CsrPlugin (M/S/U)</dt><dd>Provides the control-and-status registers and, crucially, all three
+privilege modes. Without this there is no machine/supervisor/user distinction, and the whole isolation
+scheme of Chapter 3 has nothing to stand on. This is the non-negotiable plugin.</dd>
+<dt>PmpPlugin</dt><dd>Implements Physical Memory Protection — the load-bearing wall itself. We request at
+least eight entries, which covers the region map with a little room to spare, and we verify the
+implemented count at boot rather than assuming it. Everything in the last chapter is enforced here.</dd>
+<dt>IBusCachedPlugin / DBusCachedPlugin</dt><dd>Instruction and data caches. These are about speed, not
+security, but they earn their place: fetching every instruction and datum straight from SDRAM would make
+the device sluggish. The caches sit beneath the PMP check, so they change performance, not what is
+permitted.</dd>
+<dt>MulDivPlugin</dt><dd>Hardware multiply and divide (the <code>M</code> in RV32IMAC). The Monitor's
+hashing and the SoC's housekeeping want multiplication often enough that doing it in software would be a
+needless drag.</dd>
+<dt>MmuPlugin (Sv32) — optional</dt><dd>The full virtual-memory unit, giving the Warden page-based
+isolation between user-mode compartments. It is genuinely useful <em>one level down</em>, and it is
+explicitly optional for v1: PMP is the wall that must be there, and the MMU is a finer mesh we may add on
+top once the base is solid. Whether it ships in v1 is an open question (§4.8), carried jointly with
+Chapter 3.</dd>
+<dt>ExternalInterruptPlugin</dt><dd>Routes interrupts from peripherals — a timer expiring, a device
+signalling — into the core so the Warden can schedule against real events.</dd>
+</dl>
+<p>The important thing to notice is how little of this is exotic. It is a plain, cache-equipped RV32IMAC
+core with the two features the design truly requires — three modes and PMP — turned on, and one heavier
+feature (the MMU) held in reserve. A small core is a core we can reason about.</p>
+
+<h2><span class="n">4.3</span>The SoC around the core</h2>
+<p>A bare processor is not much use; it needs memory and a way to reach the world. We assemble that with
+<b>LiteX</b>, a generator that stitches a core together with memory controllers and peripherals and hands
+back a working SoC.<sup><a href="#n5">5</a></sup> LiteX is, in its own words, boring on purpose, and that
+is precisely the recommendation for scaffolding that must simply work so the interesting part — the
+Monitor — can be built on top. Everything hangs off a Wishbone/CSR bus; each peripheral occupies a range
+of addresses, and reading or writing those addresses is how software drives it.</p>
+<p>The peripherals we instantiate are these:</p>
+<ul>
+<li><b>LiteDRAM</b> — the controller for the 32&nbsp;MB of SDRAM, which holds the Warden's working memory
+and the backing store for the user-mode compartments.</li>
+<li><b>UART</b> — the serial link. One instance carries the host connection over the on-board USB-serial
+bridge; it is how the agent's requests arrive and answers depart (the wire format is Chapter 6). A second
+serves as a debug console during development.</li>
+<li><b>LiteSDCard</b> — the microSD controller, Redoubt's storage egress. Its registers live in the
+machine-only egress region, so only the Monitor drives it.</li>
+<li><b>QSPI flash</b> — non-volatile storage for the bitstream, the Monitor image, and an M-only area
+holding secrets and keys loaded at boot.</li>
+<li><b>GPIO / LEDs</b> — the eleven on-board LEDs, invaluable for a live demo: a hijacked agent's request
+being denied can light up in the room.</li>
+<li><b>SPI &#8594; OLED</b> — an SPI link to a small SSD1331 display, which shows verdicts and the audit
+log's head hash where a person can read them.</li>
+<li><b>UART/SPI &#8594; ESP32</b> — the machine-owned link to the on-board ESP32, Redoubt's network egress.</li>
+<li><b>RO-TRNG</b> — a ring-oscillator true-random-number generator built in the FPGA fabric, feeding key
+and handle randomisation, with health tests described in §4.7.</li>
+</ul>
+<p>Notice which of these the Monitor keeps for itself. The SD controller, the ESP32 link, and the TRNG
+are the wires and the entropy — the things that must not be reachable by untrusted code — and they are
+gathered into a single machine-only region so that Chapter 3's wall covers them all at once. The UART for
+the host, by contrast, is deliberately reachable by the user-mode endpoint, because carrying bytes in and
+out is all it does; it decides nothing.</p>
+
+<figure>
+<svg viewBox="0 0 820 468" role="img" aria-label="Block diagram of the Redoubt SoC. At top, an untrusted host runs the LLM and agent, connected over USB CDC-ACM into the SoC. Inside the SoC boundary sit a USB-serial bridge, the VexRiscv core with its plugins, and a Wishbone/CSR bus. Hanging off the bus are SDRAM via LiteDRAM, QSPI flash, a host UART, GPIO and LEDs, and an SPI OLED. A highlighted machine-only egress region groups the ESP32 network link, the microSD controller, and the ring-oscillator TRNG; arrows leave the SoC boundary from the ESP32 to Wi-Fi and from the SD controller to a microSD card.">
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk"/></marker><marker id="aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk-acc"/></marker></defs>
+  <!-- host -->
+  <rect x="320" y="12" width="180" height="46" class="f-s2 s-ln"/><text x="410" y="32" text-anchor="middle" font-size="10">HOST (untrusted)</text><text x="410" y="47" text-anchor="middle" font-size="8.5" class="t-mut">LLM + agent + tools</text>
+  <line x1="410" y1="58" x2="410" y2="98" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/>
+  <text x="418" y="82" font-size="8" class="t-mut">USB CDC-ACM</text>
+  <!-- SoC boundary -->
+  <rect x="24" y="98" width="772" height="322" class="f-none s-mut dash"/>
+  <text x="34" y="114" font-size="9" class="t-mut">REDOUBT SoC &#8212; ULX3S / ECP5-85F (LiteX)</text>
+  <!-- FT231X -->
+  <rect x="352" y="124" width="116" height="34" class="f-s1 s-ln"/><text x="410" y="145" text-anchor="middle" font-size="9">FT231X USB-serial</text>
+  <line x1="410" y1="158" x2="410" y2="320" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/>
+  <!-- CPU -->
+  <rect x="58" y="150" width="204" height="132" class="f-s2 s-ln"/>
+  <text x="160" y="170" text-anchor="middle" font-size="10">VexRiscv &#8212; RV32IMAC</text>
+  <g font-size="8" class="t-mut" text-anchor="middle">
+    <text x="160" y="188">CsrPlugin (M/S/U)</text>
+    <text x="160" y="202">PmpPlugin (&#8805;8 entries)</text>
+    <text x="160" y="216">IBus/DBus cached</text>
+    <text x="160" y="230">MulDivPlugin</text>
+    <text x="160" y="244">MmuPlugin Sv32 (opt.)</text>
+    <text x="160" y="258">ExternalInterrupt</text>
+  </g>
+  <line x1="160" y1="282" x2="160" y2="320" class="s-cur" stroke-width="1.2" marker-end="url(#a)"/>
+  <!-- bus -->
+  <line x1="58" y1="320" x2="762" y2="320" class="s-cur" stroke-width="2"/>
+  <text x="58" y="334" font-size="9" class="t-mut">Wishbone / CSR bus</text>
+  <!-- non-egress peripherals -->
+  <g font-size="8.5" text-anchor="middle">
+    <line x1="92" y1="320" x2="92" y2="352" class="s-ln"/><rect x="46" y="352" width="96" height="42" class="f-s1 s-ln"/><text x="94" y="370">LiteDRAM</text><text x="94" y="384" class="t-mut">32MB SDRAM</text>
+    <line x1="186" y1="320" x2="186" y2="352" class="s-ln"/><rect x="150" y="352" width="76" height="42" class="f-s1 s-ln"/><text x="188" y="370">QSPI</text><text x="188" y="384" class="t-mut">flash</text>
+    <line x1="270" y1="320" x2="270" y2="352" class="s-ln"/><rect x="234" y="352" width="72" height="42" class="f-s1 s-ln"/><text x="270" y="370">UART</text><text x="270" y="384" class="t-mut">host+dbg</text>
+    <line x1="352" y1="320" x2="352" y2="352" class="s-ln"/><rect x="314" y="352" width="80" height="42" class="f-s1 s-ln"/><text x="354" y="370">GPIO</text><text x="354" y="384" class="t-mut">11 LEDs</text>
+    <line x1="444" y1="320" x2="444" y2="352" class="s-ln"/><rect x="402" y="352" width="86" height="42" class="f-s1 s-ln"/><text x="445" y="370">SPI</text><text x="445" y="384" class="t-mut">SSD1331 OLED</text>
+  </g>
+  <!-- egress group (machine-only) -->
+  <line x1="628" y1="320" x2="628" y2="338" class="s-acc" stroke-width="1.5"/>
+  <rect x="504" y="338" width="256" height="70" class="f-s2 s-acc" stroke-width="1.5"/>
+  <text x="632" y="352" text-anchor="middle" font-size="8.5" class="t-acc">EGRESS_MMIO &#183; machine-only (region #4)</text>
+  <g font-size="8" text-anchor="middle">
+    <rect x="512" y="360" width="78" height="40" class="f-s1 s-acc"/><text x="551" y="378">ESP32</text><text x="551" y="390" class="t-mut">net link</text>
+    <rect x="594" y="360" width="78" height="40" class="f-s1 s-acc"/><text x="633" y="378">LiteSDCard</text><text x="633" y="390" class="t-mut">microSD</text>
+    <rect x="676" y="360" width="78" height="40" class="f-s1 s-acc"/><text x="715" y="378">RO-TRNG</text><text x="715" y="390" class="t-mut">entropy</text>
+  </g>
+  <!-- egress leaving the SoC -->
+  <line x1="551" y1="400" x2="551" y2="444" class="s-acc" stroke-width="1.5" marker-end="url(#aa)"/><text x="551" y="458" text-anchor="middle" font-size="8" class="t-acc">Wi-Fi (network)</text>
+  <line x1="633" y1="400" x2="633" y2="444" class="s-acc" stroke-width="1.5" marker-end="url(#aa)"/><text x="633" y="458" text-anchor="middle" font-size="8" class="t-acc">microSD (storage)</text>
+</svg>
+<figcaption><span class="fl">Figure 4-1.</span> The SoC. The host reaches the device only through the
+USB-serial bridge and the host UART — a path that carries bytes but decides nothing. Everything hangs off
+one bus. The accented region gathers the three peripherals the Monitor keeps to itself — the network
+link, the storage controller, and the entropy source — and it is precisely the machine-only
+<code>EGRESS_MMIO</code> region walled off in Chapter 3. The accented arrows are the only paths by which
+data leaves the chip.</figcaption>
+</figure>
+
+<h2><span class="n">4.4</span>The physical memory map</h2>
+<p>Everything above meets here. The bus assigns each region of memory and each peripheral a range of
+physical addresses, and those ranges are the very ones Chapter 3's PMP entries police. This is the
+canonical map for the whole project; every other chapter refers to these addresses and none of them
+change.</p>
+<div class="tblwrap">
+<table>
+<thead><tr><th>Base address</th><th>Region</th><th>Backed by</th><th>Reachable from</th></tr></thead>
+<tbody>
+<tr><td><code>0x0000_0000</code></td><td>BROM (measured boot)</td><td>FPGA block RAM</td><td>M : R&#8209;X</td></tr>
+<tr><td><code>0x1000_0000</code></td><td>MON_CODE / MON_DATA / SECRETS</td><td>block RAM (M-only)</td><td>M only</td></tr>
+<tr><td><code>0x2000_0000</code></td><td>WARDEN</td><td>SDRAM window</td><td>S : RWX</td></tr>
+<tr><td><code>0x3000_0000</code></td><td>COMPARTMENTS</td><td>SDRAM window</td><td>U : RW&#8209; (own)</td></tr>
+<tr><td><code>0x4000_0000</code></td><td>SHARED_REQ buffer</td><td>block RAM</td><td>M + U : RW&#8209;</td></tr>
+<tr><td><code>0x8000_0000</code></td><td>SDRAM (main)</td><td>MT48LC32M16, 32&nbsp;MB</td><td>per window above</td></tr>
+<tr><td><code>0xF000_0000</code></td><td>EGRESS_MMIO (ESP32 / SD / TRNG)</td><td>peripheral CSRs</td><td>M only</td></tr>
+</tbody>
+</table>
+</div>
+<p>Two rows deserve a second glance because they carry the security weight. The <code>0x1000_0000</code>
+block is the Monitor's world — its code, its data, and the secrets — and it is machine-only, invisible to
+everything below. The <code>0xF000_0000</code> block is not memory at all; it is the control registers of
+the network, storage, and randomness hardware, mapped into the address space so that "operate the
+network" is a matter of storing to an address. Because that block is machine-only, only the Monitor can
+issue those stores. Everything the untrusted world is allowed to see — the Warden's arena at
+<code>0x2000_0000</code>, the compartments at <code>0x3000_0000</code>, and the single shared mailbox at
+<code>0x4000_0000</code> — is by construction devoid of anything worth stealing.</p>
+<p class="aside">A subtlety worth flagging: <code>WARDEN</code> and <code>COMPARTMENTS</code> are address
+<em>windows</em> that the SoC backs with the physical SDRAM sitting at <code>0x8000_0000</code>. The
+distinct low addresses give each tier a clean base for its PMP entry; the bytes themselves live in the
+one 32&nbsp;MB SDRAM. Keeping the map's regions at tidy, well-separated bases is what lets the PMP table
+of Chapter 3 stay short and legible.</p>
+
+<h2><span class="n">4.5</span>Clocking and reset</h2>
+<p>Two pieces of plumbing rarely get the attention they deserve, and both bear on security more than they
+first appear. The first is the clock. The ECP5 has a phase-locked loop that multiplies the board's input
+oscillator up to the core's operating frequency and derives the separate clock the SDRAM controller
+needs. LiteX generates this clocking network; our part is to pick a frequency the fitted design actually
+meets timing at, which the place-and-route tools report. If the design does not meet timing it is not
+merely slow — it can be subtly wrong — so "the build passes timing" is a correctness gate, not a nicety.</p>
+<p>The second is reset, and reset is where the whole trust story begins. When the ECP5 powers up it loads
+its bitstream from QSPI flash and releases the core from reset into machine mode, executing the boot ROM
+at <code>0x0000_0000</code>. There is a precise, security-critical ordering that follows — the ROM
+measures the Monitor, the Monitor raises and locks the PMP wall before any lesser code runs — and Chapter
+5 tells that story in full. What matters here is that the hardware guarantees the starting conditions:
+one core, in the highest privilege mode, running trusted ROM, with no untrusted software anywhere in the
+machine. Every guarantee in Chapter 3 is built on that clean start.</p>
+
+<h2><span class="n">4.6</span>The peripherals that make it real</h2>
+<p>Three peripherals turn Redoubt from a memory-protection demonstration into a device that does
+something. They are treated at length in Chapter 12, but they belong in the picture here.</p>
+<h4>ESP32 &#8212; the network egress</h4>
+<p>The on-board ESP32 provides Wi-Fi, and it is Redoubt's route to the network. The Monitor drives it
+over a machine-owned UART/SPI link inside <code>EGRESS_MMIO</code>; a user-mode network driver may format
+a payload in its own compartment, but the actual <em>send</em> is a Monitor action, gated by a capability
+check and with secrets injected at that moment. This is the arrangement that lets a fully compromised
+host reach the network only on the Monitor's terms.</p>
+<p>It also comes with the project's most important honest caveat, and we state it plainly rather than bury
+it. The ESP32 runs its own, largely closed firmware, so that firmware sits in the egress path. The agent
+still cannot reach the network except through Redoubt, but a purist would want Redoubt to own the wire all
+the way down. The planned answer is a v2 board with wired Ethernet (an ECPIX-5 or Colorlight), where the
+Monitor owns the MAC directly. For a v1 demonstrator, the ESP32 is an acceptable, clearly-labelled
+compromise, not a hidden one.<sup><a href="#n6">6</a></sup></p>
+<h4>OLED and LEDs &#8212; the device speaking to a person</h4>
+<p>A reference monitor that silently does the right thing is hard to trust and harder to demonstrate. The
+eleven LEDs and the small SSD1331 OLED let Redoubt say what it just did: a denial can be shown as a code
+on the screen, the audit log's head hash can be displayed for an outside verifier to check, and an attack
+being contained can be visible in the room. This is genuinely part of the design's value, not decoration —
+a security property you can watch being enforced is one people believe.</p>
+<h4>TRNG &#8212; entropy you can trust</h4>
+<p>Randomness underlies key generation and the randomised capability handles that stop the host from
+guessing its way to authority. Ours is a ring-oscillator entropy source built directly in the FPGA
+fabric. Raw ring-oscillator output is not uniform, so it is conditioned, and — more importantly — it is
+watched: continuous health tests per NIST SP&nbsp;800-90B (the Repetition-Count and Adaptive-Proportion
+tests) run on the raw stream, and if the source degrades, operations that consume entropy block rather
+than proceed on weak randomness.<sup><a href="#n7">7</a></sup> A silently failing RNG is one of the
+classic ways secure systems rot, so its failure here is designed to be loud.</p>
+
+<h2><span class="n">4.7</span>Resource and failure notes</h2>
+<p>A few practical realities of building this on a real, finite FPGA:</p>
+<ul>
+<li><b>Fitting.</b> The core, the caches, LiteDRAM, and the peripherals must all fit within the 85F's
+logic and its block RAM. The Monitor's tables and the machine-only regions compete for block RAM with the
+caches; the exact sizes of <code>MON_DATA</code> and <code>SECRETS</code> are therefore not final until
+the design is placed and routed. This is the same open item flagged in Chapter 3.</li>
+<li><b>Timing.</b> As above, a design that fails timing is treated as a failed build. The clock frequency
+is chosen to what the fit actually sustains, not to what we would like.</li>
+<li><b>A slow or stuck peripheral.</b> The egress devices are far slower than the core and can, in
+principle, hang. The Monitor addresses them against a timeout and returns an error rather than waiting
+forever (the mechanism is Chapter 9); a stuck ESP32 must not be able to freeze the guard.</li>
+<li><b>PMP entry count.</b> The whole isolation argument assumes the fitted <code>PmpPlugin</code> really
+implements the entries we asked for. We request at least eight and check the count at boot; a core that
+reports fewer fails to start rather than running with a hole in the wall.</li>
+</ul>
+
+<h2><span class="n">4.8</span>Alternatives rejected</h2>
+<p>The board and SoC could have been assembled differently. Here is what we declined, and why.</p>
+<p class="rej"><b>A bigger board with a closed toolchain (Arty A7-100T / Vivado).</b> The Xilinx-based
+Arty offers more logic headroom, but only through Vivado, a large closed toolchain. For a device whose
+entire pitch is auditability, compiling the design with an unauditable tool undercuts the claim at the
+root. The open ECP5 flow was worth more than the extra LUTs.</p>
+<p class="rej"><b>A hardened commodity SoC instead of a soft core.</b> An off-the-shelf microcontroller
+would be faster and cheaper to bring up, but we could neither read nor modify its processor, and much of
+the interest — and the assurance — of Redoubt is that the CPU itself is open and malleable. A soft core on
+an FPGA is slower and more work; it is also the point.</p>
+<p class="rej"><b>Wired Ethernet in v1.</b> Owning the network wire directly (no ESP32 in the path) is the
+right end state and is planned for v2. Requiring it in v1 would have forced a different, less friendly
+board and delayed a working demonstrator for a purity gain that does not change the v1 guarantee against
+the untrusted host. We took the honest caveat and shipped.</p>
+<p class="rej"><b>Turning the MMU on unconditionally.</b> Enabling Sv32 from the start would give
+page-level compartment isolation immediately, but it adds real complexity to bring-up at a moment when
+PMP alone already provides the wall that must exist. We keep the MMU optional and add it deliberately, not
+reflexively.</p>
+<p class="rej"><b>Committing to the custom hardware mediation gate now.</b> The v2 vision is an RTL
+peripheral on the egress bus that enforces capabilities in silicon, unbypassable even by a compromised
+Monitor (Chapter 13). It is the distinctive contribution — and exactly the sort of thing to attempt only
+after a software-plus-PMP v1 has taught us what the primitive must do.</p>
+
+<h2><span class="n">4.9</span>Open questions</h2>
+<p>The honest loose ends specific to the hardware:</p>
+<ul>
+<li>Whether the Sv32 MMU is enabled for v1 multi-compartment isolation or held for a later revision
+(shared with Chapter 3).</li>
+<li>The exact operating frequency the placed-and-routed design sustains, and therefore the final
+performance envelope.</li>
+<li>The precise sizes of <code>MON_DATA</code> and <code>SECRETS</code>, pending how much block RAM the
+fit leaves free.</li>
+<li>How much of the ESP32 link protocol the Monitor owns directly versus what a user-mode driver formats
+before the Monitor's gated send.</li>
+<li>Whether to populate and rely on the SSD1331 OLED in the reference build, or treat it as an optional
+nicety atop the guaranteed LEDs.</li>
+</ul>
+
+<ol class="notes" id="notes">
+<li id="n1"><span>[1]</span> ULX3S — open-hardware development board around the Lattice ECP5 (LFE5U-85F), with SDRAM, USB-serial (FT231X), on-board ESP32, microSD, QSPI flash, LEDs, and an OLED footprint.</li>
+<li id="n2"><span>[2]</span> The open ECP5 flow: Yosys (synthesis), nextpnr-ecp5 (place-and-route), Project Trellis (bitstream), <code>openFPGALoader</code>/fujprog (flashing), Verilator (pre-silicon simulation).</li>
+<li id="n3"><span>[3]</span> Prior art the stack is modelled on: Precursor/Betrusted runs the Xous Rust microkernel on VexRiscv + LiteX on an FPGA; the ULX3S has a broad base of RISC-V-on-LiteX tutorials and even runs Linux.</li>
+<li id="n4"><span>[4]</span> VexRiscv (SpinalHDL) — the plugin-assembled RISC-V core: <code>CsrPlugin</code> (M/S/U), <code>PmpPlugin</code>, <code>IBus/DBusCachedPlugin</code>, <code>MulDivPlugin</code>, optional <code>MmuPlugin</code> (Sv32), <code>ExternalInterruptPlugin</code>.</li>
+<li id="n5"><span>[5]</span> LiteX SoC builder — generates the SoC around VexRiscv with LiteDRAM, UART, LiteSDCard, QSPI, GPIO, and CSR-bus peripherals.</li>
+<li id="n6"><span>[6]</span> Honest caveat (project hardware plan): the ESP32's largely-closed firmware sits in the egress path in v1; a wired-Ethernet ECP5 board (ECPIX-5 / Colorlight) is the v2 upgrade where the Monitor owns the MAC directly.</li>
+<li id="n7"><span>[7]</span> NIST SP 800-90B — entropy-source health tests (Repetition-Count and Adaptive-Proportion), applied continuously to the ring-oscillator TRNG; cf. Baochip's treatment of the TRNG as a first-class isolated element.</li>
+</ol>
+
+<footer>Redoubt Architecture &#183; RDBT-ARCH-04 &#183; SoC, Board &amp; Memory Map &#183; Draft. Open
+source (MIT). One of thirteen component chapters; see Chapter 3 for the PMP wall these addresses enforce,
+Chapter 5 for the boot sequence, Chapter 6 for the host wire protocol, and Chapter 12 for the egress
+peripherals in depth.</footer>
+</div>

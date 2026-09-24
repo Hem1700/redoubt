@@ -1,0 +1,499 @@
+<title>Redoubt Policy &amp; the Compiler</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --paper:#FFFFFF; --ink:#17181A; --muted:#5C5F66; --faint:#8A8D94; --line:#D5D7DB;
+    --rule:#222; --accent:#2E4A6B; --code-bg:#F4F5F6; --code-ink:#22252A;
+    --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --paper:#17181B; --ink:#E4E3DF; --muted:#A2A5AC; --faint:#7B7E85; --line:#33353A;
+    --rule:#C9CACE; --accent:#9CB6D6; --code-bg:#1E2024; --code-ink:#D2D4D8;
+  }}
+  :root[data-theme="dark"]{
+    --paper:#17181B; --ink:#E4E3DF; --muted:#A2A5AC; --faint:#7B7E85; --line:#33353A;
+    --rule:#C9CACE; --accent:#9CB6D6; --code-bg:#1E2024; --code-ink:#D2D4D8;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:18px;line-height:1.6;-webkit-text-size-adjust:100%}
+  .page{max-width:660px;margin:0 auto;padding-inline:24px;padding-block:0}
+  p{margin:.75rem 0;text-align:justify;hyphens:auto;-webkit-hyphens:auto}
+  p,li{max-width:64ch}
+  a{color:var(--accent);text-underline-offset:2px}
+  h1{font-weight:700;font-size:2.15rem;line-height:1.14;margin:.2rem 0;text-align:left;hyphens:none}
+  h2{font-weight:700;font-size:1.4rem;line-height:1.2;margin:2.6rem 0 .5rem;hyphens:none}
+  h3{font-weight:600;font-size:1.14rem;margin:1.7rem 0 .2rem;hyphens:none}
+  h4{font-weight:600;font-size:1rem;margin:1.2rem 0 .1rem;font-style:italic;hyphens:none}
+  h2 .n{font-family:var(--mono);font-weight:500;font-size:1rem;color:var(--muted);margin-right:.6em}
+  .masthead{border-top:3px solid var(--rule);border-bottom:1px solid var(--line);padding:1.4rem 0 1.1rem;margin-top:1.2rem}
+  .docmeta{font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;color:var(--muted);text-transform:uppercase;margin:0 0 .6rem;display:flex;flex-wrap:wrap;gap:4px 22px}
+  .docmeta b{color:var(--ink);font-weight:500}
+  .abstract{font-size:1.02rem;color:var(--ink);margin-top:1rem}
+  .abstract .lbl{font-variant:small-caps;letter-spacing:.06em;font-weight:600;color:var(--muted);font-size:.82rem;margin-right:.5em}
+  code{font-family:var(--mono);font-size:.8em;background:var(--code-bg);color:var(--code-ink);padding:.08em .32em;border-radius:3px}
+  pre{font-family:var(--mono);background:var(--code-bg);color:var(--code-ink);border:1px solid var(--line);border-left:3px solid var(--rule);padding:14px 16px;overflow-x:auto;font-size:.76rem;line-height:1.55;margin:1.2rem 0;text-align:left}
+  pre code{background:none;padding:0}
+  figure{margin:1.8rem 0;text-align:center}
+  figure svg{display:block;max-width:100%;height:auto;margin:0 auto;color:var(--ink);border:1px solid var(--line);padding:14px;background:var(--paper)}
+  figcaption{font-size:.85rem;color:var(--muted);margin-top:.6rem;text-align:left;max-width:60ch}
+  figcaption .fl{font-weight:600;color:var(--ink)}
+  figure svg text{fill:currentColor}
+  .s-ln{stroke:var(--line)}.s-acc{stroke:var(--accent)}.s-cur{stroke:currentColor}.s-mut{stroke:var(--muted)}
+  .f-s1{fill:var(--paper)}.f-s2{fill:var(--code-bg)}.f-acc{fill:none}.f-none{fill:none}
+  .t-acc{fill:var(--accent)}.t-mut{fill:var(--muted)}.mk{fill:currentColor}.mk-acc{fill:var(--accent)}.dash{stroke-dasharray:4 4}
+  table{border-collapse:collapse;width:100%;font-size:.85rem;margin:1.1rem 0}
+  .tblwrap{overflow-x:auto}
+  th,td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}
+  th{border-bottom:2px solid var(--rule);font-weight:600}
+  .note{border:1px solid var(--line);border-left:3px solid var(--accent);padding:14px 18px;margin:1.6rem 0;font-size:.95rem;background:var(--paper)}
+  .note .lbl{font-variant:small-caps;letter-spacing:.06em;font-weight:600;color:var(--accent);font-size:.82rem}
+  .note dt{font-weight:600;margin-top:.6rem;text-align:left}
+  .note dd{margin:.1rem 0 0;color:var(--muted);text-align:justify;hyphens:auto}
+  .aside{color:var(--muted);font-style:italic;border-left:2px solid var(--line);padding-left:16px;margin:1.2rem 0}
+  ul,ol{padding-left:1.4rem} li{margin:.35rem 0}
+  dl.gloss dt{font-family:var(--mono);font-size:.82rem;color:var(--accent);margin-top:.9rem;text-align:left}
+  dl.gloss dd{margin:.15rem 0 0}
+  sup a{text-decoration:none;font-size:.72em;padding:0 1px}
+  .notes{font-size:.85rem;color:var(--muted);border-top:1px solid var(--line);margin-top:2.4rem;padding-top:1rem}
+  .notes li{margin:.3rem 0;max-width:70ch;text-align:left}
+  .notes li span{color:var(--faint);font-family:var(--mono);font-size:.85em;margin-right:.4em}
+  .rej{margin-top:.9rem} .rej b{font-style:italic}
+  footer{margin:3rem 0 2rem;padding-top:1rem;border-top:3px solid var(--rule);font-size:.82rem;color:var(--muted);text-align:left}
+  hr{border:none;border-top:1px solid var(--line);margin:2rem 0}
+</style>
+
+<div class="page">
+<div class="masthead">
+  <div class="docmeta">
+    <span>Redoubt Architecture</span><span>Component Specification</span>
+    <span>Doc <b>RDBT-ARCH-08</b></span><span>Status <b>Draft</b></span><span>Chapter <b>8 / 13</b></span>
+  </div>
+  <h1>Policy &amp; the Compiler</h1>
+  <p class="abstract"><span class="lbl">Abstract.</span> A capability points at rules; this chapter is
+  about the rules and where they come from. Redoubt's policy is a small declarative manifest — a
+  human-written statement of what an agent may do — compiled ahead of time into fixed tables the Monitor
+  reads at run time. The manifest language is deliberately <em>total</em>: it has no loops, no
+  recursion, no callbacks, and cannot express open-ended computation, so a policy always terminates and
+  can always be audited by reading it. We give the grammar, the compiled forms the Monitor actually
+  evaluates — predicate clauses over typed fields, the eight comparison operators, the interned constant
+  pool, and the flow rule — and then compile one real capability from source all the way to the bytes,
+  so you can see a manifest become a <code>Cap</code>, a predicate table, and a flow table. We finish
+  with quotas, and with the road not taken: a flexible, Turing-complete policy language, and why a
+  reference monitor must never have one.</p>
+</div>
+
+<div class="note">
+<span class="lbl">Note to first-time readers.</span>
+<p style="text-align:justify">A little vocabulary, defined plainly, before we start.</p>
+<dl>
+<dt>Manifest</dt><dd>The human-authored policy file. It lists, per agent, which tools may be called and
+under what conditions. You read it top to bottom and you know exactly what the agent can do.</dd>
+<dt>Predicate</dt><dd>A condition on a tool call's arguments — "the host must be one of these," "the
+path must start with <code>/corpus/</code>." A call is allowed only if its predicate is satisfied.</dd>
+<dt>Total language</dt><dd>A language in which every program is guaranteed to finish. It buys that
+guarantee by giving up the ability to loop forever — which, for a policy, is exactly the ability we want
+gone.</dd>
+<dt>Compile</dt><dd>To translate the readable manifest, once and ahead of time, into compact tables of
+numbers the Monitor can evaluate quickly and without parsing anything at run time.</dd>
+<dt>Interning</dt><dd>Storing each distinct constant (a hostname, a path prefix) exactly once in a
+shared pool and referring to it everywhere by a small index, so the tables stay small and comparisons
+become integer compares.</dd>
+</dl>
+</div>
+
+<h2><span class="n">8.1</span>What a policy is for</h2>
+<p>The capabilities of the previous chapter are the run-time currency of authority, but somebody has to
+mint them, and they have to say something specific: not merely "may use the network" but "may call
+<code>http.request</code>, over HTTPS only, to <code>api.example.com</code> only, with the API key
+injected and never in the body." That specificity is the policy. The manifest is where a human writes it
+down, in a form they can read and reason about, and the compiler is what turns that writing into the
+tables the Monitor consults on every call.</p>
+<p>The split matters. We want the thing a person audits to be legible prose-like source, and the thing
+the Monitor evaluates to be rigid, tiny, and fast. Those are different shapes, so we keep them as two
+artefacts and translate once, at build or boot time, between them. The manifest is the truth a human
+signs off on; the compiled tables are its faithful, checkable projection into bytes.</p>
+<p>One consequence sets the tone for the whole chapter: because the tables are written once, at boot,
+into the Monitor's machine-only data region and never touched again, the policy is immutable for the
+life of a boot. There is no run-time "policy update" path into the trusted component — no code that
+mutates the rules while an agent is running, and so no such code to get wrong. Changing policy means
+producing a new manifest, recompiling, and rebooting. For a reference monitor, that rigidity is a
+feature, not a limitation.</p>
+
+<h2><span class="n">8.2</span>Why the language is total</h2>
+<p>The single most important decision in this chapter is a decision about what the policy language
+<em>cannot</em> do. It cannot loop. It cannot recurse. It cannot call out to a function you supply. It
+cannot compute in any open-ended sense. It can only check conditions. In the theory of computation this
+makes it a <em>total</em> language — every policy is guaranteed to finish — and we chose that on
+purpose, for three reasons that all point the same way.</p>
+<p><em>It always terminates.</em> The Monitor evaluates policy on the hot path of every tool call, in
+machine mode, with no scheduler above it to preempt a runaway. A policy that could loop forever could
+freeze the guard, and a frozen guard is a denial of service against the very thing that is supposed to
+keep working. A total language cannot loop forever, so evaluation is bounded by construction — the
+Monitor chapter's promise that "every request finishes in a bounded number of steps" rests partly
+here.</p>
+<p><em>It is auditable.</em> A human is meant to read a manifest and know what it permits. That is only
+possible if reading it is enough — if there is no hidden control flow, no callback that does who-knows-
+what, no data-dependent loop whose behaviour you have to simulate in your head. A total language of
+plain conditions can be understood by reading it, because reading it is the same as running it in your
+mind to completion.</p>
+<p><em>It is small to evaluate.</em> No loops and no recursion means no stack growth, no iteration
+count that depends on input, no allocation. Policy evaluation is a fixed walk over compiled clauses,
+which is why it fits inside a 2,500-line trusted base with room to spare. This is the same instinct the
+Monitor chapter states as an alternative it rejected — "a flexible policy language with loops and
+callbacks" — and this chapter is where that instinct is made concrete.<sup><a href="#n1">1</a></sup></p>
+<p class="aside">Total does not mean weak. It means bounded. The manifests we need — allowlists of hosts,
+path prefixes, method sets, numeric ranges, length limits — are all expressible as conjunctions of
+simple conditions, and none of them wants a loop. Giving up loops costs us nothing we actually use, and
+buys us termination and auditability outright. That is a rare bargain, and we take it.</p>
+
+<h2><span class="n">8.3</span>The manifest grammar</h2>
+<p>Here is the language, as EBNF. It is small enough to read in one sitting, which is the point.</p>
+<pre><code>manifest   = "session" STRING "{" { capability } "}" ;
+capability = "capability" IDENT "=" captype "{" { clause } "}" ;
+captype    = "net" | "file" | "secret" | "tool" ;
+clause     = "tool"   "=" STRING
+           | "arg" IDENT ":" argtype "where" predicate
+           | "secret" IDENT "inject-as" injsite
+           | "result" "label" "=" label
+           | "deny-if" flowcond
+           | "quota"  quotaspec ;
+argtype    = "url" | "path" | "enum" | "int" | "bytes" ;
+predicate  = clause_expr { ("and" | "or") clause_expr } ;   // no general computation
+clause_expr= field op operand ;
+op         = "==" | "in" | "prefix" | "suffix"
+           | "host in" | "scheme ==" | "range" | "len &lt;=" ;
+label      = "PUBLIC" | "SECRET" | "TRUSTED" | "UNTRUSTED" ;</code></pre>
+<p>Read it as a shape. A manifest names a session and lists capabilities. A capability has a type and a
+handful of clauses. A clause either binds the tool, constrains an argument with a predicate, arranges
+for a secret to be injected, labels the result, states a flow denial, or sets a quota. A predicate is a
+conjunction (or disjunction) of the simplest possible comparisons between one typed field and one
+operand. That is the entire language. There is nowhere in this grammar to write a loop, because there is
+no production that refers back to itself through anything but a bounded list, and there is nowhere to
+call arbitrary code, because there is no production for a function body. The absence is the design.</p>
+<p>The EBNF here is illustrative and still being finalised — the exact surface syntax is an open item
+(§8.9) — but the compiled forms it targets are fixed, and those are what the Monitor actually depends
+on. We turn to them now.</p>
+
+<h2><span class="n">8.4</span>What it compiles to</h2>
+<p>The compiler's output is three things: a set of <code>Cap</code> records (the sixteen-byte
+capabilities of Chapter 7), a predicate table, and a flow table. All three live in the machine-only data
+region, and all three are indexed by the small reference fields inside a <code>Cap</code>
+(<code>pred_ref</code>, <code>flow_ref</code>, <code>secret_ref</code>). Chapter 7 described the
+<code>Cap</code>; here are the two tables it points into.</p>
+
+<h3>The predicate table</h3>
+<p>A capability's argument rules compile to a small array of <em>clauses</em>, each a triple:</p>
+<pre><code>Clause = (field_selector, op, operand_ref)</code></pre>
+<p>The <code>field_selector</code> names which typed field of which argument the clause tests — the host
+of a URL, the scheme of a URL, the path of a file argument, an integer's value, a byte string's length.
+Because arguments cross the wire already typed (the TypedArg encoding of Chapter 6), the selector picks
+out a structured field directly; there is no re-parsing of text, and so none of the parser-mismatch bugs
+that arise when the checker and the doer disagree about how to read a string.<sup><a href="#n2">2</a></sup>
+The <code>op</code> is one of exactly eight comparison operators. The <code>operand_ref</code> is an
+index into the interned constant pool (below), except for operators whose operand is a small immediate.</p>
+<div class="tblwrap"><table>
+<thead><tr><th>op</th><th>Tests that the selected field&hellip;</th><th>Operand</th></tr></thead>
+<tbody>
+<tr><td><code>EQ</code></td><td>equals a constant exactly</td><td>pool ref</td></tr>
+<tr><td><code>IN_SET</code></td><td>is a member of a constant set</td><td>pool ref (set)</td></tr>
+<tr><td><code>PREFIX</code></td><td>begins with a constant byte/char sequence</td><td>pool ref</td></tr>
+<tr><td><code>SUFFIX</code></td><td>ends with a constant sequence</td><td>pool ref</td></tr>
+<tr><td><code>HOST_IN_SET</code></td><td>(URL host) is a member of a host allowlist</td><td>pool ref (set)</td></tr>
+<tr><td><code>SCHEME_EQ</code></td><td>(URL scheme) equals a scheme constant</td><td>pool ref / enum</td></tr>
+<tr><td><code>RANGE</code></td><td>(integer) lies within [lo, hi] inclusive</td><td>pool ref (pair)</td></tr>
+<tr><td><code>LEN_LE</code></td><td>(byte/string length) is at most a bound</td><td>immediate</td></tr>
+</tbody>
+</table></div>
+<p>Evaluation is a fixed loop over a capability's clauses: for each clause, select the field, apply the
+operator against the operand, and require every clause to pass (a conjunction; disjunctions compile to a
+small OR-group within the same fixed bound). The loop is capped — no more than <code>MAX_ARGS</code> (8)
+arguments and <code>MAX_CLAUSES</code> (64) clauses in total — so the worst case is a known constant and
+there is no way for a manifest to make evaluation take longer than that cap.<sup><a href="#n3">3</a></sup>
+That two of these operators, <code>HOST_IN_SET</code> and <code>SCHEME_EQ</code>, are dedicated to URL
+fields is not redundancy with <code>IN_SET</code> and <code>EQ</code>; it is a promise that the host and
+scheme the Monitor tests are the ones re-derived from the structured URL, not whatever a re-parse of a
+raw string might yield.</p>
+
+<h3>The interned constant pool</h3>
+<p>Every distinct constant a manifest mentions — a hostname, a path prefix, a scheme, a numeric range,
+an allowlist — is stored exactly once in a shared pool in the machine-only region, and referred to
+everywhere by a small index. This is <em>interning</em>. Two capabilities that both allow
+<code>api.example.com</code> share one pool entry and two references to it, not two copies of the
+string. The payoff is threefold: the tables stay compact enough to fit the FPGA's memory; a clause
+comparison against an interned set is an integer-indexed lookup rather than repeated string work; and
+the subset check that derivation depends on (Chapter 7, §7.6) reduces to comparing indices and set
+memberships in the pool, which the compiler can do cheaply and certainly.</p>
+
+<h3>The flow table</h3>
+<p>Separate from arguments entirely, the flow table holds each capability's information-flow rule,
+selected by <code>flow_ref</code>. A flow rule answers a different question from the predicate: not "are
+the arguments allowed?" but "would this call move data in a forbidden direction — a secret toward a
+public sink?" A rule records the sink's confidentiality ceiling and whether the capability is permitted
+to carry a <code>SECRET</code>-labelled value into the effect at all. The Monitor evaluates it as the
+fifth pipeline check, after arguments pass. The mechanism and the lattice behind it are Chapter 10's
+subject; the compiler's job is only to lay each capability's rule into this table and point
+<code>flow_ref</code> at it. A <code>deny-if body carries SECRET</code> clause in the manifest is
+exactly what compiles to such a rule.</p>
+
+<figure>
+<svg viewBox="0 0 860 430" role="img" aria-label="Compilation. On the left, the human-written manifest source for a net capability with a tool binding, a URL predicate, a method predicate, a secret injection, a result label, and a flow denial. An arrow labelled compiler, run once ahead of time, points right to three compiled artefacts stacked in the Monitor's machine-only region: a 16-byte Cap record whose pred_ref, flow_ref, and secret_ref index the other tables; a predicate table of clause triples; a flow table row; and an interned constant pool holding the scheme, host set, and method set once each. Dashed lines show the Cap's reference fields pointing into the tables and the clauses pointing into the pool.">
+  <defs>
+    <marker id="p-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk"/></marker>
+    <marker id="p-aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk-acc"/></marker>
+  </defs>
+  <!-- manifest source -->
+  <text x="128" y="24" text-anchor="middle" font-size="10" class="t-mut">manifest (human-written)</text>
+  <rect x="20" y="34" width="216" height="168" class="f-s2 s-ln"/>
+  <g font-size="8.2">
+    <text x="30" y="54">capability web = net {</text>
+    <text x="38" y="70">tool = "http.request"</text>
+    <text x="38" y="86">arg url : url where</text>
+    <text x="52" y="100">scheme=="https" and</text>
+    <text x="52" y="114">host in {api.example.com}</text>
+    <text x="38" y="130">arg method : enum where</text>
+    <text x="52" y="144">method in {GET}</text>
+    <text x="38" y="160">secret API_KEY inject-as</text>
+    <text x="52" y="174">header "Authorization"</text>
+    <text x="38" y="190">result label = UNTRUSTED</text>
+  </g>
+  <!-- compiler arrow -->
+  <g class="s-acc" stroke-width="1.5" marker-end="url(#p-aa)"><line x1="238" y1="118" x2="300" y2="118"/></g>
+  <text x="269" y="108" text-anchor="middle" font-size="8.5" class="t-acc">compiler</text>
+  <text x="269" y="132" text-anchor="middle" font-size="7.5" class="t-mut">once, ahead of time</text>
+  <!-- machine-only region label -->
+  <text x="590" y="24" text-anchor="middle" font-size="10" class="t-mut">compiled tables (machine-only)</text>
+  <!-- Cap record -->
+  <rect x="312" y="40" width="176" height="120" class="f-s1 s-acc" stroke-width="1.5"/>
+  <text x="400" y="56" text-anchor="middle" font-size="9" class="t-acc">Cap (16 bytes)</text>
+  <g font-size="8">
+    <text x="322" y="72">ctype = 1 (Net)</text>
+    <text x="322" y="86">tool_id = http.request</text>
+    <text x="322" y="100">pred_ref = 4</text>
+    <text x="322" y="114">flow_ref = 1</text>
+    <text x="322" y="128">secret_ref = 0 (API_KEY)</text>
+    <text x="322" y="142">epoch = 7</text>
+  </g>
+  <!-- predicate table -->
+  <rect x="520" y="40" width="316" height="112" class="f-s1 s-ln"/>
+  <text x="678" y="56" text-anchor="middle" font-size="9">predicate_table[4]</text>
+  <g font-size="7.6">
+    <text x="530" y="74">c0: (url.scheme, SCHEME_EQ, pool#0)</text>
+    <text x="530" y="90">c1: (url.host,   HOST_IN_SET, pool#1)</text>
+    <text x="530" y="106">c2: (method,     IN_SET,      pool#2)</text>
+    <text x="530" y="128" class="t-mut">all clauses must pass (conjunction)</text>
+    <text x="530" y="144" class="t-mut">≤ MAX_CLAUSES = 64</text>
+  </g>
+  <!-- flow table -->
+  <rect x="312" y="182" width="220" height="72" class="f-s1 s-ln"/>
+  <text x="422" y="198" text-anchor="middle" font-size="9">flow_table[1]</text>
+  <g font-size="7.8">
+    <text x="322" y="216">sink ceiling = PUBLIC</text>
+    <text x="322" y="230">carry SECRET? = no</text>
+    <text x="322" y="246" class="t-mut">result label = UNTRUSTED</text>
+  </g>
+  <!-- constant pool -->
+  <rect x="560" y="182" width="276" height="112" class="f-s2 s-ln"/>
+  <text x="698" y="198" text-anchor="middle" font-size="9">interned constant pool</text>
+  <g font-size="7.8">
+    <text x="570" y="216">pool#0: scheme "https"</text>
+    <text x="570" y="232">pool#1: host set { api.example.com }</text>
+    <text x="570" y="248">pool#2: enum set { GET }</text>
+    <text x="570" y="270" class="t-mut">each distinct constant stored once,</text>
+    <text x="570" y="284" class="t-mut">referenced by index</text>
+  </g>
+  <!-- Cap -> predicate table -->
+  <g class="s-mut dash" stroke-width="1" marker-end="url(#p-a)"><line x1="488" y1="100" x2="518" y2="72"/></g>
+  <!-- Cap -> flow table -->
+  <g class="s-mut dash" stroke-width="1" marker-end="url(#p-a)"><line x1="400" y1="160" x2="410" y2="180"/></g>
+  <!-- predicate clauses -> pool -->
+  <g class="s-mut dash" stroke-width="1" marker-end="url(#p-a)">
+    <line x1="700" y1="106" x2="640" y2="180"/>
+  </g>
+  <text x="470" y="322" font-size="8.5" class="t-mut">Reference fields inside the Cap select rows in the tables; clauses select constants in the pool.</text>
+  <text x="470" y="340" font-size="8.5" class="t-mut">Nothing here is written again after boot.</text>
+</svg>
+<figcaption><span class="fl">Figure 8-1.</span> One capability, compiled. The manifest on the left
+becomes a <code>Cap</code> whose reference fields index a predicate table, a flow table, and — through
+the clauses — an interned constant pool. The compiler runs once, ahead of the agent; the Monitor only
+ever reads the result. Every arrow is a small integer index, which is what keeps run-time evaluation to
+a bounded walk with no parsing and no allocation.</figcaption>
+</figure>
+
+<h2><span class="n">8.5</span>A capability compiled, end to end</h2>
+<p>Let us do the compilation the figure summarises, by hand, so nothing is hidden. Here is the source —
+the same <code>web</code> capability the Monitor chapter uses in its worked attack:</p>
+<pre><code>session "researcher" {
+  capability web = net {
+    tool   = "http.request"
+    arg url    : url  where scheme == "https" and host in {"api.example.com"}
+    arg method : enum where method in {"GET"}
+    secret API_KEY inject-as header "Authorization"
+    result label = UNTRUSTED
+    deny-if body carries SECRET
+    quota  { calls_per_session = 200 }
+  }
+}</code></pre>
+<p>The compiler processes this in five passes, and each pass produces something concrete.</p>
+<p><em>Pass 1 — intern the constants.</em> It walks the source collecting every literal and places each,
+once, into the constant pool: the scheme <code>"https"</code> at <code>pool#0</code>, the host set
+<code>{api.example.com}</code> at <code>pool#1</code>, the method set <code>{GET}</code> at
+<code>pool#2</code>. If another capability in the same manifest also allowed <code>"https"</code>, it
+would reuse <code>pool#0</code> rather than adding a second entry.</p>
+<p><em>Pass 2 — lower each predicate to clauses.</em> The <code>url</code> argument's predicate has two
+conjoined conditions; the <code>method</code> argument's has one. They become three clause triples,
+laid into the predicate table at the next free row, say row 4:</p>
+<pre><code>predicate_table[4] = [
+  (url.scheme, SCHEME_EQ,   pool#0),   // scheme == "https"
+  (url.host,   HOST_IN_SET, pool#1),   // host in {api.example.com}
+  (method,     IN_SET,      pool#2),   // method in {GET}
+]   // conjunction: every clause must hold</code></pre>
+<p><em>Pass 3 — build the flow rule.</em> The <code>result label = UNTRUSTED</code> and
+<code>deny-if body carries SECRET</code> clauses compile to one flow-table row: the sink may not carry a
+<code>SECRET</code>-labelled value, and whatever comes back is stamped <code>UNTRUSTED</code>. Say it
+lands at <code>flow_table[1]</code>.</p>
+<pre><code>flow_table[1] = { carry_secret: false, sink_ceiling: PUBLIC, result_label: UNTRUSTED }</code></pre>
+<p><em>Pass 4 — resolve the secret.</em> <code>secret API_KEY inject-as header "Authorization"</code>
+binds this capability to secret-store slot 0 and records the injection site (an
+<code>Authorization</code> header). The slot index becomes the capability's <code>secret_ref</code>; the
+injection site is stored beside the secret so the performing step knows where to splice it. The key
+bytes themselves never enter any of these tables — only the reference does.</p>
+<p><em>Pass 5 — emit the Cap and check the quota.</em> Finally the sixteen-byte capability is assembled
+and installed into the session's cspace at the slot the manifest assigns; the host will receive that
+slot number as its handle:</p>
+<pre><code>Cap {
+  ctype      = 1,              // Net
+  rights     = (method-gate bits),
+  tool_id    = id("http.request"),
+  pred_ref   = 4,             // -> predicate_table[4]
+  flow_ref   = 1,             // -> flow_table[1]
+  secret_ref = 0,             // -> secret store slot for API_KEY (inject-only)
+  aux        = 0,
+  epoch      = session.epoch, // 7 at mint time
+}</code></pre>
+<p>That is the whole capability, and it is worth pausing on how little the Monitor now has to do at run
+time. When the agent calls <code>http.request</code>, the Monitor resolves the handle to this
+<code>Cap</code> (Chapter 7), confirms <code>tool_id</code> matches, walks the three clauses of
+<code>predicate_table[4]</code> against the typed URL and method, checks <code>flow_table[1]</code>, and
+— only if all of that passes — performs the call with the <code>API_KEY</code> injected. No parsing, no
+string juggling, no open-ended work; three clause evaluations and two table lookups. The readable
+manifest and the fast, bounded run-time check are the same policy, seen from two ends of the compiler.</p>
+<p>And the attack from the Monitor chapter, replayed against these exact tables: a request to
+<code>evil.tld</code> fails clause <code>c1</code> (<code>HOST_IN_SET</code>) and returns
+<code>DENY_ARG</code> carrying the failing clause index; a request to the real
+<code>api.example.com</code> with the key smuggled into the body passes all three clauses and then dies
+at <code>flow_table[1]</code>'s <code>carry_secret: false</code> with <code>DENY_FLOW</code>. Two tables,
+two independent nets.</p>
+
+<h2><span class="n">8.6</span>Quotas</h2>
+<p>A predicate answers "is this call shaped correctly?" but says nothing about "how many times?" An
+agent whose every individual call is legitimate can still do harm by making the legitimate call ten
+thousand times — draining a rate-limited API, filling storage, running up a bill. Quotas are the
+manifest's answer to that, and they are deliberately simple.</p>
+<p>A <code>quota</code> clause attaches a small counter to a capability: a maximum number of calls per
+session, and, where it makes sense, a cap on total bytes moved. The counters live beside the capability
+in the machine-only region and are decremented at the performing step; when a counter reaches zero the
+Monitor returns <code>DENY_QUOTA</code> and the call does not happen. Because the counters are
+per-session and reset only when a fresh session installs fresh capabilities, there is no way for an
+agent to reset its own quota — the reset is on our side of the wall, tied to session lifecycle
+(Chapter 11).</p>
+<p>Quotas are coarse on purpose. They are not a full rate-limiter with token buckets and time windows;
+that would drag a notion of wall-clock time and refill policy into the trusted base. A monotone counter
+that only ever decreases within a session is enough to bound the damage a busy-loop of legitimate calls
+can do, and it costs almost nothing to evaluate. Finer rate control, if we ever need it, belongs
+outside the Monitor. The exact set of quota dimensions is still being settled (§8.9).</p>
+
+<h2><span class="n">8.7</span>Failure modes and what the compiler refuses</h2>
+<p>A good deal of policy safety comes from things the compiler rejects before they ever reach the
+Monitor. Because compilation happens ahead of time, off the trusted hot path, it can afford to be
+thorough, and a rejected manifest simply never boots.</p>
+<ul>
+<li><em>Over-budget tables.</em> If a manifest's predicates exceed <code>MAX_CLAUSES</code>, or its
+capabilities exceed a session's cspace, or its constants overflow the pool's reserved size, the compiler
+fails the build rather than truncating. The Monitor never has to cope with a table that is too big; it
+is guaranteed one that fits.</li>
+<li><em>A derivation that is not a narrowing.</em> Any capability declared as a derivation of another is
+checked, at compile time, to be a genuine subset — stricter predicate, no wider rights, same tool
+(Chapter 7, §7.6). A "derivation" that would widen authority is a compile error. The Monitor is thereby
+handed only legitimate narrowings and never has to verify subset containment itself.</li>
+<li><em>A dangling reference.</em> Every <code>pred_ref</code>, <code>flow_ref</code>,
+<code>secret_ref</code>, and pool index the compiler emits is one it also populated; there are no
+forward references to fill in later and no way for a <code>Cap</code> to point at a table row that does
+not exist.</li>
+<li><em>An unknown tool or argument type.</em> Tool names and argument types are checked against the
+tool catalogue at compile time; a manifest naming a tool the catalogue does not define does not
+compile.</li>
+<li><em>A malformed constant.</em> A host that is not a valid host, a range whose low exceeds its high,
+a length bound that does not fit — caught in the interning pass, not discovered at run time on
+attacker-controlled input.</li>
+</ul>
+<p>The theme is the same as everywhere in Redoubt: push the hard, fallible work to a place where a
+mistake is a failed build rather than a run-time surprise inside the trusted component. The Monitor's
+copy of the policy is, by the time it runs, already known to be well-formed, in-budget, and internally
+consistent.</p>
+
+<h2><span class="n">8.8</span>Alternatives rejected</h2>
+<p>The central choice here — a total language — is best understood against the thing we refused.</p>
+<p class="rej"><b>A flexible, Turing-complete policy language.</b> The obvious "powerful" design is to let
+policy be real code: a scripting language, or embedded Lua, or WebAssembly, or callbacks into
+host-supplied functions, so that a policy author can express any condition they can imagine. It is
+seductive, and it is wrong for a reference monitor, for reasons that compound. Such a language can loop
+forever, so evaluation on the hot path is no longer bounded and the guard can be made to hang. It cannot
+be audited by reading, because its behaviour is data-dependent in ways you must execute to discover — so
+the property "a human can read the policy and know what it permits" is lost. It is far more code to
+implement safely, blowing the TCB budget on an interpreter that is itself a large attack surface. And a
+policy that calls out to host-supplied code has handed part of the decision back to the untrusted side,
+which is the exact thing the whole architecture exists to prevent. Every one of those is fatal on its
+own. We do not have a fast version of this; we have no version of it, by design.<sup><a href="#n1">1</a></sup></p>
+<p class="rej"><b>Interpret the manifest at run time in the Monitor.</b> A softer variant: keep the
+declarative language, but parse and evaluate the manifest text directly inside the Monitor, skipping the
+compile step. This spares us a compiler but puts a parser for a text format on the trusted hot path,
+reading structured input on every boot and turning source into decisions at run time. Parsers are a
+classic bug reservoir, and this one would sit inside the TCB. Compiling ahead of time moves all of that
+out: the Monitor consumes fixed binary tables, not source, and the only parsing it does is of the tiny,
+typed request.</p>
+<p class="rej"><b>Regular expressions for string arguments.</b> Tempting for URL and path matching, and
+genuinely expressive. But general regex engines can backtrack catastrophically — the "ReDoS" failure —
+which reintroduces the unbounded-evaluation problem we just spent the chapter avoiding, and a
+non-backtracking engine is still more machinery than we want in the trusted base. The eight fixed
+operators cover the cases we actually have (prefix, suffix, set membership, exact match) with evaluation
+that is obviously bounded and obviously correct. If a manifest wants something the operators cannot
+express, that is a signal to reconsider the tool's argument type, not to add a regex engine.</p>
+<p class="rej"><b>Mutable, hot-reloadable policy.</b> Being able to update policy without a reboot sounds
+operationally nice. It also means code inside the trusted component that mutates the decision tables
+while agents are running — with all the concurrency, consistency, and "what was in effect at the moment
+of the call?" questions that follow. We chose immutable-per-boot instead: policy changes by recompiling
+and rebooting, the tables are written once and never again, and there is simply no mutation path to
+reason about. For a component this small and this trusted, a reboot is a cheap price for removing an
+entire class of state.</p>
+
+<h2><span class="n">8.9</span>Open questions</h2>
+<p>The honest loose ends:</p>
+<ul>
+<li>The concrete surface syntax and the binary format of the compiled predicate and flow tables are not
+yet frozen; the grammar in §8.3 is illustrative. This is the same open item the main specification
+records.<sup><a href="#n4">4</a></sup></li>
+<li>The exact URL and path canonicalisation rules the Monitor re-derives — how much normalising the
+compiler bakes into the constant pool versus what the Monitor does at check time — need pinning down so
+the checker and the performer cannot disagree.</li>
+<li>The set of quota dimensions (calls, bytes, anything else) and whether any of them should span
+sessions rather than reset per session.</li>
+<li>Whether disjunction (<code>or</code>) inside a predicate stays, or whether we restrict manifests to
+pure conjunctions of clauses to make the subset check for derivation even simpler.</li>
+<li>Whether the compiler should emit a signed, measurable artefact so the boot measurement (Chapter 5)
+can attest the exact policy in force, not just the Monitor image.</li>
+</ul>
+
+<ol class="notes" id="notes">
+<li id="n1"><span>[1]</span> The Monitor chapter (§9.11) rejects "a flexible policy language with loops and callbacks" among its alternatives; this chapter is the concrete realisation of that decision. The general principle — that a reference monitor must be verifiable and always-terminating — is J. P. Anderson's (1972).</li>
+<li id="n2"><span>[2]</span> Typed arguments cross the wire as TypedArg TLVs (Chapter 6); the Monitor re-derives security-relevant fields (URL scheme/host, path) from the structured form rather than re-parsing text. This closes the parser-mismatch bug class — the lineage of SSRF and path bugs where a filter and a consumer disagreed on parsing.</li>
+<li id="n3"><span>[3]</span> Evaluation is O(args × clauses) bounded by <code>MAX_ARGS</code> (8) × <code>MAX_CLAUSES</code> (64), constant and allocation-free, per the Monitor's decision-pipeline bounds (spec §5.3).</li>
+<li id="n4"><span>[4]</span> Redoubt Architecture Specification v1, §7 (policy manifest &amp; compilation) and §16.1 (finalise manifest grammar + compiled table binary format).</li>
+</ol>
+
+<footer>Redoubt Architecture · RDBT-ARCH-08 · Policy &amp; the Compiler · Draft. Open source (MIT). One
+of thirteen component chapters; read alongside Chapter 7 (Capabilities), Chapter 9 (the Monitor), and
+Chapter 10 (Information-flow control).</footer>
+</div>

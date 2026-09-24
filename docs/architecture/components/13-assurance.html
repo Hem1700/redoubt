@@ -1,0 +1,378 @@
+<title>Assurance: TCB, Verification &amp; Roadmap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --paper:#FFFFFF; --ink:#17181A; --muted:#5C5F66; --faint:#8A8D94; --line:#D5D7DB;
+    --rule:#222; --accent:#2E4A6B; --code-bg:#F4F5F6; --code-ink:#22252A;
+    --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --paper:#17181B; --ink:#E4E3DF; --muted:#A2A5AC; --faint:#7B7E85; --line:#33353A;
+    --rule:#C9CACE; --accent:#9CB6D6; --code-bg:#1E2024; --code-ink:#D2D4D8;
+  }}
+  :root[data-theme="dark"]{
+    --paper:#17181B; --ink:#E4E3DF; --muted:#A2A5AC; --faint:#7B7E85; --line:#33353A;
+    --rule:#C9CACE; --accent:#9CB6D6; --code-bg:#1E2024; --code-ink:#D2D4D8;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:18px;line-height:1.6;-webkit-text-size-adjust:100%}
+  .page{max-width:660px;margin:0 auto;padding-inline:24px;padding-block:0}
+  p{margin:.75rem 0;text-align:justify;hyphens:auto;-webkit-hyphens:auto}
+  p,li{max-width:64ch}
+  a{color:var(--accent);text-underline-offset:2px}
+  h1{font-weight:700;font-size:2.15rem;line-height:1.14;margin:.2rem 0;text-align:left;hyphens:none}
+  h2{font-weight:700;font-size:1.4rem;line-height:1.2;margin:2.6rem 0 .5rem;hyphens:none}
+  h3{font-weight:600;font-size:1.14rem;margin:1.7rem 0 .2rem;hyphens:none}
+  h4{font-weight:600;font-size:1rem;margin:1.2rem 0 .1rem;font-style:italic;hyphens:none}
+  h2 .n{font-family:var(--mono);font-weight:500;font-size:1rem;color:var(--muted);margin-right:.6em}
+  .masthead{border-top:3px solid var(--rule);border-bottom:1px solid var(--line);padding:1.4rem 0 1.1rem;margin-top:1.2rem}
+  .docmeta{font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;color:var(--muted);text-transform:uppercase;margin:0 0 .6rem;display:flex;flex-wrap:wrap;gap:4px 22px}
+  .docmeta b{color:var(--ink);font-weight:500}
+  .abstract{font-size:1.02rem;color:var(--ink);margin-top:1rem}
+  .abstract .lbl{font-variant:small-caps;letter-spacing:.06em;font-weight:600;color:var(--muted);font-size:.82rem;margin-right:.5em}
+  code{font-family:var(--mono);font-size:.8em;background:var(--code-bg);color:var(--code-ink);padding:.08em .32em;border-radius:3px}
+  pre{font-family:var(--mono);background:var(--code-bg);color:var(--code-ink);border:1px solid var(--line);border-left:3px solid var(--rule);padding:14px 16px;overflow-x:auto;font-size:.76rem;line-height:1.55;margin:1.2rem 0;text-align:left}
+  pre code{background:none;padding:0}
+  figure{margin:1.8rem 0;text-align:center}
+  figure svg{display:block;max-width:100%;height:auto;margin:0 auto;color:var(--ink);border:1px solid var(--line);padding:14px;background:var(--paper)}
+  figcaption{font-size:.85rem;color:var(--muted);margin-top:.6rem;text-align:left;max-width:60ch}
+  figcaption .fl{font-weight:600;color:var(--ink)}
+  figure svg text{fill:currentColor}
+  .s-ln{stroke:var(--line)}.s-acc{stroke:var(--accent)}.s-cur{stroke:currentColor}.s-mut{stroke:var(--muted)}
+  .f-s1{fill:var(--paper)}.f-s2{fill:var(--code-bg)}.f-acc{fill:none}.f-none{fill:none}
+  .t-acc{fill:var(--accent)}.t-mut{fill:var(--muted)}.mk{fill:currentColor}.mk-acc{fill:var(--accent)}.dash{stroke-dasharray:4 4}
+  table{border-collapse:collapse;width:100%;font-size:.85rem;margin:1.1rem 0}
+  .tblwrap{overflow-x:auto}
+  th,td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}
+  th{border-bottom:2px solid var(--rule);font-weight:600}
+  .note{border:1px solid var(--line);border-left:3px solid var(--accent);padding:14px 18px;margin:1.6rem 0;font-size:.95rem;background:var(--paper)}
+  .note .lbl{font-variant:small-caps;letter-spacing:.06em;font-weight:600;color:var(--accent);font-size:.82rem}
+  .note dt{font-weight:600;margin-top:.6rem;text-align:left}
+  .note dd{margin:.1rem 0 0;color:var(--muted);text-align:justify;hyphens:auto}
+  .aside{color:var(--muted);font-style:italic;border-left:2px solid var(--line);padding-left:16px;margin:1.2rem 0}
+  ul,ol{padding-left:1.4rem} li{margin:.35rem 0}
+  dl.gloss dt{font-family:var(--mono);font-size:.82rem;color:var(--accent);margin-top:.9rem;text-align:left}
+  dl.gloss dd{margin:.15rem 0 0}
+  sup a{text-decoration:none;font-size:.72em;padding:0 1px}
+  .notes{font-size:.85rem;color:var(--muted);border-top:1px solid var(--line);margin-top:2.4rem;padding-top:1rem}
+  .notes li{margin:.3rem 0;max-width:70ch;text-align:left}
+  .notes li span{color:var(--faint);font-family:var(--mono);font-size:.85em;margin-right:.4em}
+  .rej{margin-top:.9rem} .rej b{font-style:italic}
+  footer{margin:3rem 0 2rem;padding-top:1rem;border-top:3px solid var(--rule);font-size:.82rem;color:var(--muted);text-align:left}
+  hr{border:none;border-top:1px solid var(--line);margin:2rem 0}
+</style>
+
+<div class="page">
+<div class="masthead">
+  <div class="docmeta">
+    <span>Redoubt Architecture</span><span>Component Specification</span>
+    <span>Doc <b>RDBT-ARCH-13</b></span><span>Status <b>Draft</b></span><span>Chapter <b>13 / 13</b></span>
+  </div>
+  <h1>Assurance: TCB, Verification &amp; Roadmap</h1>
+  <p class="abstract"><span class="lbl">Abstract.</span> A security claim is only as good as the reason
+  you have to believe it. This closing chapter gathers those reasons. It defines exactly what must be
+  trusted — the trusted computing base, which in Redoubt is the Monitor, the boot ROM, and the PMP
+  configuration and nothing else — and states the line budget that keeps it small enough for one person
+  to read. It lays out the complete-mediation argument in full: why every effect must pass the Monitor's
+  checks, and why that holds even when the Warden is compromised. It maps Redoubt honestly against the
+  OWASP Top 10 for Agentic Applications, marking what is contained, what is merely mitigated, and what is
+  not covered at all. It sets out the test and verification plan, from laptop unit tests to a Verilator
+  assertion that the hardware wall really faults; sketches the performance and resource budget on the
+  target FPGA; and ends with the roadmap from this v1 to a version with a hardware mediation gate, wired
+  egress, a formal model, and remote attestation. Where the design is honest about a gap, this chapter is
+  where the gap is written down.</p>
+</div>
+
+<div class="note">
+<span class="lbl">Note to first-time readers.</span>
+<p style="text-align:justify">This chapter is about <em>assurance</em> — the grounds for trusting the
+system — so a few evaluation terms recur.</p>
+<dl>
+<dt>Trusted computing base (TCB)</dt><dd>The set of components that must be correct for the security
+guarantee to hold. Anything inside it, if buggy, can break the guarantee; anything outside it can be
+wholly hostile without doing so. The smaller the TCB, the less there is to get wrong. Shrinking it is
+Redoubt's central move.</dd>
+<dt>Complete mediation</dt><dd>One of the three classic reference-monitor properties: every attempt to
+perform a protected action is checked, with no way around the checker. The other two are that the checker
+is tamper-proof and that it is small enough to verify.</dd>
+<dt>Lines of code (LoC)</dt><dd>A rough proxy for how much there is to audit and how many places a bug can
+hide. Redoubt puts a hard ceiling on the TCB's line count and fails the build if it is exceeded.</dd>
+<dt>Formal verification</dt><dd>Proving, with mathematics rather than testing, that code meets a
+specification. It is expensive and total; Redoubt does not claim it for v1, but the design is shaped to
+make a future proof feasible.</dd>
+<dt>Attestation</dt><dd>A way for an outside party to check what software is actually running on the
+device, so that a tampered or downgraded system can be detected remotely.</dd>
+</dl>
+</div>
+
+<h2><span class="n">13.1</span>What must be trusted, and how small it is</h2>
+<p>Every security architecture has a set of things that simply must be correct. Call it the trusted
+computing base. The honest way to describe a system is to name that set precisely and then make it as
+small as you can, because everything in it is a place a bug becomes a breach, and everything outside it is
+free to misbehave.</p>
+<p>Redoubt's TCB is three things:</p>
+<ol>
+<li>the <em>Monitor</em> — the M-mode reference monitor that makes every decision (Chapter 9);</li>
+<li>the <em>boot ROM</em> (BROM) — the tiny code that measures the Monitor at power-on and refuses to run
+a tampered one (Chapter 5); and</li>
+<li>the <em>PMP configuration</em> — the specific set of hardware protection entries that wall the Monitor,
+the secrets, and the egress hardware off from everything else (Chapter 3).</li>
+</ol>
+<p>That is the whole list. Note what is <em>not</em> on it. The Warden is not trusted (Chapter 11); the
+compartments are not; the host, the LLM, and every tool are not; the ESP32 firmware, though it sits in the
+egress path, is not trusted for the security property (it is an honest caveat, addressed in the roadmap
+below). Millions of lines of software can be as hostile as they like without touching the guarantee,
+because the guarantee rests entirely on those three items.</p>
+<p>And those three are deliberately tiny. The budget is a hard engineering constraint, not an aspiration:</p>
+<div class="tblwrap">
+<table>
+<thead><tr><th>TCB component</th><th>Language</th><th>Budget</th><th>Enforced by</th></tr></thead>
+<tbody>
+<tr><td>Monitor</td><td><code>no_std</code> Rust</td><td>&le; 2,500 LoC</td><td>CI <code>tokei</code> gate — build fails if exceeded</td></tr>
+<tr><td>Boot ROM (BROM)</td><td>Rust / asm</td><td>&le; 300 LoC</td><td>CI <code>tokei</code> gate</td></tr>
+<tr><td>PMP configuration</td><td>data (register values)</td><td>a handful of entries</td><td>reviewed by inspection; asserted in sim</td></tr>
+</tbody>
+</table>
+</div>
+<p>The continuous-integration pipeline counts the trusted lines with <code>tokei</code> on every change
+and fails the build if the Monitor crosses 2,500 or the BROM crosses 300. The current number is published
+in the README, so the claim "small enough to audit" is not a slogan but a figure anyone can check. A
+second gate refuses <code>unsafe</code> Rust anywhere outside the one documented module that must touch
+CSRs, PMP, and MMIO.</p>
+
+<h3>The scale, drawn to compare</h3>
+<p>Numbers like "2,500 lines" mean little in isolation. The point of a small TCB is relative: it is small
+against the things people trust today. A general-purpose OS kernel is millions of lines; a hardened
+compartmentalised system like Qubes still trusts a hypervisor and dom0 in the millions; seL4, the smallest
+<em>formally verified</em> kernel, is roughly 8,700 lines of C.<sup><a href="#n1">1</a></sup> Redoubt's
+decision-bearing code aims to come in below even that.</p>
+
+<figure>
+<svg viewBox="0 0 860 300" role="img" aria-label="A bar chart on a logarithmic scale comparing trusted-code size. Linux or Qubes is in the millions of lines, drawn as the longest bar. seL4 is about 8,700 lines, a much shorter bar. Redoubt's TCB, the Monitor plus boot ROM at about 2,800 lines, is the shortest bar and is drawn accented. A note explains the horizontal axis is logarithmic.">
+  <!-- axis -->
+  <line x1="150" y1="40" x2="150" y2="250" class="s-ln"/>
+  <line x1="150" y1="250" x2="820" y2="250" class="s-ln"/>
+  <!-- log gridlines: 1e3, 1e4, 1e5, 1e6, 1e7 mapped across 150..810 -->
+  <g class="s-ln dash" stroke-width="0.8">
+    <line x1="150" y1="40" x2="150" y2="250"/>
+    <line x1="315" y1="40" x2="315" y2="250"/>
+    <line x1="480" y1="40" x2="480" y2="250"/>
+    <line x1="645" y1="40" x2="645" y2="250"/>
+    <line x1="810" y1="40" x2="810" y2="250"/>
+  </g>
+  <g font-size="8.5" class="t-mut" text-anchor="middle">
+    <text x="150" y="266">10³</text><text x="315" y="266">10⁴</text><text x="480" y="266">10⁵</text><text x="645" y="266">10⁶</text><text x="810" y="266">10⁷</text>
+  </g>
+  <text x="480" y="288" text-anchor="middle" font-size="9" class="t-mut">trusted lines of code (logarithmic)</text>
+  <!-- bars. x0=150 at 1e3. per decade =165px. log10(v)-3 -> *165 + 150 -->
+  <!-- Redoubt TCB ~2800 -> log10=3.447 -> 0.447*165+150 = 224 -->
+  <g>
+    <rect x="150" y="60"  width="74"  height="30" class="f-s1 s-acc" stroke-width="1.5"/><text x="234" y="80" font-size="10" class="t-acc">Redoubt TCB · ~2,800</text>
+    <!-- seL4 ~8700 -> log10=3.94 -> 0.94*165+150=305 -> width 155 -->
+    <rect x="150" y="110" width="155" height="30" class="f-s2 s-ln"/><text x="315" y="130" font-size="10">seL4 (verified) · ~8,700</text>
+    <!-- Qubes/hypervisor+dom0 ~ few million -> take 3e6 -> log10=6.477 -> 3.477*165+150=724 -> width 574 -->
+    <rect x="150" y="160" width="574" height="30" class="f-s2 s-ln"/><text x="150" y="204" font-size="10" class="t-mut">Qubes TCB (hypervisor + dom0) · millions</text>
+    <!-- Linux kernel ~ >2e7 clamp near axis end -> width 660 -->
+    <rect x="150" y="210" width="660" height="30" class="f-s2 s-ln"/>
+  </g>
+  <text x="804" y="230" font-size="10" text-anchor="end" class="t-mut">Linux kernel · tens of millions</text>
+</svg>
+<figcaption><span class="fl">Figure 13-1.</span> Trusted code, to scale, on a logarithmic axis — each
+gridline is ten times the last. Redoubt's decision-bearing code (Monitor + BROM, budgeted near 2,800
+lines) is the accented bar. seL4, the smallest formally verified kernel, is already several times larger;
+a compartmentalised desktop OS trusts a base three orders of magnitude bigger; a monolithic kernel, four.
+A small trust base is the deliverable, and the chart is the argument.</figcaption>
+</figure>
+
+<h2><span class="n">13.2</span>The complete-mediation argument</h2>
+<p>The security property (Chapter 2) says that for every external effect the agent causes, there exists a
+capability in the active session that binds the tool, whose predicate accepts the arguments, and whose flow
+rule accepts the labels — and that this holds for arbitrary behaviour of the host, the compartments, and
+even a compromised Warden. This section is the argument that it does. It is a sketch, not a proof; a formal
+model is on the roadmap. But the sketch is short, which is itself the point.</p>
+<p>The argument has three joints.</p>
+<h4>1 — Every effect must go through the egress hardware.</h4>
+<p>An "external effect" means something reaching the network or storage: a packet sent, a block written.
+Both happen only through the egress MMIO region (network via the ESP32 link, storage via the SD controller,
+Chapter 12). There is no other physical path off the chip for these effects. So to cause an effect at all,
+some code must touch that MMIO region.</p>
+<h4>2 — Only the Monitor can touch the egress hardware.</h4>
+<p>The egress MMIO region and the secrets region are covered by PMP entries that grant access to machine
+mode only, and those entries are written and <em>locked</em> at boot, before any supervisor- or user-mode
+code runs (Chapters 3 and 5). A locked entry cannot be changed until the hart resets. Any access to egress
+MMIO from the Warden or a compartment faults. Therefore the only code that can actually drive egress is the
+Monitor, running in machine mode.</p>
+<h4>3 — The only way into the Monitor is the checked entry.</h4>
+<p>The Monitor is entered exactly one way: an <code>ecall</code> that traps to machine mode and lands on
+the trap vector, which dispatches on the opcode in <code>a7</code>. The mediation opcode runs the six
+checks (Chapter 9); the session opcodes manage lifecycle; anything else is refused as malformed. There is
+no <code>ecall</code> that reads a secret or drives egress as a side effect — those actions live only
+inside the performing step, after the checks have passed. So the only route to an egress-driving instruction
+is through the checks.</p>
+<p>Chain the three: an effect requires egress MMIO (1); egress MMIO is reachable only from the Monitor (2);
+the Monitor is reachable only through the checked entry (3). Therefore no effect can occur without passing
+the checks. The reference-monitor triad holds — the checker is <em>always invoked</em> (no side door),
+<em>tamper-proof</em> (locked machine-only regions)<sup><a href="#n4">4</a></sup>, and <em>small enough to verify</em> (§13.1).<sup><a href="#n2">2</a></sup></p>
+<p>The crucial move is that not one link in this chain rests on software above the Monitor behaving well.
+Link 2 is a hardware fault, not a software check. That is what lets the argument survive a compromised
+Warden: a hostile Warden can relay any request it likes into the mailbox, but the request still arrives at
+link 3 and faces the checks, and the Warden still cannot execute link 2 itself. A Warden compromise buys an
+attacker a louder knock on the door, not a way around it. (Chapter 11, §11.9, walks each Warden avenue and
+shows it dead-ends here.)</p>
+
+<h2><span class="n">13.3</span>Coverage against the OWASP Agentic Top 10</h2>
+<p>The OWASP Top 10 for Agentic Applications (2026) is the community's current catalogue of the ways agent
+systems get hurt.<sup><a href="#n3">3</a></sup> Any honest security claim has to say where it lands against
+that list — including the entries it does <em>not</em> address. The table below uses three verdicts.
+<em>Contained</em> means the attack can happen inside the agent but cannot produce an unauthorised effect.
+<em>Mitigated</em> means Redoubt meaningfully reduces the risk but does not eliminate it.
+<em>Not covered</em> means v1 offers no defence, by stated scope.</p>
+<div class="tblwrap">
+<table>
+<thead><tr><th>Threat</th><th>Verdict</th><th>Mechanism (or why not)</th></tr></thead>
+<tbody>
+<tr><td>Agent goal / prompt-injection hijack</td><td><b>Contained</b></td><td>The agent may be fully hijacked; every tool call still meets capability + predicate + flow checks (Ch. 9). Authority does not follow the hijack.</td></tr>
+<tr><td>Tool misuse / poisoned tools &amp; MCP servers</td><td><b>Mitigated</b></td><td>Capabilities bind one tool; predicates constrain arguments; no ambient authority. A poisoned tool can only request within what was granted (Ch. 7-8).</td></tr>
+<tr><td>Data exfiltration</td><td><b>Mitigated</b></td><td>Host allowlists in predicates plus boundary IFC: a <code>SECRET</code>-labelled value cannot enter a public sink (Ch. 10). Bounded by what the labels see.</td></tr>
+<tr><td>Excessive agency / privilege abuse</td><td><b>Mitigated</b></td><td>Least privilege by construction: empty cspace, attenuation-only derivation, per-session quotas (Ch. 7, 11).</td></tr>
+<tr><td>Secret / credential theft</td><td><b>Contained</b></td><td>Secrets are inject-only, machine-only, never returned on any ABI path (Ch. 9, 12). Use of a key, never the key.</td></tr>
+<tr><td>Unexpected / unauthorised actions</td><td><b>Contained</b></td><td>Complete mediation (§13.2): no effect without a passing check. Instant O(1) revocation to cut a run (Ch. 11).</td></tr>
+<tr><td>Insecure output handling downstream</td><td><b>Mitigated</b></td><td>Egress results are labelled <code>UNTRUSTED</code> and that label propagates to the host, flagging attacker-controlled data (Ch. 10).</td></tr>
+<tr><td>Microarchitectural / timing side channels</td><td><i>Not covered</i></td><td>Out of scope, v1 (Ch. 2). No constant-time guarantee; a timing-based leak is possible in principle.</td></tr>
+<tr><td>Physical / fault-injection attacks</td><td><i>Not covered</i></td><td>Out of scope, v1. Glitching the hart or probing the board is not defended.</td></tr>
+<tr><td>Host-side memory poisoning · multi-agent collusion · availability/self-DoS</td><td><i>Not covered</i></td><td>Out of scope, v1 (Ch. 2). Redoubt does not police the agent's own memory, collusion between agents, or a Warden that simply refuses to make progress.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The pattern is deliberate and worth naming. Redoubt is strong exactly where its mechanism bites — the
+authority-bearing boundary of a tool call — and makes no pretence elsewhere. The "not covered" rows are not
+oversights; they are the honest edge of a v1 whose scope was drawn narrowly on purpose (Chapter 2), and
+several of them are the subject of the roadmap below.</p>
+
+<h2><span class="n">13.4</span>Verification and test plan</h2>
+<p>The Monitor chapter listed how its own logic is tested (Chapter 9, §9.13); here is the whole-system
+plan, organised by the kind of confidence each layer buys. No single technique is sufficient, and the plan
+is honest that testing is not proof.</p>
+<h3>Host unit tests</h3>
+<p>The fiddly, self-contained logic — the parser's bounds arithmetic, the epoch comparison, the predicate
+operators, the capability attenuation checks, the quota counters — runs as ordinary Rust unit tests on a
+development machine, fast and on every commit. This catches the everyday bugs cheaply and keeps the
+feedback loop tight.</p>
+<h3>Verilator PMP-fault assertion</h3>
+<p>The one promise that cannot be tested in software alone is that the hardware wall truly faults. We
+simulate the actual SoC in Verilator and assert it: a load or store from supervisor or user mode into the
+secrets or egress regions must raise an access fault, not silently succeed or read zeros. This is the
+electrical ground truth under link 2 of the mediation argument, so it gets its own gate.</p>
+<h3>QEMU containment suite</h3>
+<p>Each attack from the threat model is scripted end to end against the system running under emulation, and
+each asserts two things: the exact expected denial code <em>and</em> that nothing left the device. The
+exfil demo from the specification — a prompt-injected agent posting an API key — is the canonical case: it
+must yield <code>DENY_ARG</code> for the wrong host, or <code>DENY_FLOW</code> for the secret in the body,
+and the egress trace must be empty. A denial that returns the right code but still sent the packet is a
+failure.</p>
+<h3>Fuzzing the attack surface</h3>
+<p>The parts that read attacker-controlled bytes — the COBS/CRC framing in the Endpoint, the TypedArg TLV
+parser, the request header validation — are fuzzed with memory-error detection enabled, so a malformed
+frame that would corrupt memory is caught rather than trusted to good luck. Because the trusted parser is
+<code>no_std</code> Rust with no allocator, the surface is small and bounded, which makes fuzzing tractable.</p>
+<h3>CI gates</h3>
+<p>Several build-failing gates encode the invariants as continuous checks rather than good intentions:</p>
+<ul>
+<li>the <code>tokei</code> line-count gate on the Monitor (&le; 2,500) and BROM (&le; 300);</li>
+<li>a gate refusing <code>unsafe</code> Rust outside the one permitted CSR/PMP/MMIO module;</li>
+<li>the containment suite, which must pass with an empty egress trace on every attack case;</li>
+<li>the Verilator PMP assertion, run in the pipeline so a hardware-config regression breaks the build.</li>
+</ul>
+
+<h2><span class="n">13.5</span>Performance and resource budget</h2>
+<p>Assurance includes fitting on the target and answering fast enough to be usable. The numbers here are
+draft estimates for the ULX3S (ECP5-85F) build, to be replaced by measurement; they are flagged as
+estimates because they have not yet been taken on hardware.</p>
+<div class="tblwrap">
+<table>
+<thead><tr><th>Resource</th><th>Draft estimate</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>FPGA logic (LUTs)</td><td>~25–40k of 84k</td><td>VexRiscv RV32IMAC + PMP + optional Sv32, LiteX SoC, peripherals. Comfortable headroom on the ECP5-85F.</td></tr>
+<tr><td>Block RAM</td><td>a modest fraction</td><td>Monitor code/data, session tables, audit ring, TRNG. SDRAM (32 MB) holds Warden + compartments off-chip.</td></tr>
+<tr><td>Decision latency (steps 1–5)</td><td>single-digit µs</td><td>Bounded loop, <code>O(args &times; clauses)</code> with args &le; 8, clauses &le; 64; no allocation. Dominated by table lookups.</td></tr>
+<tr><td>End-to-end tool call</td><td>dominated by egress</td><td>The check is negligible beside the ESP32 network round-trip or SD I/O; the wait is against a timer (Ch. 9, §9.5).</td></tr>
+<tr><td>Clock</td><td>~50 MHz class</td><td>Typical for a VexRiscv LiteX build on ECP5; final figure depends on place-and-route.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The shape of the budget matters more than the exact figures. The Monitor's own work is bounded and small
+by construction, so the security check is never the bottleneck — the network or the SD card is. That is the
+comfortable position to be in: correctness costs almost nothing against the physics of getting bytes off the
+board.</p>
+
+<h2><span class="n">13.6</span>Roadmap</h2>
+<p>v1 is a first, honest cut. Several of its stated limitations have a planned answer, and naming them as a
+roadmap is part of being straight about where the design is today.</p>
+<h4>A hardware mediation gate (v2)</h4>
+<p>Today mediation is enforced by software in machine mode behind a hardware wall. v2 moves a mediation
+check into the RTL itself — a gate in the fabric between the CPU and egress that cannot issue a send without
+a token the Monitor set, shrinking even the machine-mode software's role in the critical path.</p>
+<h4>Wired-Ethernet egress</h4>
+<p>The frankest caveat in v1 is that the ESP32 firmware sits in the egress path, so the network module is a
+closed component the Monitor does not fully own (Chapter 12). v2 moves to a board with a wired-Ethernet MAC
+the Monitor drives directly (ECPIX-5 / Colorlight class), removing the ESP32 from the trusted path.</p>
+<h4>A formal model</h4>
+<p>The mediation argument in §13.2 is a sketch. The design was kept small and loop-free specifically so a
+machine-checked model of the decision pipeline and the PMP invariants is feasible. The aim is to turn the
+sketch into a proof of the security property against a model of the hardware.</p>
+<h4>Remote attestation</h4>
+<p>v1 measures the Monitor at boot and exposes an audit hash-chain head via <code>ATTEST_READ</code><sup><a href="#n5">5</a></sup>
+(Chapters 5 and 9). v2 extends this to a proper remote attestation: an outside verifier can challenge the
+device and get a signed statement of what is running, so a tampered or downgraded Redoubt is detectable off
+the box.</p>
+<h4>Bitstream root of trust</h4>
+<p>v1 does not verify the FPGA bitstream's authenticity (Chapter 2, out of scope). A future revision adds a
+root of trust for the bitstream itself, closing the gap beneath the measured-boot chain so the measurement
+starts from silicon rather than from an assumed-good configuration.</p>
+
+<h2><span class="n">13.7</span>What we deliberately do not claim</h2>
+<p>An assurance chapter earns its trust as much by its disclaimers as by its claims. Some tempting stronger
+statements were considered and turned down.</p>
+<p class="rej"><b>"Formally verified."</b> We do not say it, because we have not done it. seL4 earned that
+phrase over person-years; v1 has a test plan and a proof sketch. Claiming the word before the work is done
+would be the exact dishonesty this chapter exists to avoid.</p>
+<p class="rej"><b>"Immune to prompt injection."</b> The agent can be injected completely — we assume it
+will be. What we claim is narrower and defensible: injection cannot produce an unauthorised effect.
+Conflating "we contain it" with "we prevent it" would oversell the mechanism.</p>
+<p class="rej"><b>"Side-channel resistant."</b> Timing and microarchitectural leaks are explicitly out of
+scope for v1. Splicing a secret is not yet constant-time (Chapter 9's open question), and we would rather
+name that than paper over it.</p>
+<p class="rej"><b>"End-to-end information-flow secure."</b> Redoubt tracks labels only at the mediation
+boundary; it does not follow data through the host LLM's reasoning (Chapter 10). We claim boundary IFC,
+which is the checkable part, and say plainly that full end-to-end IFC is not on offer.</p>
+
+<h2><span class="n">13.8</span>Open questions</h2>
+<p>The loose ends that bear on assurance specifically:</p>
+<ul>
+<li>Which properties a first formal model should target — the mediation chain of §13.2 is the obvious
+candidate, but the PMP-lock invariant and the attenuation-only capability rule are also within reach.</li>
+<li>How to attest the ESP32's presence in the path honestly until wired egress lands: should the audit log
+record that egress went through the closed module?</li>
+<li>Whether the containment suite's "empty egress trace" oracle is strong enough, or whether a hardware
+egress tap is needed to be sure nothing left during a denied request.</li>
+<li>The real LUT/BRAM/latency figures once the design is placed and routed and run on the board, replacing
+the estimates in §13.5.</li>
+<li>Whether the CI can also gate on a measured Monitor line count trend, so the TCB is watched for creep,
+not just for the ceiling.</li>
+</ul>
+
+<ol class="notes" id="notes">
+<li id="n1"><span>[1]</span> <em>seL4 Reference Manual</em> — the verified kernel is roughly 8,700 lines of C. Linux and Qubes (hypervisor + dom0) trust bases run to millions; figures are order-of-magnitude, for scale.</li>
+<li id="n2"><span>[2]</span> J. P. Anderson, <em>Computer Security Technology Planning Study</em> (1972) — the reference-monitor criteria: always invoked (complete mediation), tamper-proof, and small enough to be verified.</li>
+<li id="n3"><span>[3]</span> OWASP, <em>Top 10 for Agentic Applications 2026</em>. The verdicts here (contained / mitigated / not covered) map Redoubt's v1 mechanisms and stated scope onto that catalogue.</li>
+<li id="n4"><span>[4]</span> RISC-V Privileged ISA + <em>Smepmp</em> — locked, machine-only PMP entries are the electrical basis of the "tamper-proof" link; the Verilator assertion (§13.4) checks the fault behaviour directly.</li>
+<li id="n5"><span>[5]</span> Measured boot &amp; attestation practice: BLAKE2s measurement of the Monitor image at boot (RFC 7693), with the audit hash-chain head exported via <code>ATTEST_READ</code>; remote attestation is roadmap (§13.6).</li>
+</ol>
+
+<footer>Redoubt Architecture · RDBT-ARCH-13 · Assurance: TCB, Verification &amp; Roadmap · Draft. Open
+source (MIT). The last of thirteen component chapters; it closes the loop opened in Chapter 1 and rests on
+the mechanisms of Chapters 3, 5, 9, 10, 11, and 12.</footer>
+</div>
