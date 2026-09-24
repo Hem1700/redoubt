@@ -48,6 +48,7 @@ tool calls**.
 ## Documents
 
 **Architecture**
+- **Visual architecture doc (with diagrams):** [`docs/architecture/redoubt-architecture.html`](docs/architecture/redoubt-architecture.html) — rendered page with hand-authored SVG diagrams. Live: https://claude.ai/artifact/JxwwGRqx5ktiZck2hGadoX
 - [`docs/design/2026-09-22-redoubt-architecture-v1.md`](docs/design/2026-09-22-redoubt-architecture-v1.md)
   — the full v1 architecture (threat model, privilege model, reference monitor, capability
   & policy model, tool-call ABI, egress, IFC labels, PMP memory map, SoC, boot/RoT, TCB
