@@ -1,163 +1,187 @@
 <title>The Redoubt Monitor</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-  :root{--bg:#F6F4EF;--surface:#FFFDF9;--surface-2:#EFEBE2;--ink:#1F1B16;--muted:#6B6459;--line:#D9D2C6;--accent:#0E7C86;--accent-soft:#0E7C8615;--allow:#357a3f;--deny:#B23A2E;--code-bg:#F0ECE3;--code-ink:#2A2620;
-    --body:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-    --disp:"Newsreader",Georgia,serif;--mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;}
-  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14120E;--surface:#1B1813;--surface-2:#161310;--ink:#EDE7DB;--muted:#A79E8E;--line:#332E26;--accent:#4CC6D1;--accent-soft:#4CC6D118;--allow:#63C07C;--deny:#EE7264;--code-bg:#171410;--code-ink:#D8D0C2;}}
-  :root[data-theme="dark"]{--bg:#14120E;--surface:#1B1813;--surface-2:#161310;--ink:#EDE7DB;--muted:#A79E8E;--line:#332E26;--accent:#4CC6D1;--accent-soft:#4CC6D118;--allow:#63C07C;--deny:#EE7264;--code-bg:#171410;--code-ink:#D8D0C2;}
+  :root{
+    --paper:#FFFFFF; --ink:#17181A; --muted:#5C5F66; --faint:#8A8D94; --line:#D5D7DB;
+    --rule:#222; --accent:#2E4A6B; --code-bg:#F4F5F6; --code-ink:#22252A;
+    --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --paper:#17181B; --ink:#E4E3DF; --muted:#A2A5AC; --faint:#7B7E85; --line:#33353A;
+    --rule:#C9CACE; --accent:#9CB6D6; --code-bg:#1E2024; --code-ink:#D2D4D8;
+  }}
+  :root[data-theme="dark"]{
+    --paper:#17181B; --ink:#E4E3DF; --muted:#A2A5AC; --faint:#7B7E85; --line:#33353A;
+    --rule:#C9CACE; --accent:#9CB6D6; --code-bg:#1E2024; --code-ink:#D2D4D8;
+  }
   *{box-sizing:border-box}
-  body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.7;font-size:17px;-webkit-text-size-adjust:100%}
-  .wrap{max-width:720px;margin:0 auto;padding-inline:22px}
-  p,li{max-width:66ch}
-  a{color:var(--accent)}
-  h1{font-family:var(--disp);font-weight:600;font-size:2.5rem;line-height:1.1;margin:.3rem 0}
-  h2{font-family:var(--disp);font-weight:600;font-size:1.62rem;line-height:1.2;margin:2.8rem 0 .5rem}
-  h2 .n{font-family:var(--mono);color:var(--accent);font-size:.85rem;display:block;margin-bottom:.1rem;font-weight:500;letter-spacing:.05em}
-  h3{font-family:var(--disp);font-weight:600;font-size:1.24rem;margin:1.8rem 0 .3rem}
-  h4{font-family:var(--body);font-weight:600;font-size:1rem;margin:1.3rem 0 .1rem;color:var(--accent)}
-  p{margin:.8rem 0}
-  em{font-style:italic}
-  code{font-family:var(--mono);font-size:.82em;background:var(--code-bg);color:var(--code-ink);padding:.1em .35em;border-radius:4px}
-  pre{font-family:var(--mono);background:var(--code-bg);color:var(--code-ink);border:1px solid var(--line);border-radius:8px;padding:15px 17px;overflow-x:auto;font-size:.79rem;line-height:1.55;margin:1.2rem 0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:18px;line-height:1.6;-webkit-text-size-adjust:100%}
+  .page{max-width:660px;margin:0 auto;padding-inline:24px;padding-block:0}
+  p{margin:.75rem 0;text-align:justify;hyphens:auto;-webkit-hyphens:auto}
+  p,li{max-width:64ch}
+  a{color:var(--accent);text-underline-offset:2px}
+  h1{font-weight:700;font-size:2.15rem;line-height:1.14;margin:.2rem 0;text-align:left;hyphens:none}
+  h2{font-weight:700;font-size:1.4rem;line-height:1.2;margin:2.6rem 0 .5rem;hyphens:none}
+  h3{font-weight:600;font-size:1.14rem;margin:1.7rem 0 .2rem;hyphens:none}
+  h4{font-weight:600;font-size:1rem;margin:1.2rem 0 .1rem;font-style:italic;hyphens:none}
+  h2 .n{font-family:var(--mono);font-weight:500;font-size:1rem;color:var(--muted);margin-right:.6em}
+  .masthead{border-top:3px solid var(--rule);border-bottom:1px solid var(--line);padding:1.4rem 0 1.1rem;margin-top:1.2rem}
+  .docmeta{font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;color:var(--muted);text-transform:uppercase;margin:0 0 .6rem;display:flex;flex-wrap:wrap;gap:4px 22px}
+  .docmeta b{color:var(--ink);font-weight:500}
+  .abstract{font-size:1.02rem;color:var(--ink);margin-top:1rem}
+  .abstract .lbl{font-variant:small-caps;letter-spacing:.06em;font-weight:600;color:var(--muted);font-size:.82rem;margin-right:.5em}
+  code{font-family:var(--mono);font-size:.8em;background:var(--code-bg);color:var(--code-ink);padding:.08em .32em;border-radius:3px}
+  pre{font-family:var(--mono);background:var(--code-bg);color:var(--code-ink);border:1px solid var(--line);border-left:3px solid var(--rule);padding:14px 16px;overflow-x:auto;font-size:.76rem;line-height:1.55;margin:1.2rem 0;text-align:left}
   pre code{background:none;padding:0}
-  figure{margin:1.8rem 0;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;overflow-x:auto}
-  figure svg{display:block;max-width:100%;height:auto;color:var(--ink)}
-  figcaption{font-size:.86rem;color:var(--muted);margin-top:.8rem;padding-top:.6rem;border-top:1px solid var(--line);font-style:italic}
+  figure{margin:1.8rem 0;text-align:center}
+  figure svg{display:block;max-width:100%;height:auto;margin:0 auto;color:var(--ink);border:1px solid var(--line);padding:14px;background:var(--paper)}
+  figcaption{font-size:.85rem;color:var(--muted);margin-top:.6rem;text-align:left;max-width:60ch}
+  figcaption .fl{font-weight:600;color:var(--ink)}
   figure svg text{fill:currentColor}
-  .f-s1{fill:var(--surface)}.f-s2{fill:var(--surface-2)}.f-acc{fill:var(--accent-soft)}.f-none{fill:none}
   .s-ln{stroke:var(--line)}.s-acc{stroke:var(--accent)}.s-cur{stroke:currentColor}.s-mut{stroke:var(--muted)}
-  .t-acc{fill:var(--accent)}.t-mut{fill:var(--muted)}.t-den{fill:var(--deny)}.mk{fill:currentColor}.mk-acc{fill:var(--accent)}.dash{stroke-dasharray:4 4}
-  table{border-collapse:collapse;width:100%;font-size:.84rem;margin:1.1rem 0}
+  .f-s1{fill:var(--paper)}.f-s2{fill:var(--code-bg)}.f-acc{fill:none}.f-none{fill:none}
+  .t-acc{fill:var(--accent)}.t-mut{fill:var(--muted)}.mk{fill:currentColor}.mk-acc{fill:var(--accent)}.dash{stroke-dasharray:4 4}
+  table{border-collapse:collapse;width:100%;font-size:.85rem;margin:1.1rem 0}
   .tblwrap{overflow-x:auto}
-  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
-  th{background:var(--surface-2);font-weight:600}
-  .primer{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:16px 20px;margin:1.6rem 0}
-  .primer h4{margin-top:.4rem;color:var(--ink)}
-  .primer dl{margin:.4rem 0 0}
-  .primer dt{font-weight:600;margin-top:.7rem}
-  .primer dd{margin:.1rem 0 0;color:var(--muted)}
-  .aside{color:var(--muted);font-style:italic;border-left:2px solid var(--line);padding-left:14px;margin:1.2rem 0}
-  .crumb{font-family:var(--mono);font-size:.74rem;color:var(--muted);margin:.4rem 0}
-  .lede{font-size:1.2rem;line-height:1.55;color:var(--ink)}
-  ul li{margin:.35rem 0}
-  dl.gloss dt{font-family:var(--mono);font-size:.85rem;color:var(--accent);margin-top:.9rem}
+  th,td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}
+  th{border-bottom:2px solid var(--rule);font-weight:600}
+  .note{border:1px solid var(--line);border-left:3px solid var(--accent);padding:14px 18px;margin:1.6rem 0;font-size:.95rem;background:var(--paper)}
+  .note .lbl{font-variant:small-caps;letter-spacing:.06em;font-weight:600;color:var(--accent);font-size:.82rem}
+  .note dt{font-weight:600;margin-top:.6rem;text-align:left}
+  .note dd{margin:.1rem 0 0;color:var(--muted);text-align:justify;hyphens:auto}
+  .aside{color:var(--muted);font-style:italic;border-left:2px solid var(--line);padding-left:16px;margin:1.2rem 0}
+  ul,ol{padding-left:1.4rem} li{margin:.35rem 0}
+  dl.gloss dt{font-family:var(--mono);font-size:.82rem;color:var(--accent);margin-top:.9rem;text-align:left}
   dl.gloss dd{margin:.15rem 0 0}
-  .rej{border-top:1px solid var(--line);padding-top:.5rem;margin-top:1rem}
-  .rej b{color:var(--deny)}
-  footer{margin:3.5rem 0 2rem;padding-top:1rem;border-top:1px solid var(--line);font-size:.84rem;color:var(--muted)}
+  sup a{text-decoration:none;font-size:.72em;padding:0 1px}
+  .notes{font-size:.85rem;color:var(--muted);border-top:1px solid var(--line);margin-top:2.4rem;padding-top:1rem}
+  .notes li{margin:.3rem 0;max-width:70ch;text-align:left}
+  .notes li span{color:var(--faint);font-family:var(--mono);font-size:.85em;margin-right:.4em}
+  .rej{margin-top:.9rem} .rej b{font-style:italic}
+  footer{margin:3rem 0 2rem;padding-top:1rem;border-top:3px solid var(--rule);font-size:.82rem;color:var(--muted);text-align:left}
+  hr{border:none;border-top:1px solid var(--line);margin:2rem 0}
 </style>
 
-<div class="wrap">
-<p class="crumb">Redoubt · component manual · chapter 9 of ~13</p>
-<h1>The Monitor</h1>
-<p class="lede">If you only ever read one chapter of this manual, read this one. The Monitor is the
-part of Redoubt we actually trust. Everything else — the operating system above it, the drivers, the
-whole computer the AI runs on — we assume can be taken over by an attacker. The Monitor is the small
-piece that has to stay honest when nothing else does.</p>
+<div class="page">
+<div class="masthead">
+  <div class="docmeta">
+    <span>Redoubt Architecture</span><span>Component Specification</span>
+    <span>Doc <b>RDBT-ARCH-09</b></span><span>Status <b>Draft</b></span><span>Chapter <b>9 / 13</b></span>
+  </div>
+  <h1>The Monitor</h1>
+  <p class="abstract"><span class="lbl">Abstract.</span> The Monitor is the only component of Redoubt
+  that is trusted. Every other part — the operating system above it, the drivers, the entire computer
+  the AI runs on — is assumed to be under an attacker's control. This chapter specifies the Monitor in
+  full: what it is responsible for, why it runs in the most privileged mode of the processor, the
+  pieces it is built from, how it executes, the sequence of checks each request passes through, how it
+  guards secrets, the failures it must survive, the invariants it maintains, the alternatives that were
+  rejected, and how the whole thing is tested. It is written to be read start to finish whether or not
+  you have a hardware background.</p>
+</div>
 
-<div class="primer">
-<h4>New to this? Start here.</h4>
-<p>A few words show up constantly below. Here's what they mean, in plain terms — you don't need a
-hardware background to follow the rest.</p>
+<div class="note">
+<span class="lbl">Note to first-time readers.</span>
+<p style="text-align:justify">A handful of terms recur throughout. Here is what each means in plain
+language; no prior hardware knowledge is assumed.</p>
 <dl>
-<dt>An "AI agent"</dt><dd>A program built around a language model that doesn't just chat — it takes
-actions: fetches URLs, reads files, calls APIs with your keys. That's what makes it dangerous when
-someone tricks it.</dd>
-<dt>"Prompt injection"</dt><dd>Hiding instructions in something the agent reads (a web page, a file)
-so the agent obeys the attacker instead of you. Today there's no reliable way to stop the agent from
-falling for it, so we plan around it happening.</dd>
-<dt>A "tool call"</dt><dd>The moment an agent asks to <em>do</em> something in the world —
-"HTTP GET this URL", "read that file". Redoubt only cares about these moments, because they're the
-only way an agent can cause harm.</dd>
-<dt>"M-mode" (machine mode)</dt><dd>A RISC-V chip runs code at one of three privilege levels. Machine
-mode is the most powerful, like root but enforced by the silicon. The Monitor runs here; the agent's
-world runs a level or two below it and can't reach up.</dd>
-<dt>A "capability"</dt><dd>An unforgeable ticket that <em>is</em> permission to do one specific thing.
-Think of a coat-check tag: whoever holds tag #14 gets coat #14, and you can't get a coat by shouting
-a number you made up.</dd>
+<dt>AI agent</dt><dd>A program built on a language model that does not merely converse but takes
+actions in the world: it fetches URLs, reads files, and calls APIs using your credentials. That
+capacity to act is what makes a compromised agent dangerous.</dd>
+<dt>Prompt injection</dt><dd>Concealing instructions inside material the agent reads — a web page, a
+document — so that it follows the attacker rather than its operator. No reliable defense exists today,
+so the design assumes it succeeds.</dd>
+<dt>Tool call</dt><dd>The moment an agent asks to <em>do</em> something: "fetch this URL", "read that
+file". Redoubt concerns itself with these moments alone, since they are the only means by which an
+agent can affect anything.</dd>
+<dt>Machine mode</dt><dd>A RISC-V processor executes at one of three privilege levels; machine mode is
+the highest, comparable to root but enforced by the silicon itself. The Monitor runs here, and the
+agent's world runs one or two levels beneath it, unable to reach up.</dd>
+<dt>Capability</dt><dd>An unforgeable token that <em>is</em> permission to perform one specific
+action — like a coat-check tag. Whoever holds tag 14 receives coat 14, and no coat can be obtained by
+calling out a number one has invented.</dd>
 </dl>
 </div>
 
-<h2><span class="n">§9.1</span>What the Monitor is for</h2>
-<p>Picture an embassy in a hostile city. The people inside can ask to send a cable or open the front
-gate, but they never hold the keys and they never touch the radio themselves. One guard stands at the
-one door. Every request goes through him, he checks it against his written orders, and he does it on
-their behalf. You could bribe or replace every single person inside the building, and that guard still
-won't transmit a message to the wrong government.</p>
-<p>The Monitor is that guard. In our case the "people inside" are the AI agent and its tools, running
-on a normal computer we don't trust at all. The Monitor runs on a separate chip and holds the things
-that matter: the secret keys, and the actual wires out to the network and storage. The agent can
-never touch those directly. It can only send the Monitor a request and wait for a yes or a no.</p>
-<p>So the Monitor's job is small and specific. It owns exactly five things, and nothing else is
-allowed to:</p>
-<ul>
-<li>the <b>decision</b> — given a request, does this action happen or not;</li>
-<li>the <b>secrets</b> — API keys and credentials, which it will <em>use</em> on the agent's behalf
-but never hand over;</li>
-<li>the <b>way out</b> — the network and storage hardware, which only it can operate;</li>
-<li>the <b>rules</b> — the policy the decision is computed from;</li>
-<li>the <b>locks</b> — the hardware settings that make all of the above true.</li>
-</ul>
-<p>Just as important is what it deliberately can't do. It has no task scheduler, no USB stack, no
-network protocol code, no memory allocator. Every one of those is thousands of lines of the kind of
-code that has bugs, and every bug in the trusted part is a bug an attacker can aim at. So we push all
-of it out into the untrusted world and keep the Monitor under about 2,500 lines. Small enough that
-one person can actually sit down and read the whole thing.</p>
+<h2><span class="n">9.1</span>Purpose</h2>
+<p>Consider an embassy in a hostile city. The staff inside may request that a cable be sent or the
+front gate opened, but they never hold the keys and never operate the radio themselves. A single
+guard stands at the one door. Every request passes through him; he checks it against his written
+orders and carries it out on the staff's behalf. One could bribe or replace every person in the
+building, and that guard would still refuse to transmit a message to the wrong government.</p>
+<p>The Monitor is that guard. Here the staff are the AI agent and its tools, running on an ordinary
+computer we do not trust in the slightest. The Monitor runs on a separate chip and holds what matters:
+the secret keys and the physical connections to the network and to storage. The agent can never touch
+those directly. It can only submit a request to the Monitor and await a decision.</p>
+<p>The Monitor's role is therefore narrow and exact. It owns five things, and no other component is
+permitted to:</p>
+<ol>
+<li>the <em>decision</em> — whether a requested action occurs at all;</li>
+<li>the <em>secrets</em> — credentials it will use on the agent's behalf but never surrender;</li>
+<li>the <em>egress</em> — the network and storage hardware, which it alone operates;</li>
+<li>the <em>rules</em> — the policy from which the decision is computed; and</li>
+<li>the <em>locks</em> — the hardware settings that make the four points above true.</li>
+</ol>
+<p>Equally important is what it deliberately cannot do. It contains no task scheduler, no USB stack,
+no network protocol code, and no memory allocator. Each of those is thousands of lines of the kind of
+code that harbours bugs, and every bug inside the trusted component is one an attacker may aim at. We
+push all of it out into the untrusted world and keep the Monitor beneath roughly 2,500 lines — small
+enough that a single person can read the whole of it.</p>
 
-<h2><span class="n">§9.2</span>Why it lives in the most privileged corner of the chip</h2>
-<p>Here's the problem we're solving. We've decided to assume the worst: the agent is compromised, the
-tools are malicious, and even the little operating system that schedules everything (we call it
-Warden) might be taken over. If all of that can turn against us, where do you put the one piece that
-has to hold? You put it somewhere the compromised parts physically can't reach.</p>
-<p>RISC-V gives us exactly that. The chip runs code at three privilege levels — Machine, Supervisor,
-User, most to least powerful. And it has a feature called <b>PMP</b>, Physical Memory Protection.
-PMP is a set of registers, writable only in Machine mode, that say "this range of memory is
-off-limits to Supervisor and User code." Supervisor code can't even read those registers, never mind
-change them.</p>
-<p>That's the whole trick. The Monitor, running in Machine mode, marks the secrets and the network
-hardware as reachable only from Machine mode, and then locks that setting so it can't be undone until
-the next reboot. From that moment on, if a completely hijacked Warden tries to read a key or poke the
-network chip, the load instruction simply faults. Not because some software check said no — because
-the silicon refuses the address. There's no code path to skip, because there's no code involved.</p>
-<div class="aside">This isn't a new idea, which is a good sign. Apple does it: their "SPTM" is a tiny
-monitor more privileged than the iPhone kernel, so even a kernel takeover can't rewrite page tables.
-The Keystone and Sanctorum research projects do the same on RISC-V. We're borrowing a proven pattern
-and pointing it at one narrow job: the agent's tool calls.</div>
-<p>One consequence is worth sitting with, because it's what makes the whole project tractable. Because
-the boundary is a hardware wall, all the big scary code — USB, TLS, filesystems, the entire host
-computer — can live <em>outside</em> the trusted part without weakening anything. The Monitor only has
-to be correct about the small step where a decision gets made. That's the trade that keeps it tiny.</p>
+<h2><span class="n">9.2</span>Why the decision lives in machine mode</h2>
+<p>The problem to solve is stark. We have chosen to assume the worst: the agent is compromised, the
+tools are hostile, and even the small operating system that schedules everything (we call it Warden)
+may be subverted. If all of that can turn against us, where does one place the single piece that must
+hold? Somewhere the compromised parts cannot physically reach.</p>
+<p>RISC-V provides exactly that. The processor executes at three privilege levels — machine,
+supervisor, user, in descending order of power — and it offers a feature called Physical Memory
+Protection, or PMP: a set of registers, writable only in machine mode, that declare certain ranges of
+memory off-limits to supervisor and user code. Supervisor code cannot so much as read those registers,
+let alone alter them.</p>
+<p>That is the whole of the mechanism. The Monitor, running in machine mode, marks the secrets and the
+network hardware as reachable only from machine mode, then locks that setting until the next reboot.
+From that instant, should a wholly hijacked Warden attempt to read a key or address the network chip,
+the load instruction simply faults — not because some software check refused it, but because the
+silicon rejects the address. There is no code path to bypass, because no code is involved.</p>
+<p class="aside">This is not a novel idea, which is reassuring. Apple employs it: their SPTM is a
+small monitor more privileged than the iPhone kernel, so that even a kernel compromise cannot rewrite
+the page tables.<sup><a href="#n2">2</a></sup> The Keystone and Sanctorum research systems do the same
+on RISC-V.<sup><a href="#n3">3</a></sup> We adopt a proven pattern and aim it at one narrow task: the
+agent's tool calls.</p>
+<p>One consequence deserves emphasis, for it is what makes the project tractable. Because the boundary
+is a hardware privilege boundary, all the large and error-prone code — USB, TLS, filesystems, the
+entire host computer — may live <em>outside</em> the trusted component without weakening the
+guarantee. The Monitor need only be correct about the small, authority-bearing step. That is the trade
+that keeps it small.</p>
 
-<h2><span class="n">§9.3</span>What's inside it</h2>
-<p>The Monitor is a handful of small pieces bolted together in a fixed order. There's no plugin
-system and nothing clever — a request comes in one end and walks a straight line to the other. That
-straightness is on purpose: it's what lets us say, with a straight face, exactly how long the worst
-case takes and exactly which piece of code is allowed to touch the secrets.</p>
+<h2><span class="n">9.3</span>Internal structure</h2>
+<p>The Monitor is a small number of single-purpose parts joined in a fixed order. There is no plugin
+system and nothing ingenious: a request enters at one end and travels a straight line to the other.
+That straightness is deliberate. It is what allows us to state precisely how long the worst case takes,
+and precisely which piece of code may touch the secrets.</p>
 
 <figure>
 <svg viewBox="0 0 860 360" role="img" aria-label="Inside the Monitor: a trap vector hands a request to a dispatcher, which runs it through parser, resolver, predicate engine, and flow engine, all reading the machine-only tables; only the final egress-and-inject step reaches the secrets store and the outbound hardware; an audit logger records every decision; a PMP manager and a random-number generator sit to the side.">
-  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk"/></marker>
-        <marker id="aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk-acc"/></marker></defs>
-  <rect x="14" y="152" width="94" height="42" rx="7" class="f-s2 s-ln"/><text x="61" y="171" text-anchor="middle" font-size="10">the door</text><text x="61" y="185" text-anchor="middle" font-size="8.5" class="t-mut">trap vector</text>
-  <rect x="126" y="152" width="86" height="42" rx="7" class="f-s2 s-ln"/><text x="169" y="177" text-anchor="middle" font-size="10">dispatcher</text>
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk"/></marker><marker id="aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk-acc"/></marker></defs>
+  <rect x="14" y="152" width="94" height="42" class="f-s2 s-ln"/><text x="61" y="171" text-anchor="middle" font-size="10">the door</text><text x="61" y="185" text-anchor="middle" font-size="8.5" class="t-mut">trap vector</text>
+  <rect x="126" y="152" width="86" height="42" class="f-s2 s-ln"/><text x="169" y="177" text-anchor="middle" font-size="10">dispatcher</text>
   <g font-size="9">
-    <rect x="240" y="62" width="106" height="36" rx="6" class="f-s1 s-ln"/><text x="293" y="84" text-anchor="middle">1 · parser</text>
-    <rect x="240" y="108" width="106" height="36" rx="6" class="f-s1 s-ln"/><text x="293" y="130" text-anchor="middle">2 · resolver</text>
-    <rect x="240" y="154" width="106" height="36" rx="6" class="f-s1 s-ln"/><text x="293" y="176" text-anchor="middle">3–4 · predicates</text>
-    <rect x="240" y="200" width="106" height="36" rx="6" class="f-s1 s-ln"/><text x="293" y="222" text-anchor="middle">5 · flow</text>
-    <rect x="240" y="246" width="106" height="46" rx="6" class="f-acc s-acc"/><text x="293" y="265" text-anchor="middle" class="t-acc">6 · do it +</text><text x="293" y="279" text-anchor="middle" class="t-acc">inject secret</text>
+    <rect x="240" y="62" width="106" height="36" class="f-s1 s-ln"/><text x="293" y="84" text-anchor="middle">1 · parser</text>
+    <rect x="240" y="108" width="106" height="36" class="f-s1 s-ln"/><text x="293" y="130" text-anchor="middle">2 · resolver</text>
+    <rect x="240" y="154" width="106" height="36" class="f-s1 s-ln"/><text x="293" y="176" text-anchor="middle">3–4 · predicates</text>
+    <rect x="240" y="200" width="106" height="36" class="f-s1 s-ln"/><text x="293" y="222" text-anchor="middle">5 · flow</text>
+    <rect x="240" y="246" width="106" height="46" class="f-s1 s-acc" stroke-width="1.5"/><text x="293" y="265" text-anchor="middle" class="t-acc">6 · do it +</text><text x="293" y="279" text-anchor="middle" class="t-acc">inject secret</text>
   </g>
-  <rect x="392" y="96" width="126" height="112" rx="7" class="f-none s-ln"/><text x="455" y="90" text-anchor="middle" font-size="9" class="t-mut">tables (machine-only)</text>
+  <rect x="392" y="96" width="126" height="112" class="f-none s-ln"/><text x="455" y="90" text-anchor="middle" font-size="9" class="t-mut">tables (machine-only)</text>
   <text x="455" y="120" text-anchor="middle" font-size="9">sessions</text><text x="455" y="140" text-anchor="middle" font-size="9">capabilities</text><text x="455" y="160" text-anchor="middle" font-size="9">policy</text><text x="455" y="180" text-anchor="middle" font-size="9">audit log</text>
-  <rect x="560" y="118" width="128" height="40" rx="7" class="f-none s-ln"/><text x="624" y="142" text-anchor="middle" font-size="9">secrets (machine-only)</text>
-  <rect x="560" y="250" width="128" height="46" rx="7" class="f-none s-acc"/><text x="624" y="270" text-anchor="middle" font-size="9" class="t-acc">the way out</text><text x="624" y="284" text-anchor="middle" font-size="8" class="t-mut">network · storage</text>
-  <rect x="708" y="62" width="138" height="38" rx="7" class="f-s2 s-ln"/><text x="777" y="85" text-anchor="middle" font-size="9">PMP setup (at boot)</text>
-  <rect x="708" y="300" width="138" height="38" rx="7" class="f-s2 s-ln"/><text x="777" y="323" text-anchor="middle" font-size="9">randomness + checks</text>
-  <rect x="392" y="250" width="126" height="42" rx="7" class="f-s1 s-ln"/><text x="455" y="269" text-anchor="middle" font-size="9">audit logger</text><text x="455" y="283" text-anchor="middle" font-size="8" class="t-mut">tamper-evident</text>
-  <g class="s-cur" stroke-width="1.3" marker-end="url(#a)">
+  <rect x="560" y="118" width="128" height="40" class="f-none s-ln"/><text x="624" y="142" text-anchor="middle" font-size="9">secrets (machine-only)</text>
+  <rect x="560" y="250" width="128" height="46" class="f-none s-acc" stroke-width="1.5"/><text x="624" y="270" text-anchor="middle" font-size="9" class="t-acc">the way out</text><text x="624" y="284" text-anchor="middle" font-size="8" class="t-mut">network · storage</text>
+  <rect x="708" y="62" width="138" height="38" class="f-s2 s-ln"/><text x="777" y="85" text-anchor="middle" font-size="9">PMP setup (at boot)</text>
+  <rect x="708" y="300" width="138" height="38" class="f-s2 s-ln"/><text x="777" y="323" text-anchor="middle" font-size="9">randomness + checks</text>
+  <rect x="392" y="250" width="126" height="42" class="f-s1 s-ln"/><text x="455" y="269" text-anchor="middle" font-size="9">audit logger</text><text x="455" y="283" text-anchor="middle" font-size="8" class="t-mut">tamper-evident</text>
+  <g class="s-cur" stroke-width="1.2" marker-end="url(#a)">
     <line x1="108" y1="173" x2="124" y2="173"/><line x1="212" y1="168" x2="238" y2="126"/>
     <line x1="293" y1="98" x2="293" y2="106"/><line x1="293" y1="144" x2="293" y2="152"/><line x1="293" y1="190" x2="293" y2="198"/><line x1="293" y1="236" x2="293" y2="244"/>
     <line x1="346" y1="126" x2="390" y2="140" class="s-mut dash"/><line x1="346" y1="172" x2="390" y2="158" class="s-mut dash"/><line x1="346" y1="218" x2="390" y2="170" class="s-mut dash"/>
@@ -165,218 +189,224 @@ case takes and exactly which piece of code is allowed to touch the secrets.</p>
   </g>
   <g class="s-acc" stroke-width="1.5" marker-end="url(#aa)"><line x1="346" y1="266" x2="558" y2="140"/><line x1="346" y1="272" x2="558" y2="272"/></g>
 </svg>
-<figcaption>The only two teal lines are the paths that reach the secrets and the outbound hardware,
-and both start in the last step, after every check has passed. The dashed lines are just table
-lookups. Nothing else can get to the wires.</figcaption>
+<figcaption><span class="fl">Figure 9-1.</span> The two accented lines are the only paths that reach
+the secrets and the outbound hardware, and both begin in the final step, after every check has passed.
+The dashed lines are table lookups. Nothing else can reach the wires.</figcaption>
 </figure>
 
-<h3>The pieces, one at a time</h3>
+<h3>The parts, one at a time</h3>
 <dl class="gloss">
-<dt>the door (trap vector)</dt><dd>When the agent's side makes a request, the chip jumps into the
-Monitor here. This piece saves a little state, checks what kind of event happened, and — if it's a
-request, which is the only thing it should ever be — hands off to the dispatcher. Anything unexpected
-means the Monitor itself hit a bug, and that's handled separately (see §9.9).</dd>
-<dt>dispatcher</dt><dd>Looks at which of exactly five commands was asked for. Five. Anything else gets
-turned away on the spot without touching a single table. That short list is the entire "surface" an
-attacker gets to prod at, which is the point.</dd>
-<dt>1 · parser</dt><dd>Checks the request is where it should be in memory and isn't lying about its
-size, then copies it somewhere the agent's side can't reach. That copy matters more than it looks: if
-we read the request in place, a fast attacker could change it <em>after</em> we checked it but
-<em>before</em> we act on it. Copying first closes that trick.</dd>
-<dt>2 · resolver</dt><dd>Turns the coat-check tag (a number the host sent) into an actual capability,
-or refuses. It also checks the tag hasn't gone stale — more on that when we get to sessions in another
-chapter — which is how we cancel an agent's permissions instantly.</dd>
-<dt>3–4 · predicate engine</dt><dd>The bouncer with the guest list. The capability says "you may call
-<code>http.request</code>, but only to these hosts, only over HTTPS, only GET." This engine checks the
-request's arguments against those rules. It's a plain loop over a short list of conditions — no regex,
-no scripting, nothing that could run forever.</dd>
-<dt>5 · flow engine</dt><dd>Even if the call itself is allowed, this asks a second question: is it
-carrying data it shouldn't? A secret key isn't allowed to ride out in the body of a request to a
-public server, for instance. This is a separate net from the bouncer, and it catches different fish.</dd>
-<dt>6 · do-it-and-inject</dt><dd>The only piece that touches the outside world. Once everything's
-passed, it performs the action, slips in the secret key where the policy said to (the agent never sees
-it), and labels whatever comes back as untrusted.</dd>
-<dt>audit logger</dt><dd>Writes down every decision, yes or no, in a way that can't be quietly edited
-later (each entry is chained to the last with a hash). You can read the latest hash out to prove the
-log hasn't been tampered with.</dd>
-<dt>PMP setup &amp; randomness</dt><dd>Two helpers off to the side. One runs once at boot to put up the
-hardware walls; the other is a random-number source used for keys, with self-tests so we notice if it
-goes bad.</dd>
+<dt>the door (trap vector)</dt><dd>When the agent's side makes a request, the processor jumps into the
+Monitor here. This part saves a little state, checks what kind of event occurred, and — if it is a
+request, the only thing it should ever be — hands off to the dispatcher. Anything unexpected means the
+Monitor itself has hit a bug, which is handled separately (§9.9).</dd>
+<dt>dispatcher</dt><dd>Reads which of exactly five commands was asked for. Five. Anything else is
+turned away at once, without touching a single table. That short list is the entire surface an
+attacker has to probe.</dd>
+<dt>1 · parser</dt><dd>Confirms the request lies where it should in memory and is not lying about its
+size, then copies it somewhere the agent's side cannot reach. That copy matters more than it appears:
+were the request read in place, a fast attacker could alter it <em>after</em> the check but
+<em>before</em> the action. Copying first defeats the manoeuvre.</dd>
+<dt>2 · resolver</dt><dd>Turns the coat-check tag (a number the host supplied) into an actual
+capability, or refuses. It also confirms the tag has not gone stale — the subject of the Sessions
+chapter — which is how an agent's permissions are cancelled instantly.</dd>
+<dt>3–4 · predicate engine</dt><dd>The doorman with the guest list. The capability states, "you may
+call <code>http.request</code>, but only to these hosts, only over HTTPS, only with GET." This engine
+checks the request's arguments against those conditions. It is a plain loop over a short list — no
+regular expressions, no scripting, nothing that can run indefinitely.</dd>
+<dt>5 · flow engine</dt><dd>Even where the call is permitted, this asks a second question: is it
+carrying data it should not? A secret key may not depart in the body of a request to a public server,
+for instance. This is a separate net from the doorman, and it catches different quarry.</dd>
+<dt>6 · perform and inject</dt><dd>The only part that touches the outside world. Once all else has
+passed, it carries out the action, splices in the secret key where the policy directs (the agent never
+sees it), and labels whatever returns as untrusted.</dd>
+<dt>audit logger</dt><dd>Records every decision, positive or negative, in a form that cannot be
+quietly altered afterwards — each entry chained to the previous by a hash. The latest hash can be read
+out to demonstrate the log has not been tampered with.</dd>
+<dt>PMP setup and randomness</dt><dd>Two helpers to the side. One runs once at boot to raise the
+hardware walls; the other is a source of randomness for keys, with self-tests so that its failure is
+noticed.</dd>
 </dl>
 
-<h2><span class="n">§9.4</span>How it uses memory</h2>
-<p>The Monitor's memory is boring on purpose, and boring is the highest compliment you can pay memory
-in a security-critical program. There's no heap — nothing is allocated and freed while a request runs.
-Every scratch value is a fixed-size slot on a small stack. That means the Monitor can never fail
-because it "ran out of memory," and there's no allocator sitting there as a target.</p>
-<pre><code>What lives in the Monitor's private memory (sizes are fixed at boot):
-  sessions        a small table of active agent runs (say, 8)
+<h2><span class="n">9.4</span>Use of memory</h2>
+<p>The Monitor's memory is deliberately dull, and dull is the highest praise one can offer memory in a
+security-critical program. There is no heap: nothing is allocated and freed while a request runs.
+Every scratch value is a fixed-size slot on a small stack. The Monitor therefore cannot fail for want
+of memory, and there is no allocator sitting present as a target.</p>
+<pre><code>The Monitor's private memory (sizes fixed at boot):
+  sessions        a small table of active agent runs (e.g. 8)
   capabilities    each session's set of tickets — 16 bytes each, 32 per session
   policy          the compiled rules; written once at boot, never touched again
   audit log       a ring buffer of decisions
-  stack           with a "no-access" guard region right below it</code></pre>
-<p>That guard region under the stack is a small thing that saves you from a bad day. If the Monitor's
-stack ever grows too far (a bug), it runs into a page the hardware won't let it write, so it faults
-immediately instead of quietly scribbling over the policy tables.</p>
+  stack           with a no-access guard region immediately below it</code></pre>
+<p>That guard region beneath the stack is a small thing that averts a bad day. Should the Monitor's
+stack ever grow too far (a bug), it meets a page the hardware forbids it to write, and faults at once
+rather than quietly overwriting the policy tables.</p>
 
-<h2><span class="n">§9.5</span>How it runs</h2>
-<p>One request at a time, start to finish, then the next. The Monitor doesn't juggle. Warden feeds it
-requests one by one, so there are no two things happening at once inside the trusted core — which
-means no locks, and none of the maddening race-condition bugs that come with them. For a piece of code
-this important, that simplicity is worth more than speed.</p>
-<p>How long can one request take? Bounded. The checks are a short loop over a short list, no
-allocation, no open-ended work, so the Monitor always finishes. The one place it might have to
-<em>wait</em> is the very last step, when it's talking to the network or storage chip and that chip is
-slow. Even there it waits with a timer running; if the device doesn't answer in time it gives up with
-an error rather than hanging forever. A stuck peripheral shouldn't be able to freeze the guard.</p>
+<h2><span class="n">9.5</span>Execution model</h2>
+<p>One request at a time, from start to finish, then the next. The Monitor does not juggle. Warden
+feeds it requests singly, so no two things happen at once inside the trusted component — which means
+no locks, and none of the maddening race conditions that accompany them. For code this important, that
+simplicity is worth more than speed.</p>
+<p>How long may one request take? It is bounded. The checks are a short loop over a short list, without
+allocation or open-ended work, so the Monitor always finishes. The single place it may need to
+<em>wait</em> is the final step, when it addresses the network or storage chip and that chip is slow.
+Even there it waits against a timer; if the device does not answer in time it abandons the attempt with
+an error rather than hanging. A stuck peripheral must not be able to freeze the guard.</p>
 
-<h2><span class="n">§9.6</span>The moment a request arrives</h2>
-<p>For readers who want to see the actual handoff: the agent's side runs a special instruction
-(<code>ecall</code>) that traps into Machine mode. The chip records where to come back to and jumps to
+<h2><span class="n">9.6</span>The moment a request arrives</h2>
+<p>For those who wish to see the actual handoff: the agent's side executes a special instruction
+(<code>ecall</code>) that traps into machine mode. The processor records where to resume and jumps to
 the Monitor's entry point. In rough assembly:</p>
 <pre><code>on_trap:
-    switch to the Monitor's own stack        # so the caller can't mess with it
+    switch to the Monitor's own stack        # so the caller cannot interfere
     save the argument registers
-    read the cause; if it isn't "a request", go to the bug handler
-    run the dispatcher                        # picks mediate / open / close / …
-    put the answer (allow-or-deny, length) back in the result registers
-    return to the caller
-</code></pre>
-<p>Because the Monitor runs to the end without being interrupted, the amount of state it has to stash
-away is tiny and always the same. The caller reads back two things: the verdict, and how long the
-response is.</p>
+    read the cause; if it is not "a request", go to the bug handler
+    run the dispatcher                        # selects mediate / open / close / …
+    place the answer (allow-or-deny, length) in the result registers
+    return to the caller</code></pre>
+<p>Because the Monitor runs to completion without interruption, the state it must set aside is small
+and always the same. The caller reads back two things: the verdict, and the length of the response.</p>
 
-<h2><span class="n">§9.7</span>The six checks, and why each one exists</h2>
-<p>The heart of the Monitor is a sequence of six checks. The main manual has the exact algorithm;
-what follows is <em>why</em> each step is there, because that's the part that's easy to get wrong.</p>
-<h4>1 — Is this request even well-formed?</h4>
-<p>Everything after this trusts the parsed request, so this is the airlock. It confirms the request
-sits in the shared mailbox and nowhere sneakier, that it isn't claiming more arguments than we allow,
-and then copies it somewhere private. Skip the copy and you've left the door open to the change-it-
-after-the-check trick from §9.3.</p>
+<h2><span class="n">9.7</span>The six checks, and why each exists</h2>
+<p>At the heart of the Monitor is a sequence of six checks. The reference algorithm appears in the main
+specification; what follows is <em>why</em> each step is present, which is the part easiest to get
+wrong.</p>
+<h4>1 — Is the request even well-formed?</h4>
+<p>All that follows trusts the parsed request, so this is the airlock. It confirms the request sits in
+the shared mailbox and nowhere more devious, that it does not claim more arguments than we allow, and
+then copies it somewhere private. Omit the copy and the door is left open to the alter-after-checking
+manoeuvre of §9.3.</p>
 <h4>2 — Do you actually hold this permission?</h4>
-<p>The host handed us a number. This step turns it into a real capability or says no. It also checks
-the capability hasn't been revoked. Revocation is instant here: cancelling a session bumps a counter,
-and every ticket it ever issued now fails a one-line comparison. No hunting through lists.</p>
+<p>The host supplied a number. This step turns it into a real capability or declines. It also confirms
+the capability has not been revoked. Revocation is instantaneous: cancelling a session increments a
+counter, and every ticket it ever issued now fails a one-line comparison. No lists are searched.</p>
 <h4>3 — Is this ticket for this tool?</h4>
-<p>A capability is for one tool. We check that cheaply before doing the more expensive argument work,
-so a file-reading ticket waved at the network gets bounced right away.</p>
+<p>A capability is for one tool. We verify this cheaply before the costlier argument work, so that a
+file-reading ticket presented at the network is turned away immediately.</p>
 <h4>4 — Are the arguments allowed?</h4>
-<p>This is where most attacks die. The rules run against the <em>structured</em> arguments, not
-re-parsed text. That matters more than it sounds. A whole class of real bugs comes from the checker
-and the doer disagreeing about how to read a string — the classic one is a URL where <code>%2e</code>
-sneaks a different host past a naive filter. We don't re-parse; we read the host field the same way the
-action will use it, so there's nothing to disagree about.</p>
+<p>Here most attacks die. The rules run against the <em>structured</em> arguments, not against
+re-parsed text — which matters more than it sounds. A whole class of real bugs arises when the checker
+and the doer disagree about how to read a string; the classic case is a URL in which <code>%2e</code>
+slips a different host past a naive filter.<sup><a href="#n4">4</a></sup> We do not re-parse; we read
+the host field exactly as the action will use it, so there is nothing to disagree about.</p>
 <h4>5 — Is it smuggling data out?</h4>
-<p>A call can be perfectly allowed and still be a problem if it's carrying a secret out the door. This
-step is the second, independent net: a secret value isn't permitted into a request bound for a public
-server, even to an allowed host. Two different checks catch two different attacks.</p>
-<h4>6 — Do it.</h4>
+<p>A call may be entirely permitted and still be a problem if it carries a secret out the door. This is
+the second, independent net: a secret value is not admitted into a request bound for a public server,
+even to an allowed host. Two different checks catch two different attacks.</p>
+<h4>6 — Carry it out.</h4>
 <p>Only now does anything actually leave the chip. The Monitor performs the action, injects the secret
-the agent never saw, and stamps the result "untrusted" so whatever gets the response knows not to
-believe it. If the hardware errors or times out, the caller gets an error — never a half-finished
-action.</p>
+the agent never saw, and stamps the result "untrusted" so that whatever receives the response knows
+not to believe it. Should the hardware error or time out, the caller receives an error — never a
+half-finished action.</p>
 
-<h2><span class="n">§9.8</span>How secrets are handled</h2>
-<p>Keys are the thing most worth stealing, so this is the most careful path in the whole system. The
-short version: the Monitor will <em>use</em> a key for you, but it will never <em>give</em> it to you.</p>
+<h2><span class="n">9.8</span>Handling of secrets</h2>
+<p>Keys are the thing most worth stealing, so this is the most careful path in the system. In short:
+the Monitor will <em>use</em> a key on your behalf, but it will never <em>give</em> it to you.</p>
 <ul>
-<li>At rest, keys sit in the machine-only region, loaded once at boot; the temporary buffer used to
-load them is wiped right after.</li>
-<li>In use, exactly one piece of code reads a key — the injector — and it holds the plaintext only for
-the instant it takes to splice it into an outgoing request, then wipes its copy.</li>
-<li>There is no command, and no code path, that copies key bytes into a response. This is the same
-idea as the secure chip in an iPhone: you get the <em>use</em> of a key, not the key.</li>
+<li>At rest, keys reside in the machine-only region, loaded once at boot; the temporary buffer used to
+load them is wiped immediately afterward.</li>
+<li>In use, exactly one part reads a key — the injector — and it holds the plaintext only for the
+instant it takes to splice into an outgoing request, then wipes its copy.</li>
+<li>There is no command, and no code path, that copies key bytes into a response. This is the principle
+of the secure element in a phone: one receives the <em>use</em> of a key, not the key
+itself.<sup><a href="#n5">5</a></sup></li>
 </ul>
 
-<h2><span class="n">§9.9</span>When something goes wrong</h2>
-<p>There are three flavors of "wrong," and the Monitor treats them very differently.</p>
+<h2><span class="n">9.9</span>When something goes wrong</h2>
+<p>There are three kinds of "wrong," and the Monitor treats them very differently.</p>
 <ul>
-<li>A <b>denial</b> is normal. The agent asked for something it isn't allowed to do; we say no, log it,
-flash it on the little screen, and carry on. Nothing's broken.</li>
-<li>A <b>hardware hiccup</b> at the last step (the network chip errors or is slow) comes back to the
-caller as an error. We don't retry inside the Monitor — retrying is the untrusted caller's problem.</li>
-<li>An <b>impossible fault</b> — the Monitor itself tripping over a memory protection it set — means
-the Monitor has a bug, not that it's under attack. In that case it stops. It doesn't try to soldier on
-in a possibly-corrupt state. A halted Redoubt is safe (it does nothing); a confused one isn't.</li>
+<li>A <em>denial</em> is normal. The agent asked for something it may not do; we decline, log it, show
+it on the small display, and continue. Nothing is broken.</li>
+<li>A <em>hardware fault</em> at the final step (the network chip errors or is slow) returns to the
+caller as an error. The Monitor does not retry — retrying is the untrusted caller's concern.</li>
+<li>An <em>impossible fault</em> — the Monitor tripping over a protection it itself set — means the
+Monitor has a bug, not that it is under attack. In that case it stops. It does not attempt to carry on
+in a possibly corrupt state. A halted Redoubt is safe, for it does nothing; a confused one is not.</li>
 </ul>
 
-<h2><span class="n">§9.10</span>The promises it keeps</h2>
-<p>If you want to check our work, these are the specific things that must always be true. The test
-plan pokes at each one, and a future formal proof would nail them down for real.</p>
-<ul>
+<h2><span class="n">9.10</span>The invariants it maintains</h2>
+<p>To check our work, these are the things that must always hold. The test plan probes each, and a
+future formal proof would establish them properly.</p>
+<ol>
 <li>Nothing reaches the outbound hardware except the final step, and only after all six checks passed.</li>
-<li>Key bytes never end up in a response or anywhere the untrusted side can read.</li>
-<li>A capability slot is filled only if the policy (or a narrowing of it) put it there — no permissions appear from nowhere.</li>
-<li>A derived capability is always <em>weaker</em> than its parent, never stronger.</li>
+<li>Key bytes never appear in a response, nor anywhere the untrusted side can read.</li>
+<li>A capability slot is filled only if the policy, or a narrowing of it, placed it there.</li>
+<li>A derived capability is always weaker than its parent, never stronger.</li>
 <li>Every request finishes in a bounded number of steps.</li>
-<li>The rules are written once at boot and never change afterward.</li>
-<li>The hardware walls go up before any untrusted code runs.</li>
-</ul>
+<li>The rules are written once at boot and never afterward.</li>
+<li>The hardware walls are raised before any untrusted code runs.</li>
+</ol>
 
-<h2><span class="n">§9.11</span>Roads we didn't take</h2>
-<p>A few designs looked reasonable and we turned them down. Knowing why is half the architecture.</p>
-<p class="rej"><b>Put the decision in the operating system.</b> Simpler — one boundary instead of two.
+<h2><span class="n">9.11</span>Alternatives rejected</h2>
+<p>Several designs looked reasonable and were declined. Knowing why is half the architecture.</p>
+<p class="rej"><b>Put the decision in the operating system.</b> Simpler — one boundary rather than two.
 But then a single bug in that OS is a total bypass, and we specifically promised to survive an OS
-takeover. The entire premise is that the kernel is <em>not</em> the most trusted thing.</p>
-<p class="rej"><b>Rely on the MMU instead of PMP.</b> The MMU (the usual virtual-memory hardware) is set
-up by the operating system, so a compromised OS can reconfigure it. It can't wall anything off from
-itself. PMP is machine-only, which is exactly why we lean on it for the real wall. (The MMU is still
-handy one level down, for keeping compartments apart.)</p>
+takeover. The premise is that the kernel is not the most trusted thing.</p>
+<p class="rej"><b>Rely on the MMU rather than PMP.</b> The MMU, the usual virtual-memory hardware, is
+configured by the operating system, so a compromised OS can reconfigure it; it cannot wall anything
+off from itself. PMP is machine-only, which is why we rest the real wall on it. (The MMU remains useful
+one level down, for keeping compartments apart.)</p>
 <p class="rej"><b>Make it fast with pipelining and queues.</b> That drags concurrency, buffers, and
-locks into the trusted core — more code and more ways to be wrong. The waiting is dominated by the
-network anyway. Not worth it for v1.</p>
-<p class="rej"><b>Let an AI model help decide.</b> That's the exact thing we're trying to escape:
-a decision that's non-deterministic and can be talked into a "yes." There is no model anywhere in the
-decision path, on purpose.</p>
-<p class="rej"><b>A flexible policy language with loops and callbacks.</b> Powerful, and also a great
-way to build something that can loop forever or that nobody can audit. The rules are deliberately a
-language that can't do more than check conditions.</p>
+locks into the trusted component — more code and more ways to be wrong. The waiting is dominated by the
+network in any case. Not worth it for a first version.</p>
+<p class="rej"><b>Let an AI model assist the decision.</b> That is the very thing we are escaping: a
+decision that is non-deterministic and can be talked into a "yes." There is no model anywhere on the
+decision path, by design.</p>
+<p class="rej"><b>A flexible policy language with loops and callbacks.</b> Powerful, and also an
+excellent way to build something that can loop forever or that no one can audit. The rules are
+deliberately a language that can do no more than check conditions.</p>
 
-<h2><span class="n">§9.12</span>Following one request all the way through</h2>
-<p>Let's watch an attack fail. The agent has been prompt-injected and is trying to steal an API key by
-POSTing it to a server the attacker controls. It holds the <code>web</code> capability (tag 3).</p>
-<pre><code>the door    a request arrived; save state; it's a "mediate" → go
-check 1     it's in the mailbox, right size → copy it in
+<h2><span class="n">9.12</span>One request, followed all the way through</h2>
+<p>Let us watch an attack fail. The agent has been prompt-injected and is attempting to steal an API
+key by posting it to a server the attacker controls. It holds the <code>web</code> capability, tag 3.</p>
+<pre><code>the door    a request arrived; save state; it is a "mediate" → proceed
+check 1     it is in the mailbox, of the right size → copy it in
 check 2     session 1 is live; tag 3 → the web capability; not revoked → ok
-check 3     the ticket is for http.request, and that's what was asked → ok
+check 3     the ticket is for http.request, and that is what was asked → ok
 check 4     rule: scheme must be https → ok
-            rule: host must be one of {api.example.com} → but it's "evil.tld" → NO
+            rule: host must be one of {api.example.com} → but it is "evil.tld" → NO
             → DENY, reason: bad argument (the host)
-log         write it down; the tamper-evident chain moves forward
-screen      the little display shows "DENIED — host"
-return      verdict: denied. Nothing was sent. The key was never touched.
-</code></pre>
-<p>And if the agent had been cleverer and aimed at the real <code>api.example.com</code> with the key
-tucked in the request body? Check 4 would pass, and then check 5 would catch it: a secret isn't allowed
-to leave that way. Two nets, both dumb-simple, both impossible to sweet-talk.</p>
+log         record it; the tamper-evident chain advances
+display     the small screen shows "DENIED — host"
+return      verdict: denied. Nothing was sent. The key was never touched.</code></pre>
+<p>And had the agent been cleverer, aiming at the real <code>api.example.com</code> with the key
+tucked into the request body? Check 4 would pass, and then check 5 would catch it: a secret may not
+leave that way. Two nets, both plain, both impossible to sweet-talk.</p>
 
-<h2><span class="n">§9.13</span>How we test all this</h2>
-<p>Claims are cheap; here's how each one gets checked.</p>
+<h2><span class="n">9.13</span>How it is tested</h2>
+<p>Claims are cheap; here is how each is checked.</p>
 <ul>
 <li>Ordinary unit tests on a laptop for the fiddly logic: the parser's bounds, the revocation counter,
-the argument rules, the memory math.</li>
-<li>Simulating the actual chip (Verilator) to confirm the hardware wall really faults when the
-untrusted side reaches for the secrets. That's the one promise you can't test in software alone.</li>
-<li>A "containment" suite that runs each attack from the threat model and insists on the exact denial —
-and, crucially, checks that nothing went out the door.</li>
-<li>Fuzzing the parts that read attacker-controlled bytes, with memory-error detection turned on.</li>
-<li>A build that <em>fails</em> if the trusted code creeps over its line budget, or if unsafe code
-shows up outside the one place we allow it.</li>
+the argument rules, the memory arithmetic.</li>
+<li>Simulating the actual chip (Verilator) to confirm the hardware wall truly faults when the untrusted
+side reaches for the secrets — the one promise that cannot be tested in software alone.</li>
+<li>A containment suite that runs each attack from the threat model and insists on the exact denial,
+and, crucially, that nothing left the chip.</li>
+<li>Fuzzing the parts that read attacker-controlled bytes, with memory-error detection enabled.</li>
+<li>A build that <em>fails</em> should the trusted code exceed its line budget, or should unsafe code
+appear outside the one place we permit it.</li>
 </ul>
 
-<h2><span class="n">§9.14</span>Still open</h2>
-<p>Honest loose ends, so nobody thinks this is finished:</p>
+<h2><span class="n">9.14</span>Open questions</h2>
+<p>Honest loose ends, so that no one mistakes this for finished:</p>
 <ul>
-<li>The exact table sizes, once we know how much room the FPGA really has.</li>
-<li>Whether splicing in a secret needs to be constant-time to avoid leaking its length through timing
-(part of the bigger side-channel question we've parked for now).</li>
-<li>How long to wait on the network vs. the storage chip before giving up.</li>
-<li>Whether our chosen CPU build has the newer PMP feature we'd prefer, or we use the older locking
-method instead.</li>
+<li>The exact table sizes, once we know how much room the FPGA truly affords.</li>
+<li>Whether splicing in a secret must be constant-time, to avoid leaking its length through timing —
+part of the broader side-channel question set aside for now.</li>
+<li>How long to wait on the network versus the storage chip before giving up.</li>
+<li>Whether the chosen processor build has the newer PMP feature we would prefer, or the older locking
+method must be used instead.<sup><a href="#n1">1</a></sup></li>
 </ul>
 
-<footer>Chapter 9 of the Redoubt component manual — the Monitor. Written to be read start to finish,
-newcomer or not. If the depth and the voice here are right, the other twelve components get a chapter
-just like it. Open source, MIT.</footer>
+<ol class="notes" id="notes">
+<li id="n1"><span>[1]</span> RISC-V Privileged ISA — Physical Memory Protection (<code>pmpcfg</code>/<code>pmpaddr</code>, TOR/NAPOT, lock); and the <em>Smepmp</em> extension, v1.0.</li>
+<li id="n2"><span>[2]</span> Apple, <em>Platform Security</em> — SPTM/TXM; and the community deep-dive, arXiv:2510.09272.</li>
+<li id="n3"><span>[3]</span> Lee et al., <em>Keystone: An Open Framework for Architecting TEEs</em>, arXiv:1907.10119; and <em>Sanctorum</em>, arXiv:1812.10605.</li>
+<li id="n4"><span>[4]</span> The parser-mismatch class underlies many real SSRF and path bugs; J. P. Anderson's reference-monitor criteria (1972) frame why complete, unambiguous mediation matters.</li>
+<li id="n5"><span>[5]</span> Apple Secure Enclave key-wrapping: software receives use of a key, never its bytes. Redoubt applies the same principle to injected secrets.</li>
+</ol>
+
+<footer>Redoubt Architecture · RDBT-ARCH-09 · The Monitor · Draft. Open source (MIT). One of thirteen
+component chapters; the others follow in this format once the depth and presentation are confirmed.</footer>
 </div>
