@@ -75,7 +75,7 @@
   <p class="abstract"><span class="lbl">Abstract.</span> Everything else in Redoubt is about deciding.
   This chapter is about the one place where a decision turns into an act in the world: bytes leaving on a
   wire, a block written to a card, a key spliced into a request. The egress subsystem is the hardware the
-  Monitor keeps for itself and lets nothing else touch — the network link to the ESP32, the microSD
+  Monitor keeps for itself and lets nothing else touch, the network link to the ESP32, the microSD
   controller, the secret store, and the noise source that seeds our randomness. It specifies how each is
   reached, how a secret is used without ever being surrendered, and where the honest seams are: the ESP32
   firmware sits inside the egress path, and wired Ethernet is a version-two upgrade, not a thing we have
@@ -87,7 +87,7 @@
 <p style="text-align:justify">A few pieces of hardware and one cryptographic idea recur below. Here is
 each in plain terms.</p>
 <dl>
-<dt>Egress</dt><dd>Anything leaving the trusted core toward the outside — a network packet, a file being
+<dt>Egress</dt><dd>Anything leaving the trusted core toward the outside, a network packet, a file being
 saved. The word simply means "the way out," and this chapter is about owning it.</dd>
 <dt>ESP32</dt><dd>A small, cheap, self-contained networking chip that speaks Wi-Fi. Redoubt uses it as
 its network card. It is a separate computer with its own firmware, which is exactly the caveat we keep
@@ -95,8 +95,7 @@ returning to.</dd>
 <dt>MMIO</dt><dd>Memory-mapped I/O. Hardware devices appear to the processor as special memory
 addresses; writing to the address commands the device. Because it looks like memory, the same PMP walls
 that protect memory can protect a device.</dd>
-<dt>Secret injection</dt><dd>Using a key on the agent's behalf — pasting it into an outgoing request —
-without ever handing the key back to the agent. The agent gets the <em>effect</em> of the key, never
+<dt>Secret injection</dt><dd>Using a key on the agent's behalf, pasting it into an outgoing request, without ever handing the key back to the agent. The agent gets the <em>effect</em> of the key, never
 its bytes.</dd>
 <dt>TRNG</dt><dd>A true random-number generator: hardware that produces genuine unpredictability from a
 physical process, as opposed to a formula. Keys and session identifiers need this.</dd>
@@ -109,20 +108,20 @@ alone works the radio and holds the keys to the gate. If any clerk could walk ov
 directly, the guard's careful adjudication would be theatre. The security of the whole system rests on a
 physical fact: the dangerous hardware is reachable only through the one component we trust.</p>
 <p>Egress is that hardware. The network link, the storage controller, the secret store, and the entropy
-source all live in a single machine-only region of the address map — <code>EGRESS_MMIO</code> at
-<code>0xF000_0000</code>, plus the <code>SECRETS</code> region at <code>0x1002_0000</code> — walled off
+source all live in a single machine-only region of the address map, <code>EGRESS_MMIO</code> at
+<code>0xF000_0000</code>, plus the <code>SECRETS</code> region at <code>0x1002_0000</code>, walled off
 by PMP entries that are written and locked at boot before any supervisor or user code runs
 (Chapter&nbsp;3). From that instant a compromised Warden or a hostile driver that reaches for the ESP32's
 registers does not get a refusal from some software check; it gets a fault from the silicon, because the
 address is simply not theirs to touch.<sup><a href="#n1">1</a></sup></p>
-<p>So the untrusted world can prepare an egress payload all it likes — format a packet, lay out a block
-to write — but it cannot <em>send</em>. The send is a Monitor action, reached only through the mediation
+<p>So the untrusted world can prepare an egress payload all it likes, format a packet, lay out a block
+to write, but it cannot <em>send</em>. The send is a Monitor action, reached only through the mediation
 ABI, and it happens only after the six checks have passed. This chapter is what lives on the far side of
 check&nbsp;six.</p>
 
 <h2><span class="n">12.2</span>Network: the ESP32 link</h2>
 <p>Redoubt has no Ethernet MAC of its own in version one. Its network card is an ESP32 module, reached
-over a link — UART or SPI — whose controller registers sit inside <code>EGRESS_MMIO</code>, and which is
+over a link, UART or SPI, whose controller registers sit inside <code>EGRESS_MMIO</code>, and which is
 therefore M-owned like everything else in that region. A user-mode network driver may assemble the
 payload in its own compartment, but when it wants that payload to actually leave, it must ask the
 Monitor, which applies the <code>Net</code> capability check, injects any secret the policy directs, and
@@ -130,14 +129,14 @@ only then drives the link.</p>
 <p>Now the honest part, and it is important enough that we will not bury it. The ESP32 runs its own
 firmware, a closed module we did not write and do not measure. That firmware is <em>in the egress
 path</em>. Concretely: once the Monitor hands vetted, secret-injected bytes to the ESP32, what the ESP32
-does with them — how it forms the TLS session, whether its own stack has bugs — is outside our trusted
+does with them, how it forms the TLS session, whether its own stack has bugs, is outside our trusted
 base. We can guarantee that nothing reaches the ESP32 except through the Monitor's checks. We cannot
 guarantee the ESP32 itself is flawless, and we do not claim to.<sup><a href="#n2">2</a></sup></p>
 <p>This is a real limitation, and the roadmap addresses it head-on. Version two moves to a wired-Ethernet
 board (an ECPIX-5 or Colorlight class device) where the Monitor owns the MAC directly in the FPGA
 fabric, removing the closed firmware from the trusted path entirely. Until then, the ESP32 buys us a
 working network on cheap, available hardware, and we are precise about what that costs. It is worth
-saying plainly that this seam does not widen the agent's authority — a hijacked agent still cannot get
+saying plainly that this seam does not widen the agent's authority, a hijacked agent still cannot get
 the Monitor to send to a disallowed host or leak a secret; the ESP32 caveat is about the integrity of
 the pipe, not about who may use it.</p>
 
@@ -145,14 +144,14 @@ the pipe, not about who may use it.</p>
 <p>Storage is simpler and cleaner than the network, because there is no third-party firmware in the way.
 A microSD card is driven by the LiteSDCard controller, whose MMIO also lives in the machine-only egress
 region. Block reads and writes are Monitor actions gated by <code>File</code> capabilities, and a
-<code>File</code> capability is not "you may use the disk" — it is far narrower.</p>
+<code>File</code> capability is not "you may use the disk", it is far narrower.</p>
 <div class="tblwrap">
 <table>
 <thead><tr><th>Gate on a File capability</th><th>What it constrains</th></tr></thead>
 <tbody>
 <tr><td>path prefix</td><td>the capability names an allowed prefix, e.g. <code>/corpus/</code>; a
 <code>PATH</code> TypedArg not under it fails the predicate with <code>DENY_ARG</code></td></tr>
-<tr><td>mode</td><td>read, write, or both — a read-only corpus capability cannot be turned into a write</td></tr>
+<tr><td>mode</td><td>read, write, or both, a read-only corpus capability cannot be turned into a write</td></tr>
 <tr><td>result label</td><td>file contents returned to a caller are stamped <code>UNTRUSTED</code> (Chapter&nbsp;10)</td></tr>
 </tbody>
 </table>
@@ -168,7 +167,7 @@ means.<sup><a href="#n3">3</a></sup></p>
 <p>Keys are the thing most worth stealing, so the secret store is the most carefully guarded path in the
 whole design. The governing principle is one sentence: the Monitor will <em>use</em> a secret on your
 behalf, but it will never <em>give</em> it to you. This is the same bargain a phone's secure element
-strikes — software receives the use of a key, never the key material.<sup><a href="#n4">4</a></sup></p>
+strikes, software receives the use of a key, never the key material.<sup><a href="#n4">4</a></sup></p>
 <h3>The lifecycle of a key</h3>
 <ul>
 <li><em>At boot.</em> Secrets are loaded once, from an M-only area of QSPI flash, into the
@@ -177,7 +176,7 @@ done, so the plaintext exists in two places for as short a time as we can arrang
 <li><em>At rest.</em> Keys live in <code>SECRETS</code> (region&nbsp;#3 of the memory map), reachable
 only from machine mode. No supervisor or user load instruction can read a byte of it; the attempt
 faults.</li>
-<li><em>In use.</em> Exactly one piece of code — the injector, part of the perform step — reads a key.
+<li><em>In use.</em> Exactly one piece of code, the injector, part of the perform step, reads a key.
 It holds the plaintext only for the moment it takes to splice the secret into an outgoing request (as an
 HTTP <code>Authorization</code> header, say), then wipes its working copy.</li>
 <li><em>Never.</em> There is no ABI opcode, and no code path, that copies key bytes into a response. A
@@ -186,7 +185,7 @@ capability of type <code>Secret</code> permits injection at a named site and not
 back.</li>
 </ul>
 <p>The mechanics of injection matter because they are where a careless design would leak. The agent's
-request references a secret only by capability — it says, in effect, "make this call, and put credential
+request references a secret only by capability, it says, in effect, "make this call, and put credential
 number 2 where the policy says it goes." It never names the value, never sees the value, and cannot ask
 for the value. The Monitor looks up the site from the capability's <code>secret_ref</code>, reads the
 key from <code>SECRETS</code>, writes it into the outgoing bytes after the flow check has cleared the
@@ -239,18 +238,17 @@ appears and where it does not.</p>
 </svg>
 <figcaption><span class="fl">Figure 12-1.</span> The egress sequence. The Endpoint only frames; Warden
 only relays; the Monitor is where every decision and the secret injection happen. The one accented send
-is the only line carrying secret-spliced bytes, and it goes outward to the ESP32 — never back down the
+is the only line carrying secret-spliced bytes, and it goes outward to the ESP32, never back down the
 return path. The response returns stamped <code>UNTRUSTED</code>, and the credential never crosses left
 of the Monitor's lifeline.</figcaption>
 </figure>
 
-<p>Two things about this picture repay a second look. First, Warden — the supervisor-mode microkernel —
-is on the path but decides nothing; it schedules the request to the Monitor and relays the answer, and
+<p>Two things about this picture repay a second look. First, Warden, the supervisor-mode microkernel, is on the path but decides nothing; it schedules the request to the Monitor and relays the answer, and
 if it were fully compromised the security property would still hold, because it never touches the
 egress hardware or the secret. Second, the secret's entire existence as plaintext is confined to the
 Monitor's activation box on the right of the diagram. It is read from <code>SECRETS</code>, spliced,
-sent, and wiped, all within machine mode. Nothing to the left of the Monitor's lifeline — not Warden,
-not the Endpoint, not the host — ever holds it.</p>
+sent, and wiped, all within machine mode. Nothing to the left of the Monitor's lifeline, not Warden,
+not the Endpoint, not the host, ever holds it.</p>
 
 <h2><span class="n">12.6</span>The TRNG: randomness you can trust</h2>
 <p>Several parts of Redoubt need genuine unpredictability: randomising capability handles so they cannot
@@ -258,7 +256,7 @@ be guessed, seeding session identifiers, and any future key generation. A formul
 generator is not enough here, because its output is predictable to anyone who learns its seed. Redoubt
 therefore uses a hardware entropy source: a ring oscillator built in the FPGA fabric, whose jitter is a
 physical process no attacker can compute ahead of time.</p>
-<p>Raw physical entropy is never trusted blindly, though, because entropy sources fail — they can get
+<p>Raw physical entropy is never trusted blindly, though, because entropy sources fail, they can get
 stuck, or degrade with temperature, and a silently failing noise source that keeps handing out the same
 "random" value is worse than no source at all. So the TRNG output passes continuous health tests drawn
 from NIST SP 800-90B: the Repetition-Count Test, which trips if a value repeats too many times in a row,
@@ -272,7 +270,7 @@ high-assurance TRNG design.<sup><a href="#n6">6</a></sup></p>
 <ul>
 <li><em>The ESP32 errors or stalls.</em> The send is bounded by a timer. If the link does not complete
 in time the Monitor abandons the attempt and returns <code>ERR_EGRESS</code> (0x20) or
-<code>ERR_TIMEOUT</code> (0x21) to the caller — never a half-finished action. Retrying is the untrusted
+<code>ERR_TIMEOUT</code> (0x21) to the caller, never a half-finished action. Retrying is the untrusted
 caller's business, not the Monitor's.</li>
 <li><em>The SD card is absent or write-protected.</em> A storage action against missing or read-only
 media returns <code>ERR_EGRESS</code>; the capability check has already passed, so this is a hardware
@@ -305,14 +303,14 @@ error paths.</li>
 raw access to the link and skip the trip through machine mode. This is faster and it also demolishes the
 entire guarantee: a compromised driver could then send anything anywhere and inject or read secrets. The
 send has to be a Monitor action or the wall means nothing.</p>
-<p class="rej"><b>Ship wired Ethernet in version one.</b> It is the right destination — the Monitor owning
+<p class="rej"><b>Ship wired Ethernet in version one.</b> It is the right destination, the Monitor owning
 the MAC in fabric removes the ESP32 firmware from the trusted path. But it needs a different, more
 expensive board and considerably more FPGA work, and version one's job is to demonstrate the mediation
 architecture on cheap, available hardware. We took the ESP32 with eyes open and wrote the caveat down
 rather than pretending the seam is not there.</p>
 <p class="rej"><b>Hand the agent a short-lived token instead of injecting.</b> Rather than splice a
 secret the agent never sees, mint a scoped token and let the agent use it. Sometimes reasonable, but it
-moves a credential — even a narrow one — onto the untrusted host, where a hijacked agent can spend it
+moves a credential, even a narrow one, onto the untrusted host, where a hijacked agent can spend it
 however the token allows and can exfiltrate the token itself. Inject-only keeps every credential on the
 trusted side of the boundary, which is the stronger position.</p>
 <p class="rej"><b>Return secrets to trusted callers "just this once."</b> Add an ABI that reads a key,
@@ -327,7 +325,7 @@ cost.</p>
 <h2><span class="n">12.10</span>Open questions</h2>
 <ul>
 <li>The exact M-owned link protocol to the ESP32, and how much of it is the Monitor's versus a
-user-mode driver's — the boundary is drawn in principle but the wire details are unsettled.</li>
+user-mode driver's, the boundary is drawn in principle but the wire details are unsettled.</li>
 <li>Timeout values: how long to wait on the network link versus the SD controller before returning an
 error. These want measurement on real hardware, not a guess.</li>
 <li>Whether secret injection must be constant-time in version one, or whether that can wait with the
@@ -350,9 +348,9 @@ the same checker-versus-doer parser-mismatch class discussed for URLs in Chapter
 the path as it will use it, without a re-parse.</li>
 <li id="n4"><span>[4]</span> Apple Secure Enclave key-wrapping: software is granted the use of a key,
 never its bytes. Redoubt applies the identical principle to injected secrets (spec §6.5, §9.3).</li>
-<li id="n5"><span>[5]</span> NIST SP 800-90B — entropy source validation and continuous health tests:
+<li id="n5"><span>[5]</span> NIST SP 800-90B, entropy source validation and continuous health tests:
 the Repetition-Count Test (RCT) and Adaptive-Proportion Test (APT).</li>
-<li id="n6"><span>[6]</span> bunnie, <em>Baochip-1x</em> — a mostly-open high-assurance SoC that treats
+<li id="n6"><span>[6]</span> bunnie, <em>Baochip-1x</em>, a mostly-open high-assurance SoC that treats
 the TRNG and secure elements as first-class isolated components.</li>
 </ol>
 

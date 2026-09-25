@@ -74,8 +74,8 @@
   <h1>Assurance: TCB, Verification &amp; Roadmap</h1>
   <p class="abstract"><span class="lbl">Abstract.</span> A security claim is only as good as the reason
   you have to believe it. This closing chapter gathers those reasons. It defines exactly what must be
-  trusted — the trusted computing base, which in Redoubt is the Monitor, the boot ROM, and the PMP
-  configuration and nothing else — and states the line budget that keeps it small enough for one person
+  trusted, the trusted computing base, which in Redoubt is the Monitor, the boot ROM, and the PMP
+  configuration and nothing else, and states the line budget that keeps it small enough for one person
   to read. It lays out the complete-mediation argument in full: why every effect must pass the Monitor's
   checks, and why that holds even when the Warden is compromised. It maps Redoubt honestly against the
   OWASP Top 10 for Agentic Applications, marking what is contained, what is merely mitigated, and what is
@@ -88,8 +88,8 @@
 
 <div class="note">
 <span class="lbl">Note to first-time readers.</span>
-<p style="text-align:justify">This chapter is about <em>assurance</em> — the grounds for trusting the
-system — so a few evaluation terms recur.</p>
+<p style="text-align:justify">This chapter is about <em>assurance</em>, the grounds for trusting the
+system, so a few evaluation terms recur.</p>
 <dl>
 <dt>Trusted computing base (TCB)</dt><dd>The set of components that must be correct for the security
 guarantee to hold. Anything inside it, if buggy, can break the guarantee; anything outside it can be
@@ -115,10 +115,10 @@ small as you can, because everything in it is a place a bug becomes a breach, an
 free to misbehave.</p>
 <p>Redoubt's TCB is three things:</p>
 <ol>
-<li>the <em>Monitor</em> — the M-mode reference monitor that makes every decision (Chapter 9);</li>
-<li>the <em>boot ROM</em> (BROM) — the tiny code that measures the Monitor at power-on and refuses to run
+<li>the <em>Monitor</em>, the M-mode reference monitor that makes every decision (Chapter 9);</li>
+<li>the <em>boot ROM</em> (BROM), the tiny code that measures the Monitor at power-on and refuses to run
 a tampered one (Chapter 5); and</li>
-<li>the <em>PMP configuration</em> — the specific set of hardware protection entries that wall the Monitor,
+<li>the <em>PMP configuration</em>, the specific set of hardware protection entries that wall the Monitor,
 the secrets, and the egress hardware off from everything else (Chapter 3).</li>
 </ol>
 <p>That is the whole list. Note what is <em>not</em> on it. The Warden is not trusted (Chapter 11); the
@@ -131,7 +131,7 @@ because the guarantee rests entirely on those three items.</p>
 <table>
 <thead><tr><th>TCB component</th><th>Language</th><th>Budget</th><th>Enforced by</th></tr></thead>
 <tbody>
-<tr><td>Monitor</td><td><code>no_std</code> Rust</td><td>&le; 2,500 LoC</td><td>CI <code>tokei</code> gate — build fails if exceeded</td></tr>
+<tr><td>Monitor</td><td><code>no_std</code> Rust</td><td>&le; 2,500 LoC</td><td>CI <code>tokei</code> gate, build fails if exceeded</td></tr>
 <tr><td>Boot ROM (BROM)</td><td>Rust / asm</td><td>&le; 300 LoC</td><td>CI <code>tokei</code> gate</td></tr>
 <tr><td>PMP configuration</td><td>data (register values)</td><td>a handful of entries</td><td>reviewed by inspection; asserted in sim</td></tr>
 </tbody>
@@ -180,7 +180,7 @@ decision-bearing code aims to come in below even that.</p>
   </g>
   <text x="804" y="230" font-size="10" text-anchor="end" class="t-mut">Linux kernel · tens of millions</text>
 </svg>
-<figcaption><span class="fl">Figure 13-1.</span> Trusted code, to scale, on a logarithmic axis — each
+<figcaption><span class="fl">Figure 13-1.</span> Trusted code, to scale, on a logarithmic axis, each
 gridline is ten times the last. Redoubt's decision-bearing code (Monitor + BROM, budgeted near 2,800
 lines) is the accented bar. seL4, the smallest formally verified kernel, is already several times larger;
 a compartmentalised desktop OS trusts a base three orders of magnitude bigger; a monolithic kernel, four.
@@ -190,31 +190,31 @@ A small trust base is the deliverable, and the chart is the argument.</figcaptio
 <h2><span class="n">13.2</span>The complete-mediation argument</h2>
 <p>The security property (Chapter 2) says that for every external effect the agent causes, there exists a
 capability in the active session that binds the tool, whose predicate accepts the arguments, and whose flow
-rule accepts the labels — and that this holds for arbitrary behaviour of the host, the compartments, and
+rule accepts the labels, and that this holds for arbitrary behaviour of the host, the compartments, and
 even a compromised Warden. This section is the argument that it does. It is a sketch, not a proof; a formal
 model is on the roadmap. But the sketch is short, which is itself the point.</p>
 <p>The argument has three joints.</p>
-<h4>1 — Every effect must go through the egress hardware.</h4>
+<h4>1, Every effect must go through the egress hardware.</h4>
 <p>An "external effect" means something reaching the network or storage: a packet sent, a block written.
 Both happen only through the egress MMIO region (network via the ESP32 link, storage via the SD controller,
 Chapter 12). There is no other physical path off the chip for these effects. So to cause an effect at all,
 some code must touch that MMIO region.</p>
-<h4>2 — Only the Monitor can touch the egress hardware.</h4>
+<h4>2, Only the Monitor can touch the egress hardware.</h4>
 <p>The egress MMIO region and the secrets region are covered by PMP entries that grant access to machine
 mode only, and those entries are written and <em>locked</em> at boot, before any supervisor- or user-mode
 code runs (Chapters 3 and 5). A locked entry cannot be changed until the hart resets. Any access to egress
 MMIO from the Warden or a compartment faults. Therefore the only code that can actually drive egress is the
 Monitor, running in machine mode.</p>
-<h4>3 — The only way into the Monitor is the checked entry.</h4>
+<h4>3, The only way into the Monitor is the checked entry.</h4>
 <p>The Monitor is entered exactly one way: an <code>ecall</code> that traps to machine mode and lands on
 the trap vector, which dispatches on the opcode in <code>a7</code>. The mediation opcode runs the six
 checks (Chapter 9); the session opcodes manage lifecycle; anything else is refused as malformed. There is
-no <code>ecall</code> that reads a secret or drives egress as a side effect — those actions live only
+no <code>ecall</code> that reads a secret or drives egress as a side effect, those actions live only
 inside the performing step, after the checks have passed. So the only route to an egress-driving instruction
 is through the checks.</p>
 <p>Chain the three: an effect requires egress MMIO (1); egress MMIO is reachable only from the Monitor (2);
 the Monitor is reachable only through the checked entry (3). Therefore no effect can occur without passing
-the checks. The reference-monitor triad holds — the checker is <em>always invoked</em> (no side door),
+the checks. The reference-monitor triad holds, the checker is <em>always invoked</em> (no side door),
 <em>tamper-proof</em> (locked machine-only regions)<sup><a href="#n4">4</a></sup>, and <em>small enough to verify</em> (§13.1).<sup><a href="#n2">2</a></sup></p>
 <p>The crucial move is that not one link in this chain rests on software above the Monitor behaving well.
 Link 2 is a hardware fault, not a software check. That is what lets the argument survive a compromised
@@ -226,7 +226,7 @@ shows it dead-ends here.)</p>
 <h2><span class="n">13.3</span>Coverage against the OWASP Agentic Top 10</h2>
 <p>The OWASP Top 10 for Agentic Applications (2026) is the community's current catalogue of the ways agent
 systems get hurt.<sup><a href="#n3">3</a></sup> Any honest security claim has to say where it lands against
-that list — including the entries it does <em>not</em> address. The table below uses three verdicts.
+that list, including the entries it does <em>not</em> address. The table below uses three verdicts.
 <em>Contained</em> means the attack can happen inside the agent but cannot produce an unauthorised effect.
 <em>Mitigated</em> means Redoubt meaningfully reduces the risk but does not eliminate it.
 <em>Not covered</em> means v1 offers no defence, by stated scope.</p>
@@ -247,8 +247,8 @@ that list — including the entries it does <em>not</em> address. The table belo
 </tbody>
 </table>
 </div>
-<p>The pattern is deliberate and worth naming. Redoubt is strong exactly where its mechanism bites — the
-authority-bearing boundary of a tool call — and makes no pretence elsewhere. The "not covered" rows are not
+<p>The pattern is deliberate and worth naming. Redoubt is strong exactly where its mechanism bites, the
+authority-bearing boundary of a tool call, and makes no pretence elsewhere. The "not covered" rows are not
 oversights; they are the honest edge of a v1 whose scope was drawn narrowly on purpose (Chapter 2), and
 several of them are the subject of the roadmap below.</p>
 
@@ -257,8 +257,8 @@ several of them are the subject of the roadmap below.</p>
 plan, organised by the kind of confidence each layer buys. No single technique is sufficient, and the plan
 is honest that testing is not proof.</p>
 <h3>Host unit tests</h3>
-<p>The fiddly, self-contained logic — the parser's bounds arithmetic, the epoch comparison, the predicate
-operators, the capability attenuation checks, the quota counters — runs as ordinary Rust unit tests on a
+<p>The fiddly, self-contained logic, the parser's bounds arithmetic, the epoch comparison, the predicate
+operators, the capability attenuation checks, the quota counters, runs as ordinary Rust unit tests on a
 development machine, fast and on every commit. This catches the everyday bugs cheaply and keeps the
 feedback loop tight.</p>
 <h3>Verilator PMP-fault assertion</h3>
@@ -269,13 +269,13 @@ electrical ground truth under link 2 of the mediation argument, so it gets its o
 <h3>QEMU containment suite</h3>
 <p>Each attack from the threat model is scripted end to end against the system running under emulation, and
 each asserts two things: the exact expected denial code <em>and</em> that nothing left the device. The
-exfil demo from the specification — a prompt-injected agent posting an API key — is the canonical case: it
+exfil demo from the specification, a prompt-injected agent posting an API key, is the canonical case: it
 must yield <code>DENY_ARG</code> for the wrong host, or <code>DENY_FLOW</code> for the secret in the body,
 and the egress trace must be empty. A denial that returns the right code but still sent the packet is a
 failure.</p>
 <h3>Fuzzing the attack surface</h3>
-<p>The parts that read attacker-controlled bytes — the COBS/CRC framing in the Endpoint, the TypedArg TLV
-parser, the request header validation — are fuzzed with memory-error detection enabled, so a malformed
+<p>The parts that read attacker-controlled bytes, the COBS/CRC framing in the Endpoint, the TypedArg TLV
+parser, the request header validation, are fuzzed with memory-error detection enabled, so a malformed
 frame that would corrupt memory is caught rather than trusted to good luck. Because the trusted parser is
 <code>no_std</code> Rust with no allocator, the surface is small and bounded, which makes fuzzing tractable.</p>
 <h3>CI gates</h3>
@@ -304,7 +304,7 @@ estimates because they have not yet been taken on hardware.</p>
 </table>
 </div>
 <p>The shape of the budget matters more than the exact figures. The Monitor's own work is bounded and small
-by construction, so the security check is never the bottleneck — the network or the SD card is. That is the
+by construction, so the security check is never the bottleneck, the network or the SD card is. That is the
 comfortable position to be in: correctness costs almost nothing against the physics of getting bytes off the
 board.</p>
 
@@ -313,7 +313,7 @@ board.</p>
 roadmap is part of being straight about where the design is today.</p>
 <h4>A hardware mediation gate (v2)</h4>
 <p>Today mediation is enforced by software in machine mode behind a hardware wall. v2 moves a mediation
-check into the RTL itself — a gate in the fabric between the CPU and egress that cannot issue a send without
+check into the RTL itself, a gate in the fabric between the CPU and egress that cannot issue a send without
 a token the Monitor set, shrinking even the machine-mode software's role in the critical path.</p>
 <h4>Wired-Ethernet egress</h4>
 <p>The frankest caveat in v1 is that the ESP32 firmware sits in the egress path, so the network module is a
@@ -339,7 +339,7 @@ statements were considered and turned down.</p>
 <p class="rej"><b>"Formally verified."</b> We do not say it, because we have not done it. seL4 earned that
 phrase over person-years; v1 has a test plan and a proof sketch. Claiming the word before the work is done
 would be the exact dishonesty this chapter exists to avoid.</p>
-<p class="rej"><b>"Immune to prompt injection."</b> The agent can be injected completely — we assume it
+<p class="rej"><b>"Immune to prompt injection."</b> The agent can be injected completely, we assume it
 will be. What we claim is narrower and defensible: injection cannot produce an unauthorised effect.
 Conflating "we contain it" with "we prevent it" would oversell the mechanism.</p>
 <p class="rej"><b>"Side-channel resistant."</b> Timing and microarchitectural leaks are explicitly out of
@@ -352,7 +352,7 @@ which is the checkable part, and say plainly that full end-to-end IFC is not on 
 <h2><span class="n">13.8</span>Open questions</h2>
 <p>The loose ends that bear on assurance specifically:</p>
 <ul>
-<li>Which properties a first formal model should target — the mediation chain of §13.2 is the obvious
+<li>Which properties a first formal model should target, the mediation chain of §13.2 is the obvious
 candidate, but the PMP-lock invariant and the attenuation-only capability rule are also within reach.</li>
 <li>How to attest the ESP32's presence in the path honestly until wired egress lands: should the audit log
 record that egress went through the closed module?</li>
@@ -365,10 +365,10 @@ not just for the ceiling.</li>
 </ul>
 
 <ol class="notes" id="notes">
-<li id="n1"><span>[1]</span> <em>seL4 Reference Manual</em> — the verified kernel is roughly 8,700 lines of C. Linux and Qubes (hypervisor + dom0) trust bases run to millions; figures are order-of-magnitude, for scale.</li>
-<li id="n2"><span>[2]</span> J. P. Anderson, <em>Computer Security Technology Planning Study</em> (1972) — the reference-monitor criteria: always invoked (complete mediation), tamper-proof, and small enough to be verified.</li>
+<li id="n1"><span>[1]</span> <em>seL4 Reference Manual</em>, the verified kernel is roughly 8,700 lines of C. Linux and Qubes (hypervisor + dom0) trust bases run to millions; figures are order-of-magnitude, for scale.</li>
+<li id="n2"><span>[2]</span> J. P. Anderson, <em>Computer Security Technology Planning Study</em> (1972), the reference-monitor criteria: always invoked (complete mediation), tamper-proof, and small enough to be verified.</li>
 <li id="n3"><span>[3]</span> OWASP, <em>Top 10 for Agentic Applications 2026</em>. The verdicts here (contained / mitigated / not covered) map Redoubt's v1 mechanisms and stated scope onto that catalogue.</li>
-<li id="n4"><span>[4]</span> RISC-V Privileged ISA + <em>Smepmp</em> — locked, machine-only PMP entries are the electrical basis of the "tamper-proof" link; the Verilator assertion (§13.4) checks the fault behaviour directly.</li>
+<li id="n4"><span>[4]</span> RISC-V Privileged ISA + <em>Smepmp</em>, locked, machine-only PMP entries are the electrical basis of the "tamper-proof" link; the Verilator assertion (§13.4) checks the fault behaviour directly.</li>
 <li id="n5"><span>[5]</span> Measured boot &amp; attestation practice: BLAKE2s measurement of the Monitor image at boot (RFC 7693), with the audit hash-chain head exported via <code>ATTEST_READ</code>; remote attestation is roadmap (§13.6).</li>
 </ol>
 

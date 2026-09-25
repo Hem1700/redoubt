@@ -73,8 +73,8 @@
   </div>
   <h1>The Monitor</h1>
   <p class="abstract"><span class="lbl">Abstract.</span> The Monitor is the only component of Redoubt
-  that is trusted. Every other part — the operating system above it, the drivers, the entire computer
-  the AI runs on — is assumed to be under an attacker's control. This chapter specifies the Monitor in
+  that is trusted. Every other part, the operating system above it, the drivers, the entire computer
+  the AI runs on, is assumed to be under an attacker's control. This chapter specifies the Monitor in
   full: what it is responsible for, why it runs in the most privileged mode of the processor, the
   pieces it is built from, how it executes, the sequence of checks each request passes through, how it
   guards secrets, the failures it must survive, the invariants it maintains, the alternatives that were
@@ -90,8 +90,8 @@ language; no prior hardware knowledge is assumed.</p>
 <dt>AI agent</dt><dd>A program built on a language model that does not merely converse but takes
 actions in the world: it fetches URLs, reads files, and calls APIs using your credentials. That
 capacity to act is what makes a compromised agent dangerous.</dd>
-<dt>Prompt injection</dt><dd>Concealing instructions inside material the agent reads — a web page, a
-document — so that it follows the attacker rather than its operator. No reliable defense exists today,
+<dt>Prompt injection</dt><dd>Concealing instructions inside material the agent reads, a web page, a
+document, so that it follows the attacker rather than its operator. No reliable defense exists today,
 so the design assumes it succeeds.</dd>
 <dt>Tool call</dt><dd>The moment an agent asks to <em>do</em> something: "fetch this URL", "read that
 file". Redoubt concerns itself with these moments alone, since they are the only means by which an
@@ -100,7 +100,7 @@ agent can affect anything.</dd>
 the highest, comparable to root but enforced by the silicon itself. The Monitor runs here, and the
 agent's world runs one or two levels beneath it, unable to reach up.</dd>
 <dt>Capability</dt><dd>An unforgeable token that <em>is</em> permission to perform one specific
-action — like a coat-check tag. Whoever holds tag 14 receives coat 14, and no coat can be obtained by
+action, like a coat-check tag. Whoever holds tag 14 receives coat 14, and no coat can be obtained by
 calling out a number one has invented.</dd>
 </dl>
 </div>
@@ -118,16 +118,16 @@ those directly. It can only submit a request to the Monitor and await a decision
 <p>The Monitor's role is therefore narrow and exact. It owns five things, and no other component is
 permitted to:</p>
 <ol>
-<li>the <em>decision</em> — whether a requested action occurs at all;</li>
-<li>the <em>secrets</em> — credentials it will use on the agent's behalf but never surrender;</li>
-<li>the <em>egress</em> — the network and storage hardware, which it alone operates;</li>
-<li>the <em>rules</em> — the policy from which the decision is computed; and</li>
-<li>the <em>locks</em> — the hardware settings that make the four points above true.</li>
+<li>the <em>decision</em>, whether a requested action occurs at all;</li>
+<li>the <em>secrets</em>, credentials it will use on the agent's behalf but never surrender;</li>
+<li>the <em>egress</em>, the network and storage hardware, which it alone operates;</li>
+<li>the <em>rules</em>, the policy from which the decision is computed; and</li>
+<li>the <em>locks</em>, the hardware settings that make the four points above true.</li>
 </ol>
 <p>Equally important is what it deliberately cannot do. It contains no task scheduler, no USB stack,
 no network protocol code, and no memory allocator. Each of those is thousands of lines of the kind of
 code that harbours bugs, and every bug inside the trusted component is one an attacker may aim at. We
-push all of it out into the untrusted world and keep the Monitor beneath roughly 2,500 lines — small
+push all of it out into the untrusted world and keep the Monitor beneath roughly 2,500 lines, small
 enough that a single person can read the whole of it.</p>
 
 <h2><span class="n">9.2</span>Why the decision lives in machine mode</h2>
@@ -135,15 +135,15 @@ enough that a single person can read the whole of it.</p>
 tools are hostile, and even the small operating system that schedules everything (we call it Warden)
 may be subverted. If all of that can turn against us, where does one place the single piece that must
 hold? Somewhere the compromised parts cannot physically reach.</p>
-<p>RISC-V provides exactly that. The processor executes at three privilege levels — machine,
-supervisor, user, in descending order of power — and it offers a feature called Physical Memory
+<p>RISC-V provides exactly that. The processor executes at three privilege levels, machine,
+supervisor, user, in descending order of power, and it offers a feature called Physical Memory
 Protection, or PMP: a set of registers, writable only in machine mode, that declare certain ranges of
 memory off-limits to supervisor and user code. Supervisor code cannot so much as read those registers,
 let alone alter them.</p>
 <p>That is the whole of the mechanism. The Monitor, running in machine mode, marks the secrets and the
 network hardware as reachable only from machine mode, then locks that setting until the next reboot.
 From that instant, should a wholly hijacked Warden attempt to read a key or address the network chip,
-the load instruction simply faults — not because some software check refused it, but because the
+the load instruction simply faults, not because some software check refused it, but because the
 silicon rejects the address. There is no code path to bypass, because no code is involved.</p>
 <p class="aside">This is not a novel idea, which is reassuring. Apple employs it: their SPTM is a
 small monitor more privileged than the iPhone kernel, so that even a kernel compromise cannot rewrite
@@ -151,8 +151,8 @@ the page tables.<sup><a href="#n2">2</a></sup> The Keystone and Sanctorum resear
 on RISC-V.<sup><a href="#n3">3</a></sup> We adopt a proven pattern and aim it at one narrow task: the
 agent's tool calls.</p>
 <p>One consequence deserves emphasis, for it is what makes the project tractable. Because the boundary
-is a hardware privilege boundary, all the large and error-prone code — USB, TLS, filesystems, the
-entire host computer — may live <em>outside</em> the trusted component without weakening the
+is a hardware privilege boundary, all the large and error-prone code, USB, TLS, filesystems, the
+entire host computer, may live <em>outside</em> the trusted component without weakening the
 guarantee. The Monitor need only be correct about the small, authority-bearing step. That is the trade
 that keeps it small.</p>
 
@@ -197,8 +197,8 @@ The dashed lines are table lookups. Nothing else can reach the wires.</figcaptio
 <h3>The parts, one at a time</h3>
 <dl class="gloss">
 <dt>the door (trap vector)</dt><dd>When the agent's side makes a request, the processor jumps into the
-Monitor here. This part saves a little state, checks what kind of event occurred, and — if it is a
-request, the only thing it should ever be — hands off to the dispatcher. Anything unexpected means the
+Monitor here. This part saves a little state, checks what kind of event occurred, and, if it is a
+request, the only thing it should ever be, hands off to the dispatcher. Anything unexpected means the
 Monitor itself has hit a bug, which is handled separately (§9.9).</dd>
 <dt>dispatcher</dt><dd>Reads which of exactly five commands was asked for. Five. Anything else is
 turned away at once, without touching a single table. That short list is the entire surface an
@@ -208,11 +208,11 @@ size, then copies it somewhere the agent's side cannot reach. That copy matters 
 were the request read in place, a fast attacker could alter it <em>after</em> the check but
 <em>before</em> the action. Copying first defeats the manoeuvre.</dd>
 <dt>2 · resolver</dt><dd>Turns the coat-check tag (a number the host supplied) into an actual
-capability, or refuses. It also confirms the tag has not gone stale — the subject of the Sessions
-chapter — which is how an agent's permissions are cancelled instantly.</dd>
+capability, or refuses. It also confirms the tag has not gone stale, the subject of the Sessions
+chapter, which is how an agent's permissions are cancelled instantly.</dd>
 <dt>3–4 · predicate engine</dt><dd>The doorman with the guest list. The capability states, "you may
 call <code>http.request</code>, but only to these hosts, only over HTTPS, only with GET." This engine
-checks the request's arguments against those conditions. It is a plain loop over a short list — no
+checks the request's arguments against those conditions. It is a plain loop over a short list, no
 regular expressions, no scripting, nothing that can run indefinitely.</dd>
 <dt>5 · flow engine</dt><dd>Even where the call is permitted, this asks a second question: is it
 carrying data it should not? A secret key may not depart in the body of a request to a public server,
@@ -221,7 +221,7 @@ for instance. This is a separate net from the doorman, and it catches different 
 passed, it carries out the action, splices in the secret key where the policy directs (the agent never
 sees it), and labels whatever returns as untrusted.</dd>
 <dt>audit logger</dt><dd>Records every decision, positive or negative, in a form that cannot be
-quietly altered afterwards — each entry chained to the previous by a hash. The latest hash can be read
+quietly altered afterwards, each entry chained to the previous by a hash. The latest hash can be read
 out to demonstrate the log has not been tampered with.</dd>
 <dt>PMP setup and randomness</dt><dd>Two helpers to the side. One runs once at boot to raise the
 hardware walls; the other is a source of randomness for keys, with self-tests so that its failure is
@@ -235,7 +235,7 @@ Every scratch value is a fixed-size slot on a small stack. The Monitor therefore
 of memory, and there is no allocator sitting present as a target.</p>
 <pre><code>The Monitor's private memory (sizes fixed at boot):
   sessions        a small table of active agent runs (e.g. 8)
-  capabilities    each session's set of tickets — 16 bytes each, 32 per session
+  capabilities    each session's set of tickets - 16 bytes each, 32 per session
   policy          the compiled rules; written once at boot, never touched again
   audit log       a ring buffer of decisions
   stack           with a no-access guard region immediately below it</code></pre>
@@ -245,7 +245,7 @@ rather than quietly overwriting the policy tables.</p>
 
 <h2><span class="n">9.5</span>Execution model</h2>
 <p>One request at a time, from start to finish, then the next. The Monitor does not juggle. Warden
-feeds it requests singly, so no two things happen at once inside the trusted component — which means
+feeds it requests singly, so no two things happen at once inside the trusted component, which means
 no locks, and none of the maddening race conditions that accompany them. For code this important, that
 simplicity is worth more than speed.</p>
 <p>How long may one request take? It is bounded. The checks are a short loop over a short list, without
@@ -272,32 +272,32 @@ and always the same. The caller reads back two things: the verdict, and the leng
 <p>At the heart of the Monitor is a sequence of six checks. The reference algorithm appears in the main
 specification; what follows is <em>why</em> each step is present, which is the part easiest to get
 wrong.</p>
-<h4>1 — Is the request even well-formed?</h4>
+<h4>1, Is the request even well-formed?</h4>
 <p>All that follows trusts the parsed request, so this is the airlock. It confirms the request sits in
 the shared mailbox and nowhere more devious, that it does not claim more arguments than we allow, and
 then copies it somewhere private. Omit the copy and the door is left open to the alter-after-checking
 manoeuvre of §9.3.</p>
-<h4>2 — Do you actually hold this permission?</h4>
+<h4>2, Do you actually hold this permission?</h4>
 <p>The host supplied a number. This step turns it into a real capability or declines. It also confirms
 the capability has not been revoked. Revocation is instantaneous: cancelling a session increments a
 counter, and every ticket it ever issued now fails a one-line comparison. No lists are searched.</p>
-<h4>3 — Is this ticket for this tool?</h4>
+<h4>3, Is this ticket for this tool?</h4>
 <p>A capability is for one tool. We verify this cheaply before the costlier argument work, so that a
 file-reading ticket presented at the network is turned away immediately.</p>
-<h4>4 — Are the arguments allowed?</h4>
+<h4>4, Are the arguments allowed?</h4>
 <p>Here most attacks die. The rules run against the <em>structured</em> arguments, not against
-re-parsed text — which matters more than it sounds. A whole class of real bugs arises when the checker
+re-parsed text, which matters more than it sounds. A whole class of real bugs arises when the checker
 and the doer disagree about how to read a string; the classic case is a URL in which <code>%2e</code>
 slips a different host past a naive filter.<sup><a href="#n4">4</a></sup> We do not re-parse; we read
 the host field exactly as the action will use it, so there is nothing to disagree about.</p>
-<h4>5 — Is it smuggling data out?</h4>
+<h4>5, Is it smuggling data out?</h4>
 <p>A call may be entirely permitted and still be a problem if it carries a secret out the door. This is
 the second, independent net: a secret value is not admitted into a request bound for a public server,
 even to an allowed host. Two different checks catch two different attacks.</p>
-<h4>6 — Carry it out.</h4>
+<h4>6, Carry it out.</h4>
 <p>Only now does anything actually leave the chip. The Monitor performs the action, injects the secret
 the agent never saw, and stamps the result "untrusted" so that whatever receives the response knows
-not to believe it. Should the hardware error or time out, the caller receives an error — never a
+not to believe it. Should the hardware error or time out, the caller receives an error, never a
 half-finished action.</p>
 
 <h2><span class="n">9.8</span>Handling of secrets</h2>
@@ -306,7 +306,7 @@ the Monitor will <em>use</em> a key on your behalf, but it will never <em>give</
 <ul>
 <li>At rest, keys reside in the machine-only region, loaded once at boot; the temporary buffer used to
 load them is wiped immediately afterward.</li>
-<li>In use, exactly one part reads a key — the injector — and it holds the plaintext only for the
+<li>In use, exactly one part reads a key, the injector, and it holds the plaintext only for the
 instant it takes to splice into an outgoing request, then wipes its copy.</li>
 <li>There is no command, and no code path, that copies key bytes into a response. This is the principle
 of the secure element in a phone: one receives the <em>use</em> of a key, not the key
@@ -319,8 +319,8 @@ itself.<sup><a href="#n5">5</a></sup></li>
 <li>A <em>denial</em> is normal. The agent asked for something it may not do; we decline, log it, show
 it on the small display, and continue. Nothing is broken.</li>
 <li>A <em>hardware fault</em> at the final step (the network chip errors or is slow) returns to the
-caller as an error. The Monitor does not retry — retrying is the untrusted caller's concern.</li>
-<li>An <em>impossible fault</em> — the Monitor tripping over a protection it itself set — means the
+caller as an error. The Monitor does not retry, retrying is the untrusted caller's concern.</li>
+<li>An <em>impossible fault</em>, the Monitor tripping over a protection it itself set, means the
 Monitor has a bug, not that it is under attack. In that case it stops. It does not attempt to carry on
 in a possibly corrupt state. A halted Redoubt is safe, for it does nothing; a confused one is not.</li>
 </ul>
@@ -340,7 +340,7 @@ future formal proof would establish them properly.</p>
 
 <h2><span class="n">9.11</span>Alternatives rejected</h2>
 <p>Several designs looked reasonable and were declined. Knowing why is half the architecture.</p>
-<p class="rej"><b>Put the decision in the operating system.</b> Simpler — one boundary rather than two.
+<p class="rej"><b>Put the decision in the operating system.</b> Simpler, one boundary rather than two.
 But then a single bug in that OS is a total bypass, and we specifically promised to survive an OS
 takeover. The premise is that the kernel is not the most trusted thing.</p>
 <p class="rej"><b>Rely on the MMU rather than PMP.</b> The MMU, the usual virtual-memory hardware, is
@@ -348,7 +348,7 @@ configured by the operating system, so a compromised OS can reconfigure it; it c
 off from itself. PMP is machine-only, which is why we rest the real wall on it. (The MMU remains useful
 one level down, for keeping compartments apart.)</p>
 <p class="rej"><b>Make it fast with pipelining and queues.</b> That drags concurrency, buffers, and
-locks into the trusted component — more code and more ways to be wrong. The waiting is dominated by the
+locks into the trusted component, more code and more ways to be wrong. The waiting is dominated by the
 network in any case. Not worth it for a first version.</p>
 <p class="rej"><b>Let an AI model assist the decision.</b> That is the very thing we are escaping: a
 decision that is non-deterministic and can be talked into a "yes." There is no model anywhere on the
@@ -368,7 +368,7 @@ check 4     rule: scheme must be https → ok
             rule: host must be one of {api.example.com} → but it is "evil.tld" → NO
             → DENY, reason: bad argument (the host)
 log         record it; the tamper-evident chain advances
-display     the small screen shows "DENIED — host"
+display     the small screen shows "DENIED - host"
 return      verdict: denied. Nothing was sent. The key was never touched.</code></pre>
 <p>And had the agent been cleverer, aiming at the real <code>api.example.com</code> with the key
 tucked into the request body? Check 4 would pass, and then check 5 would catch it: a secret may not
@@ -380,7 +380,7 @@ leave that way. Two nets, both plain, both impossible to sweet-talk.</p>
 <li>Ordinary unit tests on a laptop for the fiddly logic: the parser's bounds, the revocation counter,
 the argument rules, the memory arithmetic.</li>
 <li>Simulating the actual chip (Verilator) to confirm the hardware wall truly faults when the untrusted
-side reaches for the secrets — the one promise that cannot be tested in software alone.</li>
+side reaches for the secrets, the one promise that cannot be tested in software alone.</li>
 <li>A containment suite that runs each attack from the threat model and insists on the exact denial,
 and, crucially, that nothing left the chip.</li>
 <li>Fuzzing the parts that read attacker-controlled bytes, with memory-error detection enabled.</li>
@@ -392,16 +392,15 @@ appear outside the one place we permit it.</li>
 <p>Honest loose ends, so that no one mistakes this for finished:</p>
 <ul>
 <li>The exact table sizes, once we know how much room the FPGA truly affords.</li>
-<li>Whether splicing in a secret must be constant-time, to avoid leaking its length through timing —
-part of the broader side-channel question set aside for now.</li>
+<li>Whether splicing in a secret must be constant-time, to avoid leaking its length through timing, part of the broader side-channel question set aside for now.</li>
 <li>How long to wait on the network versus the storage chip before giving up.</li>
 <li>Whether the chosen processor build has the newer PMP feature we would prefer, or the older locking
 method must be used instead.<sup><a href="#n1">1</a></sup></li>
 </ul>
 
 <ol class="notes" id="notes">
-<li id="n1"><span>[1]</span> RISC-V Privileged ISA — Physical Memory Protection (<code>pmpcfg</code>/<code>pmpaddr</code>, TOR/NAPOT, lock); and the <em>Smepmp</em> extension, v1.0.</li>
-<li id="n2"><span>[2]</span> Apple, <em>Platform Security</em> — SPTM/TXM; and the community deep-dive, arXiv:2510.09272.</li>
+<li id="n1"><span>[1]</span> RISC-V Privileged ISA, Physical Memory Protection (<code>pmpcfg</code>/<code>pmpaddr</code>, TOR/NAPOT, lock); and the <em>Smepmp</em> extension, v1.0.</li>
+<li id="n2"><span>[2]</span> Apple, <em>Platform Security</em>, SPTM/TXM; and the community deep-dive, arXiv:2510.09272.</li>
 <li id="n3"><span>[3]</span> Lee et al., <em>Keystone: An Open Framework for Architecting TEEs</em>, arXiv:1907.10119; and <em>Sanctorum</em>, arXiv:1812.10605.</li>
 <li id="n4"><span>[4]</span> The parser-mismatch class underlies many real SSRF and path bugs; J. P. Anderson's reference-monitor criteria (1972) frame why complete, unambiguous mediation matters.</li>
 <li id="n5"><span>[5]</span> Apple Secure Enclave key-wrapping: software receives use of a key, never its bytes. Redoubt applies the same principle to injected secrets.</li>

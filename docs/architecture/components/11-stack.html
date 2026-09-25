@@ -74,14 +74,14 @@
   <h1>Warden, Compartments &amp; Sessions</h1>
   <p class="abstract"><span class="lbl">Abstract.</span> Below the Monitor, and above the untrusted
   host, sits a thin layer of software that keeps the lights on: the Warden, a small supervisor-mode
-  kernel that schedules threads and shuttles messages, and the user-mode compartments it runs — the
+  kernel that schedules threads and shuttles messages, and the user-mode compartments it runs, the
   one that speaks USB to the host, and the drivers that format network and storage traffic. None of
   it is trusted to make a security decision. This chapter says what each piece does, what it is
   deliberately forbidden from doing, and how a request travels from a compartment through the Warden
   and into the Monitor. It then specifies the <em>session</em>: the bounded container for a single
   agent run, its capability space and epoch, the five states it moves through, the quotas that cap
   it, and the one-instruction move that revokes everything it was ever granted. The chapter closes on
-  the question that justifies the whole arrangement — why a Warden that has been completely taken over
+  the question that justifies the whole arrangement, why a Warden that has been completely taken over
   still cannot reach past the Monitor.</p>
 </div>
 
@@ -92,10 +92,9 @@ terms recur; here is each in plain language, no hardware background assumed.</p>
 <dl>
 <dt>Supervisor mode</dt><dd>The middle of the RISC-V processor's three privilege levels, between the
 all-powerful machine mode (where the Monitor lives) and the ordinary user mode. A traditional
-operating-system kernel runs here. In Redoubt the Warden runs here — powerful enough to schedule and
+operating-system kernel runs here. In Redoubt the Warden runs here, powerful enough to schedule and
 move data, but walled off by hardware from the machine-only regions above it.</dd>
-<dt>Microkernel</dt><dd>A kernel stripped to the smallest set of jobs that genuinely need privilege —
-scheduling threads, passing messages between them, switching address spaces — with everything else
+<dt>Microkernel</dt><dd>A kernel stripped to the smallest set of jobs that genuinely need privilege, scheduling threads, passing messages between them, switching address spaces, with everything else
 (drivers, protocol stacks) pushed out into unprivileged programs. The Warden is a microkernel of this
 kind, and an unusually spare one.</dd>
 <dt>Thread</dt><dd>A single flow of execution the kernel can pause and resume. The Warden gives each
@@ -104,7 +103,7 @@ compartment one or more threads and decides, moment to moment, which gets to run
 compartments are the Endpoint (which talks USB to the host) and the network and storage drivers. They
 can prepare and format data; they cannot act on the outside world by themselves.</dd>
 <dt>Session</dt><dd>One agent run, wrapped in its own container: a private set of capabilities and a
-counter called an epoch. When the run ends — or is cut short — bumping that counter cancels every
+counter called an epoch. When the run ends, or is cut short, bumping that counter cancels every
 permission at once.</dd>
 </dl>
 </div>
@@ -124,16 +123,16 @@ honest.</p>
 <p>The Warden runs in supervisor mode. It has exactly three responsibilities, and we resist adding a
 fourth:</p>
 <ol>
-<li><em>Scheduling</em> — deciding which thread runs next, and making sure no thread can seize the
+<li><em>Scheduling</em>, deciding which thread runs next, and making sure no thread can seize the
 processor forever.</li>
-<li><em>Message passing</em> — carrying a fixed-size message from one compartment to another, by
+<li><em>Message passing</em>, carrying a fixed-size message from one compartment to another, by
 value, with no shared writable memory between them.</li>
-<li><em>Address-space setup</em> — arranging, once, the memory each compartment may touch, optionally
+<li><em>Address-space setup</em>, arranging, once, the memory each compartment may touch, optionally
 using the processor's virtual-memory hardware for finer separation.</li>
 </ol>
 <p>What it is trusted for is narrow and worth stating flatly: <em>liveness, and nothing else.</em> If
 the Warden is correct, requests get scheduled, messages arrive, and the device stays responsive. If
-the Warden is wrong — or hostile — the worst it can do is refuse to run things, scramble the internal
+the Warden is wrong, or hostile, the worst it can do is refuse to run things, scramble the internal
 mail, or lie to a compartment. It cannot make the Monitor allow an action the policy forbids. The
 security property (Chapter 2) is stated to hold even when the Warden is fully compromised, and §11.9
 is where we make good on that.</p>
@@ -154,7 +153,7 @@ because the Warden never touches the decision or the egress hardware. It can sto
 asked; it cannot answer for him.</p>
 <p class="aside">The seL4 project draws the same line and makes it precise: their proofs establish that
 the kernel enforces isolation and authority correctly, while availability is treated separately.
-Redoubt borrows the discipline but not the burden — we do not need to prove the Warden correct at all,
+Redoubt borrows the discipline but not the burden, we do not need to prove the Warden correct at all,
 because it holds no authority to misuse.<sup><a href="#n1">1</a></sup></p>
 
 <h2><span class="n">11.3</span>Threads and the scheduler</h2>
@@ -169,8 +168,8 @@ predict, and there is no scheduling trick an attacker can play to starve the sys
 matters, because starving the system is merely the denial of service we already declined to defend.</p>
 <p>The important part is the word <em>fixed</em>. Each thread runs against a hardware timer. When the
 slice expires, the timer raises an interrupt, the processor jumps back into the Warden, and the running
-thread is preempted whether it wished to yield or not. This is what keeps a single compartment — say a
-network driver that has been taken over and thrown into an infinite loop — from freezing every other
+thread is preempted whether it wished to yield or not. This is what keeps a single compartment, say a
+network driver that has been taken over and thrown into an infinite loop, from freezing every other
 compartment. It runs out its slice and is set aside.</p>
 <pre><code>Warden thread table (fixed at boot; sizes illustrative):
   threads[ THREADS_MAX ]      each: { state, saved_regs, sp, asid, quantum_left }
@@ -197,8 +196,8 @@ subtle bugs. The Warden refuses that tempting complexity and uses the simplest s
 <em>synchronous rendezvous</em>.</p>
 <p>The picture is a face-to-face handoff rather than a mailbox. A sender that calls <code>send</code>
 blocks until a receiver calls <code>recv</code>; a receiver that calls <code>recv</code> first blocks
-until a sender arrives. When the two meet, the Warden copies the message — a small, fixed-size
-buffer — from the sender's memory into the receiver's, register by register or through a bounded kernel
+until a sender arrives. When the two meet, the Warden copies the message, a small, fixed-size
+buffer, from the sender's memory into the receiver's, register by register or through a bounded kernel
 buffer, and then both threads are made runnable again. That is the entire mechanism.</p>
 <p>Three properties fall out of this design, and each one removes a class of trouble:</p>
 <ul>
@@ -212,13 +211,13 @@ and rewrite its data mid-flight, and it means there is no shared buffer for the 
 time-of-check-to-time-of-use race in which one party edits a message after another has inspected it.</li>
 </ul>
 <p>The one place where memory is shared at all is <code>SHARED_REQ</code> (§11.6), the mailbox the
-Monitor reads requests from — and even there the Monitor copies the request into its own private memory
+Monitor reads requests from, and even there the Monitor copies the request into its own private memory
 before acting on it, precisely so the untrusted side cannot alter it after the checks begin. Sharing is
 the exception, tightly scoped, and never trusted.</p>
 
 <h2><span class="n">11.5</span>Address spaces</h2>
-<p>Each compartment must be confined to its own memory. The load-bearing wall for this — as everywhere
-in Redoubt — is PMP, the machine-only Physical Memory Protection that the Monitor programs and locks at
+<p>Each compartment must be confined to its own memory. The load-bearing wall for this, as everywhere
+in Redoubt, is PMP, the machine-only Physical Memory Protection that the Monitor programs and locks at
 boot (Chapter 3). PMP alone is enough to keep user-mode compartments out of the Monitor's regions, out
 of the secrets, and off the egress hardware. That protection is not something the Warden provides or can
 weaken; it is already in force before the Warden's first instruction runs.</p>
@@ -237,7 +236,7 @@ gives for rejecting an MMU-based design (Chapter 9, §9.11).</p>
 
 <h2><span class="n">11.6</span>The ecall relay</h2>
 <p>Now the piece that connects this chapter to the last one. A compartment cannot call the Monitor's
-functions directly — the Monitor lives in machine mode, unreachable by a mere procedure call. The only
+functions directly, the Monitor lives in machine mode, unreachable by a mere procedure call. The only
 way up is the same doorbell the whole system is built on: the <code>ecall</code> instruction, which
 traps the processor into machine mode. The job of the relay is to get a compartment's request into the
 one place the Monitor reads from, and then ring that bell.</p>
@@ -255,39 +254,39 @@ plainly:</p>
   4. ecall                                       # traps to M-mode; the Monitor takes over
   -- the Monitor runs its six checks (Chapter 9) and performs or denies --
   5. on return:
-        a0 = status     (0x00 ALLOW, or a DENY_/ERR_ code — Chapter 9, §5.4)
+        a0 = status     (0x00 ALLOW, or a DENY_/ERR_ code - Chapter 9, §5.4)
         a1 = response length written back into SHARED_REQ
   6. the relay reads the response out of SHARED_REQ and hands it back to the compartment</code></pre>
 <p>Notice what the relay does <em>not</em> do. It does not inspect the request's meaning, does not
 consult the policy, does not touch a capability. It marshals bytes and rings the bell. If a
 compromised Endpoint fills <code>SHARED_REQ</code> with the most malicious request it can compose, the
-relay carries it faithfully to the Monitor — and the Monitor's checks are exactly where such a request
+relay carries it faithfully to the Monitor, and the Monitor's checks are exactly where such a request
 is meant to die. That is the design working as intended, not a hole. The relay is a courier, and a
 courier that cannot read the letters is a safer courier.</p>
 <p>The five opcodes the relay can carry are the entire attack surface the Monitor exposes upward:
 <code>MEDIATE</code> (0x52440001), <code>SESSION_OPEN</code> (0x52440010), <code>REVOKE</code>
 (0x52440011), <code>CLOSE</code> (0x52440012), and <code>ATTEST_READ</code> (0x52440020). Any other
 value in <code>a7</code> is turned away as malformed before a single table is consulted. The wire
-protocol that fills the request body — COBS framing, CRC32, the TypedArg TLVs — is the subject of
+protocol that fills the request body, COBS framing, CRC32, the TypedArg TLVs, is the subject of
 Chapter 6; here we care only that structured bytes arrive in the mailbox.</p>
 
 <h2><span class="n">11.7</span>The compartments, and what each cannot do</h2>
 <p>Above the Warden, in user mode, run the compartments. There are two families, and the interesting
 thing about both is the ceiling on what they are permitted to accomplish.</p>
 
-<h3>The Endpoint — framing only</h3>
+<h3>The Endpoint, framing only</h3>
 <p>The Endpoint is the compartment that speaks to the host over USB. The host's tool shim sends bytes;
 the Endpoint receives them, removes the COBS framing, checks the CRC32, and hands the resulting typed
 request to the relay. In the other direction it takes a response and frames it back for the host. That
 is the whole of its job: it is a translator between the wire and the mailbox.</p>
 <p>What it cannot do is decide anything. It never resolves a capability, never evaluates a predicate,
 never sees a secret. It cannot reach the network chip or the SD card, because those live behind PMP in
-the machine-only egress region. A completely subverted Endpoint — and we assume it can be subverted, it
-is directly exposed to a hostile host — is still only a source of bytes flowing into the Monitor's front
+the machine-only egress region. A completely subverted Endpoint, and we assume it can be subverted, it
+is directly exposed to a hostile host, is still only a source of bytes flowing into the Monitor's front
 door, where every byte is checked. It can produce malformed frames (dropped, counted) or well-formed but
 unauthorised requests (denied). It cannot manufacture authority it was not given.</p>
 
-<h3>The drivers — format, but never act</h3>
+<h3>The drivers, format, but never act</h3>
 <p>The network and storage drivers are the other family. A network driver knows how to lay out a
 payload the way the ESP32 link expects; a storage driver knows how to assemble the bytes of a block
 write for the SD controller. This is genuine, useful work, and it is exactly the sort of fiddly
@@ -320,7 +319,7 @@ sessions : [Session; 8]                 // SESSIONS_MAX = 8</code></pre>
 
 <h3>The capability space and the epoch</h3>
 <p>The capability space is the session's set of powers: an array of 32 capability slots, each a 16-byte
-record (Chapter 7 specifies the record in full). A fresh capability space is entirely empty — no ambient
+record (Chapter 7 specifies the record in full). A fresh capability space is entirely empty, no ambient
 authority, nothing granted by default. The manifest for the run installs exactly the capabilities it is
 meant to have, and not one more.</p>
 <p>The epoch is the clever, cheap part. Every capability carries the epoch of the session that issued
@@ -366,7 +365,7 @@ or by an explicit revoke.</p>
   <g class="s-acc" stroke-width="1.6" marker-end="url(#aa)">
     <path d="M415 118 C 415 40, 759 40, 759 116" class="f-none"/>
   </g>
-  <text x="587" y="34" text-anchor="middle" font-size="9" class="t-acc">REVOKE — bump epoch — O(1)</text>
+  <text x="587" y="34" text-anchor="middle" font-size="9" class="t-acc">REVOKE - bump epoch - O(1)</text>
   <!-- created entry -->
   <g class="s-mut" stroke-width="1.1" marker-end="url(#a)"><line x1="75" y1="92" x2="75" y2="116"/></g>
   <text x="75" y="84" text-anchor="middle" font-size="8.5" class="t-mut">slot allocated</text>
@@ -387,11 +386,11 @@ the epoch is initialised. Nothing can be authorised yet, because there is nothin
 <h4>Provisioned</h4>
 <p>The run's manifest is compiled into the capability space: the exact capabilities this agent is meant
 to hold are written into the slots, each stamped with the session's epoch. Quotas are set from the
-manifest. After this step the session's powers are fixed for its lifetime — capabilities may only be
+manifest. After this step the session's powers are fixed for its lifetime, capabilities may only be
 narrowed from here (attenuation, Chapter 7), never widened.</p>
 <h4>Active</h4>
 <p>The run proceeds. This is the state in which <code>MEDIATE</code> requests flow: each one resolves a
-capability out of this session's space, checks its epoch, and — if the quota counters permit — runs the
+capability out of this session's space, checks its epoch, and, if the quota counters permit, runs the
 six checks. Every request that performs an effect debits the relevant quota.</p>
 <h4>Draining</h4>
 <p>The run is ending normally, or has hit a quota ceiling. No new work is accepted, but requests already
@@ -402,20 +401,20 @@ shoulder between running and gone.</p>
 A destroyed session cannot be reactivated; a new run gets a fresh slot with a fresh epoch.</p>
 
 <h3>Quotas</h3>
-<p>Left unbounded, even an authorised agent can do damage by volume — a million allowed requests, a
+<p>Left unbounded, even an authorised agent can do damage by volume, a million allowed requests, a
 gigabyte of allowed egress. Quotas cap the run along a few axes: total egress bytes, total requests,
 wall-clock time, and open files. The Monitor keeps a spent-counter beside each limit and checks it as
 part of mediation; crossing a ceiling returns <code>DENY_QUOTA</code> (0x16) and moves the session into
 Draining. Quotas are about the volume of authorised action, which the capability checks alone do not
-bound — a distinct concern from whether an action is permitted at all.</p>
+bound, a distinct concern from whether an action is permitted at all.</p>
 
 <h3>Instant revocation</h3>
 <p>Here is the move the whole session design exists to make possible. Suppose a run must be cut off
-immediately — the operator hits the stop, or a monitor upstream decides the agent has gone wrong. How do
+immediately, the operator hits the stop, or a monitor upstream decides the agent has gone wrong. How do
 you cancel dozens of capabilities that may be scattered across the space, some of them derived from
 others, without walking a tree or searching a list?</p>
 <p>You bump one number. The <code>REVOKE</code> opcode increments the session's epoch. That is the
-entire operation — constant time, no traversal, no allocation. From the very next request, every
+entire operation, constant time, no traversal, no allocation. From the very next request, every
 capability in that session fails its epoch check, because each was stamped with the old epoch and the
 session now carries a new one. All of them, at once, dead. The host may still be holding capability
 handles; they now resolve to nothing.</p>
@@ -433,13 +432,13 @@ capability in its own short-lived session and revoke that.</p>
 
 <h2><span class="n">11.9</span>Why a compromised Warden still cannot breach the Monitor</h2>
 <p>This is the claim the chapter has been building toward, and the one a sceptical reader should press
-hardest. The threat model (Chapter 2) lists a subverted Warden as an assumed adversary — stretch case
-A5 — and insists the security property holds anyway. Why does it?</p>
+hardest. The threat model (Chapter 2) lists a subverted Warden as an assumed adversary, stretch case
+A5, and insists the security property holds anyway. Why does it?</p>
 <p>Because the Warden's power is bounded by hardware it cannot touch, not by its own good behaviour. Walk
 through what a fully hostile Warden could try:</p>
 <ul>
 <li><em>Read the secrets directly.</em> The secrets sit in an M-only PMP region. A load from supervisor
-mode to that address does not return zeros or ask permission — it faults. The Warden cannot read what
+mode to that address does not return zeros or ask permission, it faults. The Warden cannot read what
 the silicon will not address for it (Chapter 3).</li>
 <li><em>Drive the egress hardware directly.</em> The ESP32 link and the SD controller MMIO are likewise
 in an M-only region. A store from the Warden to those addresses faults. There is no send it can perform
@@ -450,7 +449,7 @@ locked at boot before the Warden ever runs. A locked PMP entry cannot be modifie
 <li><em>Forge a capability.</em> Capabilities live in machine-only memory; the host and the Warden hold
 only opaque handles, which are indices. A forged or out-of-range handle resolves to an empty slot and is
 denied. The Warden cannot mint authority (Chapter 7).</li>
-<li><em>Feed the Monitor a malicious request.</em> This one it <em>can</em> do — and it changes nothing.
+<li><em>Feed the Monitor a malicious request.</em> This one it <em>can</em> do, and it changes nothing.
 A hostile Warden relaying the nastiest request it can compose is simply exercising the Monitor's front
 door, where the six checks live. An unauthorised request is denied; that is the mediation working, not
 failing.</li>
@@ -461,14 +460,14 @@ an M-only physical region reachable from supervisor mode.</li>
 </ul>
 <p>The list is exhaustive in the sense that matters: every avenue to an unauthorised effect either faults
 on a machine-only boundary or lands harmlessly at the Monitor's checked entry. What remains to the Warden
-is the power to <em>not</em> do its job — to wedge, to drop, to stall. That is denial of service, which we
+is the power to <em>not</em> do its job, to wedge, to drop, to stall. That is denial of service, which we
 have said from the start v1 does not defend against. The trade is stark and honest: we give up
 availability under a Warden compromise, and we keep the security property. For a device whose entire
 reason to exist is to contain a hostile agent, that is the right side of the trade.</p>
 <p class="aside">This is the same architectural bet Apple makes with SPTM and the Keystone/Sanctorum
 systems make on RISC-V: put the small, must-be-correct thing in a mode more privileged than the large
 kernel, and let the kernel be as untrusted as it likes.<sup><a href="#n3">3</a></sup> Redoubt's
-contribution is not the pattern but the target it is aimed at — the tool calls of an AI agent.</p>
+contribution is not the pattern but the target it is aimed at, the tool calls of an AI agent.</p>
 
 <h2><span class="n">11.10</span>Invariants this tier maintains</h2>
 <p>The properties the Warden-and-sessions layer must always uphold, each a candidate for a test in the
@@ -496,7 +495,7 @@ But a scheduler and a message system are hundreds of lines of exactly the statef
 the trusted base must not contain. Keeping them in the Warden, outside the TCB, is what lets the Monitor
 stay under 2,500 lines and lets us not have to trust the scheduler at all.</p>
 <p class="rej"><b>Asynchronous IPC with queues.</b> Message queues are more flexible and can smooth
-bursts. They also bring buffers to size, allocation to manage, and back-pressure to reason about — a
+bursts. They also bring buffers to size, allocation to manage, and back-pressure to reason about, a
 standing invitation to memory-exhaustion and ordering bugs. Synchronous rendezvous needs none of it, and
 the workload here (a handful of compartments handing off small requests) does not want the flexibility.</p>
 <p class="rej"><b>Shared-memory IPC for speed.</b> Copying a message costs cycles that a shared page would
@@ -522,7 +521,7 @@ round-robin is easier to reason about and enough.</p>
 of per-compartment entries. This mirrors the SoC-level open item in Chapter 3.</li>
 <li>The exact fixed message size for rendezvous IPC, and whether a small number of message
 <em>classes</em> (control versus bulk-payload handoff) is worth the added surface.</li>
-<li>Concrete quota defaults — egress bytes, request count, wall-time — which want measurement on real
+<li>Concrete quota defaults, egress bytes, request count, wall-time, which want measurement on real
 workloads before they are set.</li>
 <li>Whether eight concurrent sessions is the right ceiling, or whether the FPGA's memory comfortably
 affords more once the tables are sized (this interacts with the Monitor's open question on table sizes,
@@ -532,10 +531,10 @@ cannot pin a session slot open forever.</li>
 </ul>
 
 <ol class="notes" id="notes">
-<li id="n1"><span>[1]</span> <em>seL4 Reference Manual</em> — the kernel proves integrity, confidentiality, and authority enforcement; availability is handled separately. Redoubt places the Warden outside the trusted base so no correctness proof of it is required.</li>
-<li id="n2"><span>[2]</span> seL4's capability derivation tree (CDT) supports revoking a precise subtree; see the seL4 capability-system notes. Redoubt uses per-session epoch revocation instead — coarser, but O(1) and free of in-TCB graph structure.</li>
-<li id="n3"><span>[3]</span> Apple, <em>Platform Security</em> — SPTM as a monitor more privileged than the kernel (deep-dive arXiv:2510.09272); Lee et al., <em>Keystone</em>, arXiv:1907.10119; <em>Sanctorum</em>, arXiv:1812.10605. The common pattern: a small, more-privileged anchor survives a kernel compromise.</li>
-<li id="n4"><span>[4]</span> RISC-V Privileged ISA — supervisor mode, Sv32 paging, and the ordering of PMP (physical, machine-configured) relative to virtual-memory translation. PMP is checked on the physical address and cannot be relaxed from S-mode.</li>
+<li id="n1"><span>[1]</span> <em>seL4 Reference Manual</em>, the kernel proves integrity, confidentiality, and authority enforcement; availability is handled separately. Redoubt places the Warden outside the trusted base so no correctness proof of it is required.</li>
+<li id="n2"><span>[2]</span> seL4's capability derivation tree (CDT) supports revoking a precise subtree; see the seL4 capability-system notes. Redoubt uses per-session epoch revocation instead, coarser, but O(1) and free of in-TCB graph structure.</li>
+<li id="n3"><span>[3]</span> Apple, <em>Platform Security</em>, SPTM as a monitor more privileged than the kernel (deep-dive arXiv:2510.09272); Lee et al., <em>Keystone</em>, arXiv:1907.10119; <em>Sanctorum</em>, arXiv:1812.10605. The common pattern: a small, more-privileged anchor survives a kernel compromise.</li>
+<li id="n4"><span>[4]</span> RISC-V Privileged ISA, supervisor mode, Sv32 paging, and the ordering of PMP (physical, machine-configured) relative to virtual-memory translation. PMP is checked on the physical address and cannot be relaxed from S-mode.</li>
 </ol>
 
 <footer>Redoubt Architecture · RDBT-ARCH-11 · Warden, Compartments &amp; Sessions · Draft. Open source

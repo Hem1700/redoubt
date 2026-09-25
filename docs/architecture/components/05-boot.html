@@ -76,11 +76,11 @@
   assumption: that the Monitor which starts running after a reset is the exact Monitor we wrote, not a
   substitute an attacker slipped in. This chapter explains how that assumption is earned rather than
   merely hoped for. It walks the machine from power-on to the first mediated tool call, one step at a
-  time — the FPGA loading its circuit, a tiny boot ROM weighing the Monitor against a known fingerprint
+  time, the FPGA loading its circuit, a tiny boot ROM weighing the Monitor against a known fingerprint
   and halting if they differ, the Monitor raising the hardware walls before anything untrusted can run,
   seeding its secrets and its randomness, compiling the policy, and finally handing control down to the
   layers above. It sets out why the <em>order</em> of those steps is itself a security property, how the
-  boot leaves behind a tamper-evident record that a remote party can check, and — plainly — the one link
+  boot leaves behind a tamper-evident record that a remote party can check, and, plainly, the one link
   in the chain that version 1 does not yet secure.</p>
 </div>
 
@@ -93,9 +93,9 @@ are. Here is each in plain language; no hardware background is assumed.</p>
 checked <em>by</em> it. You cannot verify infinitely far down, so somewhere the regress has to stop. The
 art is making that starting point as small and as fixed as possible.</dd>
 <dt>Bitstream</dt><dd>An FPGA is a blank field of logic gates; a bitstream is the file that wires them
-into a specific circuit — here, our RISC-V processor and its surrounding hardware. On power-up the chip
+into a specific circuit, here, our RISC-V processor and its surrounding hardware. On power-up the chip
 reads the bitstream from a small flash memory and becomes that circuit.</dd>
-<dt>Measurement</dt><dd>Computing a cryptographic hash of a piece of software before running it — a short
+<dt>Measurement</dt><dd>Computing a cryptographic hash of a piece of software before running it, a short
 fingerprint that changes completely if even one byte of the software changes. To "measure" the Monitor
 is to fingerprint it and compare against the fingerprint we expect.</dd>
 <dt>Boot ROM (BROM)</dt><dd>A very small program, fixed in the hardware and unchangeable at runtime, that
@@ -107,7 +107,7 @@ from less-privileged code. It is the wall the whole design leans on, specified i
 </div>
 
 <h2><span class="n">5.1</span>What a root of trust actually is</h2>
-<p>Suppose someone hands you a sealed letter and swears it is genuine. You could check the seal — but
+<p>Suppose someone hands you a sealed letter and swears it is genuine. You could check the seal, but
 only if you already trust the stamp that made it. You could check the stamp against a registry, but only
 if you trust the registry. Verification always leans on something you did not verify, and at some point
 the leaning has to stop against a surface you simply accept. That surface is the root of trust.</p>
@@ -116,8 +116,7 @@ so there is little in it to be wrong; fixed, so an attacker cannot quietly edit 
 everything after it is measured before it gets to act. Redoubt's root is two tiny things taken together:
 a boot ROM baked into the hardware, and an expected fingerprint of the Monitor stored alongside it. The
 boot ROM cannot be rewritten while the machine runs, and the fingerprint is a fixed constant. Between
-them they answer a single question — <em>is the software about to run in machine mode really ours?</em>
-— and they refuse to let the machine proceed if the answer is no.</p>
+them they answer a single question, <em>is the software about to run in machine mode really ours?</em>, and they refuse to let the machine proceed if the answer is no.</p>
 <p>Notice what this buys and what it does not. It does not stop anyone from putting different software on
 the flash chip; nothing in version 1 can. What it guarantees is that if different software is there, the
 machine will notice and stop, rather than running the impostor as though it were trusted. A halted
@@ -204,10 +203,10 @@ chapter: the hardware walls go up while only the Monitor is running, so there is
 untrusted code exists and the walls do not. The dashed halt branch is where a tampered Monitor dies.</figcaption>
 </figure>
 
-<h3>Stage 0 — the FPGA becomes a computer</h3>
+<h3>Stage 0, the FPGA becomes a computer</h3>
 <p>Redoubt is not a fixed chip with a processor etched into it. It is a Lattice ECP5 FPGA, a blank
 canvas of programmable logic. When power arrives the ECP5 reads a bitstream out of a small QSPI flash
-memory and configures itself into the circuit that bitstream describes — in our case a VexRiscv RISC-V
+memory and configures itself into the circuit that bitstream describes, in our case a VexRiscv RISC-V
 core, memory controllers, the OLED and network links, and the random-number source, all wired together
 by LiteX (Chapter 4 covers that hardware in detail). Only once this configuration finishes is there a
 processor at all. The very first instruction the new processor executes lives in the boot ROM at
@@ -216,22 +215,22 @@ address <code>0x0000_0000</code>.</p>
 to hold onto is that the bitstream is loaded before any measuring happens, because there is nothing to
 do the measuring until the circuit exists.</p>
 
-<h3>Stage 1 — the boot ROM weighs the Monitor</h3>
+<h3>Stage 1, the boot ROM weighs the Monitor</h3>
 <p>The processor starts in machine mode, the most privileged level, running the boot ROM. The boot ROM
-is deliberately minute — under three hundred lines of code — because it, too, is part of the trusted
+is deliberately minute, under three hundred lines of code, because it, too, is part of the trusted
 base and every line in the trusted base is a line that must be right. It does exactly one interesting
 thing. It reads the Monitor image out of its code region and computes a BLAKE2s-256 hash of it: a
 32-byte fingerprint.<sup><a href="#n1">1</a></sup> Then it compares that fingerprint, byte for byte,
-against <code>H_expected</code> — a constant compiled straight into the bitstream, sitting in on-chip
+against <code>H_expected</code>, a constant compiled straight into the bitstream, sitting in on-chip
 block RAM where runtime code cannot rewrite it.</p>
 <p>If the two fingerprints match, the boot ROM jumps into the Monitor. If they differ by so much as a
-single bit, it halts. Not "logs a warning and carries on" — halts, permanently, until the next reset.
+single bit, it halts. Not "logs a warning and carries on", halts, permanently, until the next reset.
 There is no third option and no override, because an override is precisely the door an attacker would
 aim for.</p>
 
-<h3>Stage 2 — the Monitor raises the walls and prepares itself</h3>
+<h3>Stage 2, the Monitor raises the walls and prepares itself</h3>
 <p>Now our code is running, and running in machine mode, which is the only mode that can configure the
-hardware walls. Its first act — before it does anything else at all — is to program the PMP entries that
+hardware walls. Its first act, before it does anything else at all, is to program the PMP entries that
 fence the secrets and the egress hardware off from every less-privileged mode, and then set the lock
 bits so those entries cannot be changed again until reset (the register-level detail is Chapter 3).
 Section 5.3 explains why this has to come first and why "first" is not a stylistic preference but a
@@ -244,11 +243,10 @@ compiles the policy manifest into the flat decision tables the Monitor will cons
 trap vector so that later <code>ecall</code>s land in the right place; and it writes the opening entry
 of the audit hash-chain so attestation has a genesis to build on.</p>
 
-<h3>Stage 3 — control drops to the untrusted layers</h3>
+<h3>Stage 3, control drops to the untrusted layers</h3>
 <p>Only when all of that is done does the Monitor execute an <code>mret</code>, the instruction that
 returns from machine mode down to supervisor mode, landing in the Warden microkernel. This is the first
-moment any code below machine mode runs on this boot. The Warden schedules and starts the compartments —
-the Endpoint that speaks USB, the network and storage drivers — all in user mode. From here on the
+moment any code below machine mode runs on this boot. The Warden schedules and starts the compartments, the Endpoint that speaks USB, the network and storage drivers, all in user mode. From here on the
 machine is live: an agent on the host can frame a request, the Endpoint can deliver it, and it will
 <code>ecall</code> up into the Monitor along the path Chapter 6 describes. The dashed line in Figure 5-1
 shows that later return trip; it is not part of boot, but it is where boot was leading.</p>
@@ -257,7 +255,7 @@ shows that later return trip; it is not part of boot, but it is where boot was l
 <p>It would be easy to read the previous section as a checklist where order is a matter of taste. It is
 not. The single most important property of the whole sequence is that <em>the walls go up while only
 the Monitor is running.</em> Between the boot ROM's approval and the <code>mret</code> to the Warden,
-nothing untrusted executes — not one instruction. So there is never an interval in which the secrets and
+nothing untrusted executes, not one instruction. So there is never an interval in which the secrets and
 the network are reachable <em>and</em> some untrusted code is alive to reach them.</p>
 <p>Call that missing interval the unguarded window, and picture how a careless design might open one.
 Suppose the Monitor started the Warden first, "to get the system responsive," and locked the PMP a few
@@ -266,8 +264,8 @@ region and hand it to the host before the wall it was meant to sit behind ever e
 no cleverness; it just needs the window. We close it by construction: locking the PMP is step (a), the
 very first thing the Monitor does, and nothing that could abuse the openness runs until step (e).</p>
 <p>The lock bit earns its own emphasis here. Programming a PMP entry is not enough on its own, because
-a later machine-mode bug — or, in the threat model's stretch case, a machine-mode fault an attacker
-induces — might reprogram it. Setting the lock makes the entry immutable until the hardware resets, so
+a later machine-mode bug, or, in the threat model's stretch case, a machine-mode fault an attacker
+induces, might reprogram it. Setting the lock makes the entry immutable until the hardware resets, so
 even the Monitor cannot loosen it afterward. We are willing to give up our own ability to change the
 rule in exchange for the certainty that no one else can either. (Chapter 3 discusses the Smepmp variant
 that also denies the region to machine mode itself; where it is unavailable, the locked-rule fallback
@@ -285,8 +283,8 @@ digest, and that changing any bit of the input scrambles the whole output unpred
 Monitor image the boot ROM sees produces the same 32 bytes as the image we hashed when we built the
 system, we can be confident to a cryptographic certainty that the images are identical.</p>
 <p>We use BLAKE2s specifically, and the choice is not arbitrary. BLAKE2s is fast, has a small and simple
-implementation — which matters when the code doing the hashing is itself inside the trusted base and
-counted against a line budget — and it is the same primitive the audit log uses for its hash-chain
+implementation, which matters when the code doing the hashing is itself inside the trusted base and
+counted against a line budget, and it is the same primitive the audit log uses for its hash-chain
 (Chapter 12) and that the Monitor uses elsewhere, so there is only one hash to review, not three.</p>
 <pre><code>at power-on, in the boot ROM:
 
@@ -314,7 +312,7 @@ log: every decision it makes is recorded, and each entry is hashed together with
 before it, forming a chain (the structure is specified in Chapter 12). Because each link depends on all
 the links before it, you cannot quietly delete or edit a past entry without breaking every hash that
 follows.</p>
-<p>The head of that chain — the single hash summarising everything logged so far — can be read out over
+<p>The head of that chain, the single hash summarising everything logged so far, can be read out over
 the wire with the <code>ATTEST_READ</code> opcode (<code>0x52440020</code>), the read-only member of the
 mediation ABI catalogued in Chapter 6. A verifier who knows what the head hash should be, or who simply
 records it and watches that it only ever advances, can detect truncation or tampering of the log. It is
@@ -329,8 +327,8 @@ cheap and checkable witness that the record has not been rewritten.</p>
   compare h_n to the last value you saw; it must only ever move forward</code></pre>
 
 <h2><span class="n">5.6</span>Secret provisioning</h2>
-<p>The Monitor is useless without its secrets — the API keys and credentials it injects on the agent's
-behalf — but the moment those secrets exist in memory is a delicate one, so provisioning gets its own
+<p>The Monitor is useless without its secrets, the API keys and credentials it injects on the agent's
+behalf, but the moment those secrets exist in memory is a delicate one, so provisioning gets its own
 short, strict routine. At build or personalisation time the keys are written into a machine-only area of
 the QSPI flash, a region the PMP map keeps out of reach of supervisor and user code. During stage 2 the
 Monitor copies them into the SECRETS region of RAM, which is likewise machine-only, and then immediately
@@ -342,21 +340,20 @@ and no ABI, that copies a key toward the host. Provisioning is the one time raw 
 memory, which is exactly why it happens while only the Monitor is running and behind walls that are
 already locked.</p>
 <p class="aside">Version 1 provisions from flash because it is simple and enough to prove the
-architecture. A sturdier scheme — deriving per-device keys from a hardware secret so that dumping the
-flash of one unit does not compromise a fleet, or provisioning over an authenticated channel after boot
-— is a natural version-2 improvement and is flagged among the open questions.</p>
+architecture. A sturdier scheme, deriving per-device keys from a hardware secret so that dumping the
+flash of one unit does not compromise a fleet, or provisioning over an authenticated channel after boot, is a natural version-2 improvement and is flagged among the open questions.</p>
 
 <h2><span class="n">5.7</span>The honest caveat: bitstream authenticity</h2>
 <p>Here is the part it would be dishonest to bury. Everything above assumes the bitstream loaded in
-stage 0 is ours — that the boot ROM doing the measuring, and the <code>H_expected</code> it measures
+stage 0 is ours, that the boot ROM doing the measuring, and the <code>H_expected</code> it measures
 against, are the ones we put there. Version 1 does not verify that assumption. The ECP5 loads whatever
 bitstream sits in the QSPI flash, and an attacker with physical access who can reflash that chip could
 install a bitstream whose boot ROM measures nothing, or whose <code>H_expected</code> is the fingerprint
 of their own Monitor. The root of trust, in other words, is rooted in the flash, and version 1 does not
 defend the flash.</p>
 <p>We state this plainly rather than gesture past it, for two reasons. First, it bounds the claim
-correctly: Redoubt's guarantees hold against a fully compromised host and even a subverted Warden — the
-software adversary — but not yet against an attacker who can physically rewrite the board's boot flash.
+correctly: Redoubt's guarantees hold against a fully compromised host and even a subverted Warden, the
+software adversary, but not yet against an attacker who can physically rewrite the board's boot flash.
 Second, the fix is understood, just deferred. FPGA families and companion secure elements can verify a
 bitstream's signature before loading it, anchoring trust in a key that cannot be reflashed, and moving
 to such a part (or adding an external verifier) is the planned version-2 upgrade. It sits alongside the
@@ -369,7 +366,7 @@ is the truth.</p>
 <ul>
 <li><em>Measurement mismatch.</em> The Monitor image does not match <code>H_expected</code>. The boot
 ROM halts and the machine never leaves stage 1. This is the designed response to a tampered or corrupted
-Monitor, and it is also, incidentally, what a bit-rotted flash chip triggers — a corrupted image is
+Monitor, and it is also, incidentally, what a bit-rotted flash chip triggers, a corrupted image is
 indistinguishable from a malicious one, and both deserve a halt.</li>
 <li><em>TRNG health-test failure at start-up.</em> If the random-number generator fails its NIST SP
 800-90B start-up tests, it is not producing trustworthy entropy.<sup><a href="#n4">4</a></sup> Any
@@ -379,7 +376,7 @@ over a broken entropy source.</li>
 populated SECRETS region, but since nothing untrusted has run yet and the walls are already up, no
 attacker can observe the half-state. The next clean boot repeats the copy from flash from scratch.</li>
 <li><em>An impossible fault during Monitor init.</em> If the Monitor trips over a protection it just
-set — a bug, not an attack — it stops, exactly as it does at runtime (Chapter 9). A confused Monitor is
+set, a bug, not an attack, it stops, exactly as it does at runtime (Chapter 9). A confused Monitor is
 more dangerous than a halted one, so it never tries to soldier on through an inconsistent state.</li>
 <li><em>A wrong-but-well-formed policy manifest.</em> Measurement covers the Monitor's code, not the
 policy, so a mis-authored manifest will compile and boot happily. Boot cannot catch a policy that is
@@ -412,8 +409,8 @@ choice.</p>
 <p class="rej"><b>A signature check instead of a plain measurement.</b> The boot ROM could verify a
 digital signature over the Monitor rather than compare a hash to a baked-in constant. Signatures allow
 the Monitor to be updated in the field without re-baking the bitstream, which is genuinely nice. But they
-drag a public-key verifier — and key-management questions about which keys are trusted and how they are
-revoked — into the boot ROM, the smallest and most sacred piece of the trusted base. For version 1 a
+drag a public-key verifier, and key-management questions about which keys are trusted and how they are
+revoked, into the boot ROM, the smallest and most sacred piece of the trusted base. For version 1 a
 fixed hash is smaller, simpler, and has nothing to misconfigure. Signatures become attractive precisely
 when we also solve bitstream authenticity, so the two are deferred together.</p>
 <p class="rej"><b>A multi-stage bootloader.</b> Conventional systems chain a first-stage loader to a
@@ -438,7 +435,7 @@ bitstream is the §5.7 caveat, and the honest limit of this choice.)</p>
 <h2><span class="n">5.11</span>Open questions</h2>
 <p>Loose ends, named so no one mistakes this chapter for finished:</p>
 <ul>
-<li>Bitstream authenticity — the §5.7 gap. Which secure-element or signed-configuration part anchors
+<li>Bitstream authenticity, the §5.7 gap. Which secure-element or signed-configuration part anchors
 trust below the flash in version 2, and what it costs in board complexity.</li>
 <li>Whether to move from a fixed-hash measurement to a signed, field-updatable Monitor once a hardware
 key store exists, and how updates interact with the audit chain's continuity.</li>

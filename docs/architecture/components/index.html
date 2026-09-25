@@ -36,8 +36,8 @@
   <div class="docmeta"><span>Redoubt Architecture</span><span>Component Manual</span><span>Doc <b>RDBT-ARCH-00</b></span><span>Status <b>Draft</b></span><span>13 chapters</span></div>
   <h1>Redoubt</h1>
   <p class="abstract"><span class="lbl">Abstract.</span> Redoubt is a hardware-rooted
-  reference-monitor operating system for AI agents. An autonomous agent can be hijacked — a hidden
-  instruction in a web page is enough — so we assume it has been, and we put the one part that has to
+  reference-monitor operating system for AI agents. An autonomous agent can be hijacked, a hidden
+  instruction in a web page is enough, so we assume it has been, and we put the one part that has to
   stay honest somewhere the hijacked parts can't reach: the most privileged corner of an open RISC-V
   chip. From there it checks every action the agent tries to take against a set of unforgeable
   permissions, using plain deterministic logic with no AI in the decision. A fully compromised agent
@@ -46,44 +46,44 @@
   enough to follow without a hardware background.</p>
 </div>
 
-<p>Each chapter stands on its own and links to the others. If you're new, read them in order — the
+<p>Each chapter stands on its own and links to the others. If you're new, read them in order, the
 early chapters set up the ideas the later ones lean on. If you're here for one piece, jump to it.</p>
 
 <div class="part">Part I · Why &amp; what</div>
 <ol class="toc">
-  <li><span class="cn">01</span><span><a href="01-overview.html" class="tt">Overview &amp; the Problem</a> — <span class="ds">what an agent is, why a hijacked one is dangerous, and the one idea the whole design rests on.</span></a></span></li>
-  <li><span class="cn">02</span><span><a href="02-threat-model.html" class="tt">Threat Model &amp; Trust Tiers</a> — <span class="ds">who the attacker is, what we protect, and exactly what we promise.</span></span></li>
+  <li><span class="cn">01</span><span><a href="01-overview.html" class="tt">Overview &amp; the Problem</a>, <span class="ds">what an agent is, why a hijacked one is dangerous, and the one idea the whole design rests on.</span></a></span></li>
+  <li><span class="cn">02</span><span><a href="02-threat-model.html" class="tt">Threat Model &amp; Trust Tiers</a>, <span class="ds">who the attacker is, what we protect, and exactly what we promise.</span></span></li>
 </ol>
 
 <div class="part">Part II · The hardware it stands on</div>
 <ol class="toc">
-  <li><span class="cn">03</span><span><a href="03-isolation.html" class="tt">Privilege &amp; Isolation (RISC-V PMP)</a> — <span class="ds">the hardware wall that makes "unbypassable" literally true.</span></span></li>
-  <li><span class="cn">04</span><span><a href="04-soc.html" class="tt">SoC, Board &amp; Memory Map</a> — <span class="ds">the FPGA, the CPU, and where everything lives in memory.</span></span></li>
-  <li><span class="cn">05</span><span><a href="05-boot.html" class="tt">Boot &amp; Root of Trust</a> — <span class="ds">how we know the guard we're trusting is the one we meant to.</span></span></li>
+  <li><span class="cn">03</span><span><a href="03-isolation.html" class="tt">Privilege &amp; Isolation (RISC-V PMP)</a>, <span class="ds">the hardware wall that makes "unbypassable" literally true.</span></span></li>
+  <li><span class="cn">04</span><span><a href="04-soc.html" class="tt">SoC, Board &amp; Memory Map</a>, <span class="ds">the FPGA, the CPU, and where everything lives in memory.</span></span></li>
+  <li><span class="cn">05</span><span><a href="05-boot.html" class="tt">Boot &amp; Root of Trust</a>, <span class="ds">how we know the guard we're trusting is the one we meant to.</span></span></li>
 </ol>
 
 <div class="part">Part III · Talking to it</div>
 <ol class="toc">
-  <li><span class="cn">06</span><span><a href="06-wire.html" class="tt">Wire Protocol &amp; the Tool-Call ABI</a> — <span class="ds">how a request crosses the wire, and why arguments are typed, not text.</span></span></li>
+  <li><span class="cn">06</span><span><a href="06-wire.html" class="tt">Wire Protocol &amp; the Tool-Call ABI</a>, <span class="ds">how a request crosses the wire, and why arguments are typed, not text.</span></span></li>
 </ol>
 
 <div class="part">Part IV · The trusted core</div>
 <ol class="toc">
-  <li><span class="cn">07</span><span><a href="07-capabilities.html" class="tt">Capabilities</a> — <span class="ds">unforgeable tickets: how permission is represented.</span></span></li>
-  <li><span class="cn">08</span><span><a href="08-policy.html" class="tt">Policy &amp; the Compiler</a> — <span class="ds">how an operator writes the rules, and how they become fast tables.</span></span></li>
-  <li><span class="cn">09</span><span><a href="09-monitor.html" class="tt">The Monitor</a> <span class="done">✓</span> — <span class="ds">the guard at the one door; the part we actually trust.</span></span></li>
-  <li><span class="cn">10</span><span><a href="10-ifc.html" class="tt">Information-Flow Control</a> — <span class="ds">keeping secret data from leaving by the wrong door.</span></span></li>
+  <li><span class="cn">07</span><span><a href="07-capabilities.html" class="tt">Capabilities</a>, <span class="ds">unforgeable tickets: how permission is represented.</span></span></li>
+  <li><span class="cn">08</span><span><a href="08-policy.html" class="tt">Policy &amp; the Compiler</a>, <span class="ds">how an operator writes the rules, and how they become fast tables.</span></span></li>
+  <li><span class="cn">09</span><span><a href="09-monitor.html" class="tt">The Monitor</a> <span class="done">✓</span>, <span class="ds">the guard at the one door; the part we actually trust.</span></span></li>
+  <li><span class="cn">10</span><span><a href="10-ifc.html" class="tt">Information-Flow Control</a>, <span class="ds">keeping secret data from leaving by the wrong door.</span></span></li>
 </ol>
 
 <div class="part">Part V · The untrusted stack &amp; the outside world</div>
 <ol class="toc">
-  <li><span class="cn">11</span><span><a href="11-stack.html" class="tt">Warden, Compartments &amp; Sessions</a> — <span class="ds">the small OS around the Monitor, and how an agent's run is scoped and cancelled.</span></span></li>
-  <li><span class="cn">12</span><span><a href="12-egress.html" class="tt">Egress &amp; Secrets</a> — <span class="ds">the network and storage the Monitor owns, and how keys are used but never given out.</span></span></li>
+  <li><span class="cn">11</span><span><a href="11-stack.html" class="tt">Warden, Compartments &amp; Sessions</a>, <span class="ds">the small OS around the Monitor, and how an agent's run is scoped and cancelled.</span></span></li>
+  <li><span class="cn">12</span><span><a href="12-egress.html" class="tt">Egress &amp; Secrets</a>, <span class="ds">the network and storage the Monitor owns, and how keys are used but never given out.</span></span></li>
 </ol>
 
 <div class="part">Part VI · Does it hold?</div>
 <ol class="toc">
-  <li><span class="cn">13</span><span><a href="13-assurance.html" class="tt">Assurance: TCB, Verification &amp; Roadmap</a> — <span class="ds">how small the trusted part is, how we test it, and what's next.</span></span></li>
+  <li><span class="cn">13</span><span><a href="13-assurance.html" class="tt">Assurance: TCB, Verification &amp; Roadmap</a>, <span class="ds">how small the trusted part is, how we test it, and what's next.</span></span></li>
 </ol>
 
 <footer>Redoubt Architecture · RDBT-ARCH-00 · Component Manual · Draft · open source (MIT). Written to

@@ -74,8 +74,8 @@
   <h1>Capabilities</h1>
   <p class="abstract"><span class="lbl">Abstract.</span> A capability is Redoubt's unit of permission:
   a small, unforgeable record that <em>is</em> the authority to perform one specific kind of action,
-  and nothing wider. The agent on the untrusted host never holds one. It holds only a number — an
-  opaque handle — that the Monitor turns into a real capability, or refuses to. This chapter builds the
+  and nothing wider. The agent on the untrusted host never holds one. It holds only a number, an
+  opaque handle, that the Monitor turns into a real capability, or refuses to. This chapter builds the
   idea from the ground up for a reader who has never met it: what a capability is and why permission is
   better carried as a token than looked up in a list; the exact sixteen bytes of a Redoubt capability,
   field by field; the per-session table they live in; how a handle is resolved, how a capability is
@@ -93,13 +93,13 @@ require a background in operating systems.</p>
 authority it names; you cannot obtain more by asking louder, and you cannot invent one. The coat-check
 tag from the Monitor chapter: tag 14 fetches coat 14, and calling out a number you never received
 fetches nothing.</dd>
-<dt>Handle</dt><dd>The number the host actually holds — a slot index, like the paper stub the coat-check
+<dt>Handle</dt><dd>The number the host actually holds, a slot index, like the paper stub the coat-check
 gives you. It is not the permission; it merely points at where the permission is kept, on the safe side
 of the wall.</dd>
-<dt>Ambient authority</dt><dd>Permission you have simply by existing, without presenting anything — the
+<dt>Ambient authority</dt><dd>Permission you have simply by existing, without presenting anything, the
 way any program you run can normally open any file <em>you</em> can. Redoubt has none of this. Nothing
 is permitted by default; authority is only ever what a capability names.</dd>
-<dt>Attenuation</dt><dd>Making a permission <em>weaker</em> — narrowing it to fewer hosts, fewer rights,
+<dt>Attenuation</dt><dd>Making a permission <em>weaker</em>, narrowing it to fewer hosts, fewer rights,
 a smaller range. Redoubt can attenuate a capability but has no operation that strengthens one.</dd>
 <dt>Session</dt><dd>One run of one agent. Each session gets its own private set of capabilities and can
 be torn down independently; the Warden &amp; Sessions chapter (11) covers their lifecycle.</dd>
@@ -108,7 +108,7 @@ be torn down independently; the Warden &amp; Sessions chapter (11) covers their 
 
 <h2><span class="n">7.1</span>Permission as a thing you hold</h2>
 <p>There are two ways to answer the question "may this action happen?" The familiar one is to keep a
-list somewhere — a table of who is allowed to do what — and consult it each time. That is how the file
+list somewhere, a table of who is allowed to do what, and consult it each time. That is how the file
 permissions on your laptop work. When a program opens a file, the system knows which user is behind the
 program, looks the file up, and checks whether that user is on the list. The permission lives with the
 resource, and identity is the key that unlocks it.</p>
@@ -118,7 +118,7 @@ it, the way a ticket to a concert admits its bearer without the box office needi
 name. A token like this is a <em>capability</em>, and the whole of Redoubt's authority model is built
 from them.</p>
 <p>Why the second way? Because the first quietly assumes something we have thrown out. A list-and-identity
-scheme grants authority to a <em>principal</em> — a user, a process — and then trusts that principal to
+scheme grants authority to a <em>principal</em>, a user, a process, and then trusts that principal to
 ask only for what it should. But our principal is a prompt-injected AI agent that will ask for anything
 at all, in any order, the moment an attacker tells it to. Identity buys us nothing when the identity is
 hijacked. What we want is for the agent to be unable to <em>name</em> an action it was not given, no
@@ -126,18 +126,17 @@ matter how it is manipulated. Capabilities give us exactly that: if you were not
 action does not have a name you can utter.</p>
 <p>This is an old idea, older than most of the systems that ignore it, and it has a precise modern
 form in the seL4 microkernel, whose capability discipline we follow closely.<sup><a href="#n1">1</a></sup>
-Where we depart from seL4 — and we depart a lot — is covered in §7.9; the departures are all in the
+Where we depart from seL4, and we depart a lot, is covered in §7.9; the departures are all in the
 service of keeping the trusted code small enough to read.</p>
 
 <h2><span class="n">7.2</span>The agent never holds the ticket</h2>
 <p>Here is the move that makes the whole scheme safe against a host we do not trust at all. A real
-capability — the sixteen bytes that actually confer authority — lives only inside the Monitor's private
+capability, the sixteen bytes that actually confer authority, lives only inside the Monitor's private
 memory, in the machine-only region no code outside the Monitor can read.<sup><a href="#n2">2</a></sup>
 What crosses the wire to the agent is not the capability. It is a <em>handle</em>: a small integer that
 names a slot in a table the Monitor keeps.</p>
 <p>Think again of the coat-check. You do not walk off holding the mechanism that decides which coats you
-may claim; you hold a numbered stub. The stub is useless to steal in bulk and impossible to escalate —
-tag 14 is tag 14, and scribbling a bigger number on it does not get you the fur coat. The authority
+may claim; you hold a numbered stub. The stub is useless to steal in bulk and impossible to escalate, tag 14 is tag 14, and scribbling a bigger number on it does not get you the fur coat. The authority
 stays behind the counter. All the stub does is point at a row.</p>
 <p>So when the agent asks the Monitor to do something, it says, in effect, "act on the authority in slot
 3." It cannot describe the authority; it can only cite a slot. If the slot holds a capability, the
@@ -150,7 +149,7 @@ handle is not a secret and not a key. It is a coat-check number on the wrong sid
 climb.</p>
 
 <h2><span class="n">7.3</span>The sixteen bytes</h2>
-<p>A capability is a fixed record of exactly sixteen bytes — the same width as an seL4 capability
+<p>A capability is a fixed record of exactly sixteen bytes, the same width as an seL4 capability
 slot, which is not a coincidence.<sup><a href="#n1">1</a></sup> Fixed width matters more than it looks:
 because every capability is the same size, the table that holds them is a plain array, resolution is a
 single indexed read with no pointer-chasing, and there is no allocator anywhere on the path. Nothing
@@ -168,7 +167,7 @@ about a capability is dynamic. Here is the whole of it.</p>
 <p>Let us take the fields one at a time, because each is there for a reason and the reasons are the
 design.</p>
 
-<h3>ctype — what kind of authority this is</h3>
+<h3>ctype, what kind of authority this is</h3>
 <p>One byte naming the type of the capability. There are exactly five kinds, and the first is the one
 that matters most for safety:</p>
 <div class="tblwrap"><table>
@@ -177,39 +176,38 @@ that matters most for safety:</p>
 <tr><td><code>0</code></td><td>Empty</td><td>Nothing. An unfilled slot. This is the default for every slot in a fresh session.</td></tr>
 <tr><td><code>1</code></td><td>Net</td><td>The authority to make a network call through a bound tool (e.g. <code>http.request</code>), subject to its predicate and flow rule.</td></tr>
 <tr><td><code>2</code></td><td>File</td><td>The authority to read or write storage through a bound file tool, subject to a path predicate and mode.</td></tr>
-<tr><td><code>3</code></td><td>Secret</td><td>The authority to have a named secret <em>injected</em> into an effect — never to receive its bytes (§7.7).</td></tr>
-<tr><td><code>4</code></td><td>Tool</td><td>The authority to invoke a tool that is neither network nor storage — a local, non-egress action mediated for uniformity.</td></tr>
+<tr><td><code>3</code></td><td>Secret</td><td>The authority to have a named secret <em>injected</em> into an effect, never to receive its bytes (§7.7).</td></tr>
+<tr><td><code>4</code></td><td>Tool</td><td>The authority to invoke a tool that is neither network nor storage, a local, non-egress action mediated for uniformity.</td></tr>
 </tbody>
 </table></div>
-<p>That <code>Empty = 0</code> is deliberate and load-bearing. Memory that has been zeroed — a fresh
-session's capability table, a slot that was cleared on revocation — reads back as <code>ctype 0</code>,
+<p>That <code>Empty = 0</code> is deliberate and load-bearing. Memory that has been zeroed, a fresh
+session's capability table, a slot that was cleared on revocation, reads back as <code>ctype 0</code>,
 which is <em>no authority</em>. The safe state is the state you fall into by accident. There is no way
 for a zeroed or garbled slot to accidentally mean "network access."</p>
 
-<h3>rights — the dial within the type</h3>
+<h3>rights, the dial within the type</h3>
 <p>One byte of permission bits whose meaning depends on <code>ctype</code>. For a File capability the
 bits distinguish read from write; for a Net capability they might gate which methods are allowed at the
 coarsest level, before the finer predicate runs. The single rule that governs <code>rights</code>
 everywhere is that derivation may only <em>clear</em> bits, never set them (§7.6). A child capability is
 always as weak as its parent or weaker. You cannot manufacture write access out of a read-only ticket.</p>
 
-<h3>tool_id — the one tool this is for</h3>
+<h3>tool_id, the one tool this is for</h3>
 <p>A capability is bound to exactly one tool, named by a sixteen-bit identifier. The web capability is
 for <code>http.request</code> and nothing else; presenting it at the file tool fails immediately, at
 check 3 of the Monitor's pipeline, before any argument work happens. Binding authority to a single tool
 is what stops a capability from being a skeleton key. Where a capability names no tool (some Secret
 capabilities), this field is zero.</p>
 
-<h3>pred_ref — which argument rules apply</h3>
+<h3>pred_ref, which argument rules apply</h3>
 <p>Authority in Redoubt is rarely "you may call this tool." It is almost always "you may call this tool
 <em>with arguments that satisfy these conditions</em>": only HTTPS, only to these hosts, only paths
-under <code>/corpus/</code>. Those conditions are compiled ahead of time into a table of predicates —
-the subject of the next chapter — and <code>pred_ref</code> is the index of this capability's row in
+under <code>/corpus/</code>. Those conditions are compiled ahead of time into a table of predicates, the subject of the next chapter, and <code>pred_ref</code> is the index of this capability's row in
 that table. The sentinel <code>0xFFFF</code> means "no predicate," which is rare and deliberate. The
 capability does not carry the rules inline; it points at them, so many capabilities can share one
 compiled rule set and the sixteen bytes stay sixteen bytes.</p>
 
-<h3>flow_ref — the information-flow rule</h3>
+<h3>flow_ref, the information-flow rule</h3>
 <p>A second, independent index, into the flow table this time. Even a call whose arguments are all
 permitted may still be forbidden if it would carry a secret out to a public sink. That is a different
 question from "are the arguments allowed," and it is asked by a different check with its own table.
@@ -217,27 +215,27 @@ question from "are the arguments allowed," and it is asked by a different check 
 control is Chapter 10's subject; here it is enough to know the capability names its rule rather than
 embedding it.</p>
 
-<h3>secret_ref — the key to be used, never seen</h3>
-<p>If this capability's action needs a credential spliced in — an API key placed in an
-<code>Authorization</code> header, say — <code>secret_ref</code> is the index of that credential in the
+<h3>secret_ref, the key to be used, never seen</h3>
+<p>If this capability's action needs a credential spliced in, an API key placed in an
+<code>Authorization</code> header, say, <code>secret_ref</code> is the index of that credential in the
 Monitor's secret store. It is an index and only an index. The secret bytes live in the machine-only
 secret region; the capability points at them so the Monitor can inject them at the performing step, but
 nothing in the capability, and no operation on it, ever moves those bytes toward the host.
 <code>0xFFFF</code> means "no secret." §7.7 is entirely about this field, because it is the field most
 worth getting exactly right.</p>
 
-<h3>aux — the type-specific corner</h3>
+<h3>aux, the type-specific corner</h3>
 <p>Sixteen bits whose meaning is set by <code>ctype</code>: an allowlist reference for one type, a mode
 or a small bound for another. It is the one deliberately flexible field, and we keep it small on
 purpose. A wide, general-purpose "extra data" field is an invitation to grow the capability into
 something no one can reason about; two bytes with a per-type meaning is enough for the cases we have and
 too small to be abused into a side channel of authority.</p>
 
-<h3>epoch — the field that enables instant revocation</h3>
+<h3>epoch, the field that enables instant revocation</h3>
 <p>The last two bytes are a generation counter. Every capability carries the <code>epoch</code> it was
 minted under; the session it belongs to carries a current epoch of its own. A capability is valid only
 while the two agree. To revoke every capability in a session at once, the Monitor increments the
-session's epoch — one addition — and in the same instant every ticket it ever issued fails a one-line
+session's epoch, one addition, and in the same instant every ticket it ever issued fails a one-line
 comparison. No lists are walked, no slots are cleared, no tree is traversed. §7.8 dwells on why this
 tiny mechanism is worth a field of its own.</p>
 
@@ -247,7 +245,7 @@ tiny mechanism is worth a field of its own.</p>
 sessions:  up to 8 concurrent, each with its own cspace and epoch</code></pre>
 <p>The handle the host holds is nothing more than an index into this array: <code>cap_handle</code> is
 a number from 0 to 31. There is no global namespace of capabilities and no way for one session to name
-another's — session 2 citing "slot 3" reaches into session 2's cspace, never session 1's. Sessions are
+another's, session 2 citing "slot 3" reaches into session 2's cspace, never session 1's. Sessions are
 sealed off from one another by construction, because the only way to reach a capability is through the
 cspace of the session you are in.</p>
 <p>A fresh cspace is entirely <code>Empty</code>. This is the concrete meaning of "no ambient
@@ -268,7 +266,7 @@ log.</p>
     <marker id="c-aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk-acc"/></marker>
   </defs>
   <!-- host side -->
-  <text x="112" y="26" text-anchor="middle" font-size="10" class="t-mut">UNTRUSTED HOST — holds only numbers</text>
+  <text x="112" y="26" text-anchor="middle" font-size="10" class="t-mut">UNTRUSTED HOST - holds only numbers</text>
   <rect x="26" y="44" width="172" height="118" class="f-s2 s-ln"/>
   <text x="112" y="66" text-anchor="middle" font-size="10">the agent's handles</text>
   <g font-size="9.5">
@@ -280,13 +278,13 @@ log.</p>
   <line x1="250" y1="20" x2="250" y2="384" class="s-cur" stroke-width="2"/>
   <text x="250" y="398" text-anchor="middle" font-size="8.5" class="t-mut">PMP wall (machine-only)</text>
   <!-- monitor side: cspace -->
-  <text x="470" y="26" text-anchor="middle" font-size="10" class="t-mut">MONITOR — session cspace [Cap;32]</text>
+  <text x="470" y="26" text-anchor="middle" font-size="10" class="t-mut">MONITOR - session cspace [Cap;32]</text>
   <g font-size="9">
     <rect x="330" y="44" width="280" height="22" class="f-s1 s-ln"/><text x="340" y="59">slot 0 · Empty</text>
     <rect x="330" y="68" width="280" height="26" class="f-s1 s-acc" stroke-width="1.5"/><text x="340" y="85" class="t-acc">slot 3 · Net · http.request · pred 2 · epoch 7</text>
     <rect x="330" y="96" width="280" height="22" class="f-s1 s-ln"/><text x="340" y="111">slot 12 · File · file.read · pred 5</text>
     <rect x="330" y="120" width="280" height="22" class="f-s1 s-ln"/><text x="340" y="135" class="t-mut">slot 19 · Empty</text>
-    <rect x="330" y="144" width="280" height="22" class="f-none s-ln dash"/><text x="340" y="159" class="t-mut">slot 47 · out of range — no slot</text>
+    <rect x="330" y="144" width="280" height="22" class="f-none s-ln dash"/><text x="340" y="159" class="t-mut">slot 47 · out of range - no slot</text>
   </g>
   <!-- session epoch -->
   <rect x="330" y="182" width="150" height="26" class="f-s2 s-ln"/><text x="405" y="199" text-anchor="middle" font-size="9">session.epoch = 7</text>
@@ -314,7 +312,7 @@ log.</p>
 denial. The accented path is the only one that leads anywhere: handle 3 names a filled slot whose epoch
 still matches the session's, so it proceeds. Handle 19 names an empty slot and handle 47 names no slot
 at all; a fabricated or stale number is not an alarm, just a citation that resolves to nothing. Only
-handles ever cross back to the host — never the capabilities themselves.</figcaption>
+handles ever cross back to the host, never the capabilities themselves.</figcaption>
 </figure>
 
 <h2><span class="n">7.5</span>Resolve: from a number to authority</h2>
@@ -329,15 +327,15 @@ deliberately boring:</p>
     Ok(cap)
 }</code></pre>
 <p>Every failure mode collapses to a short, deterministic path. An out-of-range session id or handle is
-caught by the bounds check — no read ever strays outside the array. An <code>Empty</code> slot is no
+caught by the bounds check, no read ever strays outside the array. An <code>Empty</code> slot is no
 authority. A slot whose epoch no longer matches the session's is a ticket that has been revoked, and
 says so with a distinct reason code so the audit log can tell "you never had this" apart from "you had
 this and it was cancelled." There is no search, no hashing, no allocation. Resolution of a valid handle
 is two indexed reads and two comparisons, and it takes the same time whether the answer is yes or
 no.</p>
 <p>Notice what resolution does <em>not</em> do. It does not check the arguments, the tool binding, or
-the flow rule; those are the checks that follow. Resolution answers exactly one question — "is there a
-live capability behind this number?" — and hands the capability, or a denial, to the next stage. Keeping
+the flow rule; those are the checks that follow. Resolution answers exactly one question, "is there a
+live capability behind this number?", and hands the capability, or a denial, to the next stage. Keeping
 each stage to one question is what makes the pipeline auditable.</p>
 
 <h2><span class="n">7.6</span>Derive: narrowing, and only ever narrowing</h2>
@@ -352,22 +350,22 @@ always weaker than its parent. There is no operation, anywhere, that makes a cap
   result: a fresh slot with the same ctype/tool_id, a subset predicate,
           rights no wider than src, same flow_ref or stricter, same epoch</code></pre>
 <p>The word "subset" is doing real work, and it is checked, not hoped for. A predicate is a conjunction
-of clauses over typed fields — "scheme is https AND host in this set." One predicate is a subset of
+of clauses over typed fields, "scheme is https AND host in this set." One predicate is a subset of
 another when every value the narrower one admits, the wider one admits too. For the clause shapes
-Redoubt uses this is decidable cheaply, and — this is the important part — it is checked <em>at compile
+Redoubt uses this is decidable cheaply, and, this is the important part, it is checked <em>at compile
 time</em>, by the manifest compiler, not at run time inside the Monitor. The Monitor never has to reason
 about whether one set is contained in another; it is handed pre-checked predicate rows and a table of
 which rows are legitimate narrowings of which. Derivation at run time is then just installing a row that
 the compiler already blessed.<sup><a href="#n4">4</a></sup></p>
 <p>This is the property the Monitor chapter calls out as an invariant: a derived capability is always
-weaker than its parent, never stronger. Rights amplification — the classic way privilege systems fail,
-where some sequence of legal operations ends with more authority than you started — is not defended
+weaker than its parent, never stronger. Rights amplification, the classic way privilege systems fail,
+where some sequence of legal operations ends with more authority than you started, is not defended
 against by careful checking here. It is structurally impossible, because the only operation that creates
 a capability from another produces a subset, and there is no inverse.</p>
 <p class="aside">Attenuation-only is a real constraint, and worth being honest about: it means Redoubt
 cannot express "grant a helper something I myself do not have," which some delegation schemes allow. We
 consider that a feature. Every capability in a session traces back, by narrowing steps alone, to
-something the manifest granted — so the manifest remains a complete and readable statement of the
+something the manifest granted, so the manifest remains a complete and readable statement of the
 session's maximum authority.</p>
 
 <h2><span class="n">7.7</span>Secrets: use without possession</h2>
@@ -379,7 +377,7 @@ effect, and confers no way whatever to learn its bytes.</p>
 <li>The secret bytes live in the machine-only secret store, loaded once at boot. The capability holds
 only <code>secret_ref</code>, an index into that store.</li>
 <li>The one place a secret is ever read in plaintext is the Monitor's performing step, when it splices
-the credential into an outgoing effect — an <code>Authorization</code> header, for instance — exactly
+the credential into an outgoing effect, an <code>Authorization</code> header, for instance, exactly
 where the policy directs. It holds the plaintext for the instant that takes, then wipes its copy.</li>
 <li>No ABI, no command, and no capability operation copies secret bytes into a response or anywhere the
 host, the Warden, or a compartment can read. The result of an action carries data back; it never
@@ -394,7 +392,7 @@ secret in a disallowed direction. Two independent barriers, as everywhere in thi
 
 <h2><span class="n">7.8</span>Revoke: cancelling everything in one instruction</h2>
 <p>When a session ends, or when something goes wrong and an agent's authority must be pulled at once,
-Redoubt has to invalidate every capability that session holds — including any the agent has copied,
+Redoubt has to invalidate every capability that session holds, including any the agent has copied,
 cited, or squirreled away as handles on the host. Because handles are just numbers, "the agent kept a
 copy" is not a problem: the number still points at a slot on our side. The problem is invalidating the
 slots, and doing it fast, without walking a data structure whose size an attacker might influence.</p>
@@ -403,7 +401,7 @@ it was minted under; resolution requires the two to match (§7.5). Revocation is
 <pre><code>fn revoke_session(session_id) {
     sessions[session_id].epoch += 1;    // that is the whole of it
 }</code></pre>
-<p>One addition, in constant time, and every capability in that session is now stale — its recorded
+<p>One addition, in constant time, and every capability in that session is now stale, its recorded
 epoch no longer equals the session's, so the very next resolution of any of its handles returns
 <code>DENY_REVOKED</code>. Thirty-two slots or one, freshly derived or granted at boot, held quietly by
 the agent or in flight: all of them die together, at once, without being touched individually.</p>
@@ -412,7 +410,7 @@ sixty-five thousand times would wrap. In practice a session is revoked once, at 
 are cleared when the session structure is reused, so the counter starts fresh. We note the wrap as a
 thing to keep honest rather than a live risk, and flag whether a wider counter is warranted once session
 lifetimes are pinned down.</p>
-<p>This is a coarser instrument than seL4's, and we chose the coarseness on purpose — the next section
+<p>This is a coarser instrument than seL4's, and we chose the coarseness on purpose, the next section
 says why.</p>
 
 <h2><span class="n">7.9</span>What we borrowed from seL4, and what we left behind</h2>
@@ -423,7 +421,7 @@ the machinery seL4 needs because it is a general-purpose kernel and we are not.<
 <p class="rej"><b>No capability derivation tree (CDT).</b> seL4 records the full genealogy of every
 capability so that revoking one capability can recursively revoke all descendants derived from it. That
 tree is powerful and precise, and it is also a mutable, pointer-linked structure inside the trusted
-kernel — exactly the kind of thing that costs code, invites bugs, and complicates proofs. Redoubt has no
+kernel, exactly the kind of thing that costs code, invites bugs, and complicates proofs. Redoubt has no
 CDT. We revoke at the granularity of a whole session, by bumping one counter (§7.8). We give up
 fine-grained "revoke just this one descendant" and gain a revocation that is one instruction and needs
 no bookkeeping at all. For per-session agent teardown, which is the case we actually have, the trade is
@@ -432,7 +430,7 @@ overwhelmingly worth it.</p>
 "retyping" untyped memory into kernel objects, which is how a verified kernel lets user space manage its
 own resources. It is elegant and it is a great deal of mechanism. Redoubt has no untyped capabilities
 and no retype operation. Every capability that can ever exist is either installed by the manifest at
-session open or derived — by narrowing — from one that was. The set of authorities is closed and known
+session open or derived, by narrowing, from one that was. The set of authorities is closed and known
 before the agent runs. That closes off a whole category of dynamic behaviour we would otherwise have to
 reason about inside the trusted base.</p>
 <p class="rej"><b>Flat and fixed-size, not a rich object zoo.</b> seL4 has many capability types for its
@@ -442,7 +440,7 @@ every field fits on one screen.</p>
 <p>The through-line is the TCB budget. The Monitor must stay under roughly 2,500 lines so that one
 person can read all of it (Chapter 13). A CDT, an untyped allocator, and a dozen object types are each
 individually reasonable and collectively far more code than that budget allows. We keep seL4's
-discipline — unforgeable tokens, no ambient authority, attenuation-only — and drop the generality we do
+discipline, unforgeable tokens, no ambient authority, attenuation-only, and drop the generality we do
 not need. seL4 earns its complexity by being a kernel for everything; Redoubt earns its simplicity by
 being a monitor for one narrow thing.</p>
 
@@ -454,10 +452,10 @@ likely to surprise you.</p>
 Empty. Both resolve to no authority and return <code>DENY_NO_CAP</code>. This is expected traffic under
 a hijacked agent, not an exceptional condition; it is logged and counted like any denial.</li>
 <li><em>A stale handle.</em> The host cites a handle that was valid before its session was revoked.
-Resolution finds the slot filled but the epoch mismatched and returns <code>DENY_REVOKED</code> — a
+Resolution finds the slot filled but the epoch mismatched and returns <code>DENY_REVOKED</code>, a
 distinct code, so "never had it" and "had it, lost it" are distinguishable in the audit trail.</li>
 <li><em>A right type, wrong tool.</em> A valid Net capability presented at the file tool resolves fine
-at this stage — the capability is live — and then fails the tool-binding check that follows, with
+at this stage, the capability is live, and then fails the tool-binding check that follows, with
 <code>DENY_TOOL</code>. Resolution's job is only to confirm the capability exists and is live; binding
 is a separate question.</li>
 <li><em>Cross-session confusion.</em> There is no mechanism by which a handle from one session names a
@@ -473,7 +471,7 @@ missing key is worse than a loud failure.</li>
 <p>These are the properties the capability system must always maintain. The test plan (Chapter 13)
 probes each, and a future formal model would establish them.</p>
 <ol>
-<li>The host never possesses a capability — only a handle, which is a plain index conferring nothing on
+<li>The host never possesses a capability, only a handle, which is a plain index conferring nothing on
 its own.</li>
 <li>A slot grants authority only if the manifest installed it there, or it was derived by narrowing from
 one that was.</li>
@@ -491,8 +489,7 @@ work.</li>
 <h2><span class="n">7.12</span>Open questions</h2>
 <p>Honest loose ends, so no one mistakes this for settled:</p>
 <ul>
-<li>The cspace size (32) and session count (8) are provisional, pending the FPGA's real memory budget —
-the same open item the Monitor chapter raises about table sizes.</li>
+<li>The cspace size (32) and session count (8) are provisional, pending the FPGA's real memory budget, the same open item the Monitor chapter raises about table sizes.</li>
 <li>Whether the 16-bit epoch is wide enough, or whether long-lived sessions warrant 32 bits to remove
 any wrap concern (§7.8).</li>
 <li>The exact bit assignments within <code>rights</code> for each <code>ctype</code>, and the precise
@@ -503,9 +500,9 @@ is absolute; the question is left open pending the multi-agent work that is out 
 </ul>
 
 <ol class="notes" id="notes">
-<li id="n1"><span>[1]</span> <em>seL4 Reference Manual</em> — CNode/CSpace, 16-byte capability slots, capability discipline; and the seL4 capability-system notes on derivation and revocation. Redoubt adopts the discipline and the 16-byte slot; see §7.9 for what it omits.</li>
+<li id="n1"><span>[1]</span> <em>seL4 Reference Manual</em>, CNode/CSpace, 16-byte capability slots, capability discipline; and the seL4 capability-system notes on derivation and revocation. Redoubt adopts the discipline and the 16-byte slot; see §7.9 for what it omits.</li>
 <li id="n2"><span>[2]</span> The machine-only region is enforced by RISC-V Physical Memory Protection, configured and locked at boot before any untrusted code runs; see Chapter 3 (Privilege &amp; isolation) and the Monitor chapter §9.2.</li>
-<li id="n3"><span>[3]</span> J. P. Anderson, <em>Computer Security Technology Planning Study</em> (1972): the reference-monitor criteria — complete mediation, tamper-proof, verifiable — which a handle-to-capability resolution with no side door is built to satisfy.</li>
+<li id="n3"><span>[3]</span> J. P. Anderson, <em>Computer Security Technology Planning Study</em> (1972): the reference-monitor criteria, complete mediation, tamper-proof, verifiable, which a handle-to-capability resolution with no side door is built to satisfy.</li>
 <li id="n4"><span>[4]</span> Compile-time subset checking is the manifest compiler's responsibility; the predicate representation and the containment check are specified in Chapter 8 (Policy &amp; the Compiler).</li>
 <li id="n5"><span>[5]</span> Apple Secure Enclave key-wrapping: software receives the use of a key, never its bytes. Redoubt applies the same principle to injected secrets; cf. Apple <em>Platform Security</em> and the SPTM deep-dive, arXiv:2510.09272.</li>
 </ol>

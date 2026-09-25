@@ -77,7 +77,7 @@
   the Monitor's memory, its secrets, or the wires to the outside world. This chapter shows how the claim
   is made true, and made true by the silicon rather than by good behaviour. It explains the three
   privilege levels of a RISC-V processor from first principles, then the one feature that does the real
-  work — Physical Memory Protection — down to the layout of a single configuration byte. It gives the
+  work, Physical Memory Protection, down to the layout of a single configuration byte. It gives the
   exact table of memory regions and the permissions each privilege level receives, explains why those
   permissions are locked shut at boot before any untrusted code has run, traces the lineage of the idea
   through Keystone and Sanctorum, and says plainly why the more familiar virtual-memory hardware was
@@ -99,7 +99,7 @@ chapter.</dd>
 <dt>Physical address</dt><dd>The literal, numbered location of a byte in memory or of a hardware device,
 before any translation or renaming. Think of it as the street address rather than a nickname.</dd>
 <dt>PMP</dt><dd>Physical Memory Protection: a set of machine-only registers that mark ranges of physical
-addresses as readable, writable, executable — or forbidden — for the less-privileged levels. It is the
+addresses as readable, writable, executable, or forbidden, for the less-privileged levels. It is the
 load-bearing wall of the whole design.</dd>
 <dt>Fault (trap)</dt><dd>When a program attempts something the processor forbids, the instruction does
 not quietly succeed or fail; the processor stops it and jumps to a designated handler. A blocked memory
@@ -124,16 +124,15 @@ the bounds machine mode has granted.</li>
 user program needs something it cannot do itself, it must ask a higher level.</li>
 </ul>
 <p>Redoubt maps its trust tiers straight onto these levels, and this is the single most important
-sentence in the chapter. The Monitor — the only fully trusted component, the subject of Chapter 9 —
-runs in <em>machine</em> mode. The Warden microkernel, which schedules work and passes messages but is
+sentence in the chapter. The Monitor, the only fully trusted component, the subject of Chapter 9, runs in <em>machine</em> mode. The Warden microkernel, which schedules work and passes messages but is
 trusted for nothing security-relevant, runs in <em>supervisor</em> mode. The compartments that speak
 USB and drive the network and storage hardware run in <em>user</em> mode, and the AI agent itself does
 not run on Redoubt at all; it lives on a separate host computer we assume is entirely in enemy hands.
 The threat model behind this arrangement is the business of Chapter 2; here we take it as given and
 build the wall it demands.</p>
 <p>The reason the mapping matters is subtraction. Because the Monitor sits a full privilege level above
-the operating system, the ugliest thing an attacker can plausibly achieve on this device — taking over
-the whole S-mode kernel — still leaves them on the middle floor. They can wreck scheduling, corrupt
+the operating system, the ugliest thing an attacker can plausibly achieve on this device, taking over
+the whole S-mode kernel, still leaves them on the middle floor. They can wreck scheduling, corrupt
 messages, deny service. They cannot reach the top floor, and the top floor is where the keys are.</p>
 
 <h2><span class="n">3.2</span>Why a wall, and not a promise</h2>
@@ -142,13 +141,13 @@ request and refuses the dangerous ones. Most systems do exactly that. We cannot,
 stating bluntly: we have promised that the guarantee survives a takeover of that very operating system.
 A check written in software that an attacker controls is a check the attacker can delete. Any defence
 that lives at the same privilege level as its adversary is not a defence; it is a suggestion.</p>
-<p>So the isolation has to come from somewhere the attacker's code cannot reach — from a level above it,
+<p>So the isolation has to come from somewhere the attacker's code cannot reach, from a level above it,
 enforced by the hardware on every single access, with no instruction sequence that can turn it off. That
 is a strong requirement, and RISC-V happens to answer it exactly. The mechanism is Physical Memory
 Protection, and the rest of this chapter is mostly about it.</p>
 <p class="aside">A useful way to hold the distinction: the operating system's memory management (the MMU,
 which Chapter 4 covers) is configured <em>by</em> the operating system, so it can never protect anything
-<em>from</em> the operating system — it cannot wall a room off from the person holding its only key. PMP
+<em>from</em> the operating system, it cannot wall a room off from the person holding its only key. PMP
 is configured only from machine mode, one level up, so it can. That difference is the reason the whole
 project is possible.</p>
 
@@ -159,7 +158,7 @@ allows up to sixty-four such entries; we need only a handful. Two kinds of regis
 entry.<sup><a href="#n1">1</a></sup></p>
 <ul>
 <li>An <em>address</em> register, <code>pmpaddr</code>, that pins down where the range sits. On RV32 it
-holds bits <code>[33:2]</code> of a physical address — addresses are word-aligned, so the bottom two
+holds bits <code>[33:2]</code> of a physical address, addresses are word-aligned, so the bottom two
 bits are implied, which is how a 32-bit register can name a range in a slightly larger physical space.</li>
 <li>A <em>configuration</em> byte, packed into a <code>pmpcfg</code> register, that says what is
 permitted and how the address is to be interpreted. Four of these bytes ride in each 32-bit
@@ -187,7 +186,7 @@ eight bits are laid out like this:</p>
   <g font-size="9.5" text-anchor="middle">
     <text x="285" y="104" font-size="9" class="t-mut">A (bits 4:3):</text>
     <text x="320" y="122">0 = OFF &#183; 1 = TOR (top of range) &#183; 2 = NA4 &#183; 3 = NAPOT</text>
-    <text x="320" y="150" class="t-acc">L=1 locks the rule — it now binds M-mode too, and no reset short of a reboot can change it.</text>
+    <text x="320" y="150" class="t-acc">L=1 locks the rule - it now binds M-mode too, and no reset short of a reboot can change it.</text>
   </g>
 </svg>
 <figcaption><span class="fl">Figure 3-1.</span> One <code>pmpcfg</code> byte. The low three bits grant
@@ -199,17 +198,17 @@ cannot dismantle the wall it inherited.</figcaption>
 <h3>Reading the address: TOR versus NAPOT</h3>
 <p>The two <code>A</code> bits decide how the address register is interpreted, and the choice has real
 consequences for how tidy the memory map can be.</p>
-<p><b>NAPOT</b> — naturally-aligned power-of-two — encodes a range whose size is a power of two, folded
+<p><b>NAPOT</b>, naturally-aligned power-of-two, encodes a range whose size is a power of two, folded
 cleverly into the address bits themselves. It is compact, costing a single entry per region, but it can
 only describe ranges of 8, 16, 32 … bytes that begin on an equally-sized boundary. Regions of awkward
 size must be rounded up to the next power of two, which either wastes address space or forces the whole
 map to be laid out around the alignment.</p>
-<p><b>TOR</b> — top of range — is the one we use for the large regions. A TOR entry has no size of its
+<p><b>TOR</b>, top of range, is the one we use for the large regions. A TOR entry has no size of its
 own; its range runs from wherever the <em>previous</em> entry's address ended up to its own address.
 Entries are read in order, so entry <code>i</code> covers <code>[pmpaddr[i-1], pmpaddr[i])</code>. This
 lets a region be any size at all, aligned however the memory map finds convenient, at the cost of caring
-about the order of the entries. For a map with regions of assorted sizes — a small boot ROM, a larger
-code area, a secrets vault of a few kilobytes — TOR keeps the table readable, and a table a person can
+about the order of the entries. For a map with regions of assorted sizes, a small boot ROM, a larger
+code area, a secrets vault of a few kilobytes, TOR keeps the table readable, and a table a person can
 read is a table a person can audit. That is worth more to us than the entry we would save with NAPOT.<sup><a href="#n2">2</a></sup></p>
 
 <h3>The rule the processor follows</h3>
@@ -230,7 +229,7 @@ and the egress hardware to be off-limits even to the Monitor except through the 
 is supposed to touch them.</p>
 <p>The lock bit is the first tool for this. Setting <code>L=1</code> does two things: it makes the entry
 apply to machine mode as well, and it freezes the entry until the next hardware reset. Once locked, no
-code at any level — the Monitor included — can rewrite that rule or turn it off. This is what guarantees
+code at any level, the Monitor included, can rewrite that rule or turn it off. This is what guarantees
 that a supervisor-mode takeover cannot re-map the trusted regions: the rules were locked before the
 supervisor ever ran, and locked means locked until reboot.</p>
 <p>The lock has a coarse edge, though. A locked rule enforces its permission bits on machine mode too,
@@ -242,7 +241,7 @@ semantics. Where Smepmp is available on the VexRiscv build we choose, we use it 
 egress regions and get the precise thing we want.</p>
 <p>And where it is not? We say so, and we fall back. If the chosen core lacks Smepmp, the S- and U-visible
 regions are protected with ordinary <code>L=1</code> locked rules, and the secrets and egress regions
-are simply not described by any S/U-reachable entry at all — they remain reachable only through the
+are simply not described by any S/U-reachable entry at all, they remain reachable only through the
 Monitor's own code path, which is still unbypassable by the supervisor and user tiers even if it is not
 additionally fenced off from a Monitor bug. That is a real, honest reduction in defence-in-depth against
 our own code, and it is recorded as an open item rather than papered over. The wall against the
@@ -271,7 +270,7 @@ chapters.</p>
 <p>A few of these rows carry the entire security argument, so it is worth walking them slowly. Rows 0
 through 4 belong to the trusted world and are shut to S and U completely. <code>SECRETS</code> holds the
 keys; <code>EGRESS_MMIO</code> is not memory at all but the control registers of the network, storage,
-and randomness hardware — the actual wires out. Because those two rows deny both lower levels, there is
+and randomness hardware, the actual wires out. Because those two rows deny both lower levels, there is
 no load or store any supervisor or user program can issue that reaches a key or drives the network chip.
 Not "no permitted" load; no such load exists that the hardware will complete. Row 5 hands the Warden its
 own supervisor-accessible arena. Row 6 is the single shared mailbox, the one region both the Monitor and
@@ -325,8 +324,7 @@ private patch of SDRAM it can scribble in without seeing its neighbours.</p>
   </g>
   <text x="16" y="372" font-size="8.5" class="t-acc">Highlighted band: reachable from machine mode only. No S/U load or store completes here.</text>
 </svg>
-<figcaption><span class="fl">Figure 3-2.</span> The access matrix. The two highlighted rows —
-<code>SECRETS</code> and <code>EGRESS_MMIO</code> — are the assets the whole design exists to protect,
+<figcaption><span class="fl">Figure 3-2.</span> The access matrix. The two highlighted rows, <code>SECRETS</code> and <code>EGRESS_MMIO</code>, are the assets the whole design exists to protect,
 and they are blank in the supervisor and user columns. A dash means the hardware faults the access; it
 is not a policy that could be relaxed. <code>SHARED_REQ</code> is the only region the untrusted user tier
 shares with the Monitor, and it holds nothing worth stealing.</figcaption>
@@ -337,25 +335,25 @@ shares with the Monitor, and it holds nothing worth stealing.</figcaption>
 detail; it is part of the guarantee, and Chapter 5 tells the full story. What matters here is the
 sequence around PMP. When the processor comes out of reset it begins in machine mode, running the boot
 ROM, with no untrusted code anywhere in the machine. The boot ROM measures the Monitor image and refuses
-to continue if it has been altered. The Monitor then runs, and among the very first things it does — while
-it is still the only software in existence on the chip — it programs every <code>pmpaddr</code> and
+to continue if it has been altered. The Monitor then runs, and among the very first things it does, while
+it is still the only software in existence on the chip, it programs every <code>pmpaddr</code> and
 <code>pmpcfg</code> entry from the table above and sets the lock and Smepmp bits. Only after the wall is
 standing and sealed does it hand control down to the Warden with an <code>mret</code>, dropping the
 processor to supervisor mode.</p>
 <p>The consequence is precise. By the time a single instruction of supervisor or user code executes, the
-protection is already locked and cannot be undone until the next reboot. There is no window — not one
-cycle — in which the trusted regions are exposed to code we do not trust. A later takeover of the Warden
+protection is already locked and cannot be undone until the next reboot. There is no window, not one
+cycle, in which the trusted regions are exposed to code we do not trust. A later takeover of the Warden
 (the stretch adversary of the threat model) inherits a processor whose PMP entries are frozen; it can no
 more re-map the secrets than it can rewrite the past.</p>
 
 <h2><span class="n">3.7</span>A denied access, step by step</h2>
 <p>To make the abstraction concrete, follow one hostile load all the way to its fault. Suppose the Warden
-has been fully compromised — the worst case we still claim to survive — and the attacker's code, running
+has been fully compromised, the worst case we still claim to survive, and the attacker's code, running
 in supervisor mode, tries to read an API key directly out of the secrets region rather than going through
 the Monitor at all. It executes a plain load from an address inside <code>SECRETS</code>.</p>
 <pre><code>supervisor code executes:   lw  t0, 0(a0)      # a0 = 0x1002_0100, inside SECRETS
 processor checks PMP:       walk entries in order
-                            entry 3 covers [0x1002_0000, 0x1002_4000) — match
+                            entry 3 covers [0x1002_0000, 0x1002_4000) - match
                             entry 3 permits: M only; current mode = S
                             → not permitted
 result:                     no bytes are read; a load access-fault is raised
@@ -365,7 +363,7 @@ outcome:                    the attacker learns nothing; the key never left the 
 <p>The important word is <em>no bytes are read</em>. The access does not read the key and then discard
 it; the load never completes at all. There is nothing to leak, because leaking requires a completed read,
 and the hardware refused before completion. Contrast this with a software check, which must first fetch
-the value in order to decide what to do with it — a difference that matters enormously the moment side
+the value in order to decide what to do with it, a difference that matters enormously the moment side
 channels enter the picture, which is exactly why the hardware boundary is the one we rely on.</p>
 
 <h2><span class="n">3.8</span>Edge cases and failure modes</h2>
@@ -382,7 +380,7 @@ table and its ordering is asserted in a test, so a hand-edit that reshuffles row
 than the field.</li>
 <li><b>A region left undescribed.</b> Deny-by-default saves us here: an address covered by no entry is
 refused for S and U. The failure mode of forgetting a region is therefore a program that cannot reach
-memory it needs — loud and immediate — never a region left quietly open.</li>
+memory it needs, loud and immediate, never a region left quietly open.</li>
 <li><b>The lock genuinely locks.</b> Once <code>L=1</code> is set, even legitimate reconfiguration is
 impossible until reset. This is a feature that will, someday, bite a developer who wanted to adjust the
 map at runtime. The answer is that the map is not meant to change at runtime; if it needs to, that is a
@@ -428,10 +426,10 @@ our core it is right there. But the MMU is configured by the supervisor-mode ope
 page tables the supervisor owns. A compromised operating system simply rewrites those tables and grants
 itself whatever it likes; the MMU cannot wall anything off from the very code that programs it. It is the
 wrong tool for a boundary whose whole purpose is to survive an OS takeover. The MMU is genuinely useful
-one level down — for keeping user-mode compartments from reading each other — and Chapter 4 keeps it for
+one level down, for keeping user-mode compartments from reading each other, and Chapter 4 keeps it for
 exactly that. It is simply not the wall around the trusted world.</p>
 <p class="rej"><b>Enforce the boundary in software in the operating system.</b> Simpler, one boundary
-rather than two — and fatally, a single bug in that software is a total bypass, on the exact component we
+rather than two, and fatally, a single bug in that software is a total bypass, on the exact component we
 promised could fall. A check that lives at the attacker's own privilege level is not enforcement.</p>
 <p class="rej"><b>Give the agent no privilege separation and sandbox it in the host instead.</b> Host-side
 sandboxes are software the host controls; the whole premise is that the host is compromised. Any boundary
@@ -454,21 +452,21 @@ attack teaches more than perfecting something we have not yet built.</p>
 fallback of §3.4 is what actually ships. This changes how much the trusted regions are fenced off from a
 Monitor bug, though not from the untrusted tiers.<sup><a href="#n6">6</a></sup></li>
 <li>The exact number of PMP entries to request from <code>PmpPlugin</code>, once the compartment count for
-v1 is fixed — the map needs seven or eight today, but the compartment rows may grow.</li>
+v1 is fixed, the map needs seven or eight today, but the compartment rows may grow.</li>
 <li>Whether to enable the Sv32 MMU in the Warden for v1 multi-compartment isolation, or to run PMP-only at
 first and add the MMU once the base is solid. (Carried jointly with Chapter 4.)</li>
 <li>The precise sizes of <code>MON_DATA</code> and <code>SECRETS</code>, which depend on how much block
-RAM the fitted design actually leaves free — a number we will not know until the SoC is placed and routed.</li>
+RAM the fitted design actually leaves free, a number we will not know until the SoC is placed and routed.</li>
 </ul>
 
 <ol class="notes" id="notes">
-<li id="n1"><span>[1]</span> RISC-V <em>Privileged ISA</em> — machine/supervisor/user modes and Physical Memory Protection (<code>pmpcfg</code>/<code>pmpaddr</code>, the L/A/X/W/R fields, TOR/NA4/NAPOT encodings, deny-by-default matching).</li>
-<li id="n2"><span>[2]</span> <em>Verifying RISC-V Physical Memory Protection</em>, arXiv:2211.02179 — on the semantics of TOR/NAPOT matching and the pitfalls of entry ordering.</li>
-<li id="n3"><span>[3]</span> RISC-V <em>Smepmp</em> extension, v1.0 — machine-mode enforcement of PMP rules without the all-modes lock, used here to fence <code>SECRETS</code>/<code>EGRESS_MMIO</code> off even from M-mode software.</li>
-<li id="n4"><span>[4]</span> Lee et al., <em>Keystone: An Open Framework for Architecting TEEs</em>, arXiv:1907.10119; and <em>Sanctorum: A Lightweight Security Monitor for Secure Enclaves</em>, arXiv:1812.10605 — the M-mode security-monitor-over-PMP pattern Redoubt follows.</li>
-<li id="n5"><span>[5]</span> J. P. Anderson, <em>Computer Security Technology Planning Study</em> (1972) — the reference-monitor criteria: complete mediation, tamper-proof, verifiable. Applied here to memory access.</li>
-<li id="n6"><span>[6]</span> VexRiscv (SpinalHDL), <code>PmpPlugin</code> — the entry count and extension support are build-time choices; Smepmp availability is the open item of §3.4 and §3.12.</li>
-<li id="n7"><span>[7]</span> Apple, <em>Platform Security</em> — SPTM, a monitor more privileged than the kernel; community deep-dive arXiv:2510.09272.</li>
+<li id="n1"><span>[1]</span> RISC-V <em>Privileged ISA</em>, machine/supervisor/user modes and Physical Memory Protection (<code>pmpcfg</code>/<code>pmpaddr</code>, the L/A/X/W/R fields, TOR/NA4/NAPOT encodings, deny-by-default matching).</li>
+<li id="n2"><span>[2]</span> <em>Verifying RISC-V Physical Memory Protection</em>, arXiv:2211.02179, on the semantics of TOR/NAPOT matching and the pitfalls of entry ordering.</li>
+<li id="n3"><span>[3]</span> RISC-V <em>Smepmp</em> extension, v1.0, machine-mode enforcement of PMP rules without the all-modes lock, used here to fence <code>SECRETS</code>/<code>EGRESS_MMIO</code> off even from M-mode software.</li>
+<li id="n4"><span>[4]</span> Lee et al., <em>Keystone: An Open Framework for Architecting TEEs</em>, arXiv:1907.10119; and <em>Sanctorum: A Lightweight Security Monitor for Secure Enclaves</em>, arXiv:1812.10605, the M-mode security-monitor-over-PMP pattern Redoubt follows.</li>
+<li id="n5"><span>[5]</span> J. P. Anderson, <em>Computer Security Technology Planning Study</em> (1972), the reference-monitor criteria: complete mediation, tamper-proof, verifiable. Applied here to memory access.</li>
+<li id="n6"><span>[6]</span> VexRiscv (SpinalHDL), <code>PmpPlugin</code>, the entry count and extension support are build-time choices; Smepmp availability is the open item of §3.4 and §3.12.</li>
+<li id="n7"><span>[7]</span> Apple, <em>Platform Security</em>, SPTM, a monitor more privileged than the kernel; community deep-dive arXiv:2510.09272.</li>
 </ol>
 
 <footer>Redoubt Architecture &#183; RDBT-ARCH-03 &#183; Privilege &amp; Isolation (RISC-V PMP) &#183; Draft.
