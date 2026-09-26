@@ -1,4 +1,8 @@
-use std::path::Path;
+use anyhow::Context;
+use std::io::Read;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
 
 fn main() -> anyhow::Result<()> {
     let mut args = std::env::args().skip(1);
@@ -114,8 +118,125 @@ fn loc_gate() -> anyhow::Result<()> {
     Ok(())
 }
 
+const BOOT_BANNER: &str = "redoubt: monitor online";
+const QEMU_TIMEOUT: Duration = Duration::from_secs(15);
+
+/// Path to the workspace root, derived from this crate's own manifest
+/// directory (`<repo>/xtask`) so this works regardless of the directory
+/// `cargo xtask` was invoked from.
+fn repo_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("xtask crate lives one level below the workspace root")
+        .to_path_buf()
+}
+
+/// Cross-builds `monitor-bin` for `riscv32imac-unknown-none-elf`, boots the
+/// resulting ELF in `qemu-system-riscv32 -machine virt`, and asserts (a)
+/// the boot banner appears on stdout and (b) QEMU exits cleanly (status 0),
+/// which it does via the `sifive_test` finisher device at 0x0010_0000 once
+/// `monitor-bin` writes 0x5555 to it. No human needs to watch the console.
 fn qemu() -> anyhow::Result<()> {
-    anyhow::bail!("cargo xtask qemu is implemented in Task 3")
+    let repo_root = repo_root();
+    let monitor_bin_dir = repo_root.join("crates/monitor-bin");
+    anyhow::ensure!(
+        monitor_bin_dir.is_dir(),
+        "expected crates/monitor-bin at {}",
+        monitor_bin_dir.display()
+    );
+
+    // Build from within crates/monitor-bin so its own .cargo/config.toml
+    // (target = riscv32imac-unknown-none-elf, linker script rustflags) is
+    // picked up by cargo's directory-based config discovery.
+    let build_status = Command::new("cargo")
+        .current_dir(&monitor_bin_dir)
+        .args([
+            "build",
+            "--target",
+            "riscv32imac-unknown-none-elf",
+            "-p",
+            "monitor-bin",
+        ])
+        .status()
+        .context("failed to spawn `cargo build` for monitor-bin")?;
+    anyhow::ensure!(
+        build_status.success(),
+        "cargo build -p monitor-bin --target riscv32imac-unknown-none-elf failed"
+    );
+
+    let elf = repo_root.join("target/riscv32imac-unknown-none-elf/debug/monitor-bin");
+    anyhow::ensure!(
+        elf.is_file(),
+        "expected monitor-bin ELF at {} after build",
+        elf.display()
+    );
+    let elf_path = elf
+        .to_str()
+        .context("monitor-bin build output path is not valid UTF-8")?;
+
+    let mut child = Command::new("qemu-system-riscv32")
+        .args([
+            "-machine",
+            "virt",
+            "-bios",
+            elf_path,
+            "-nographic",
+            "-no-reboot",
+            "-serial",
+            "mon:stdio",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .context("failed to spawn qemu-system-riscv32 (is it installed and on PATH?)")?;
+
+    let mut stdout_pipe = child.stdout.take().expect("stdout was piped");
+    let stdout_reader = std::thread::spawn(move || {
+        let mut buf = String::new();
+        let _ = stdout_pipe.read_to_string(&mut buf);
+        buf
+    });
+    let mut stderr_pipe = child.stderr.take().expect("stderr was piped");
+    let stderr_reader = std::thread::spawn(move || {
+        let mut buf = String::new();
+        let _ = stderr_pipe.read_to_string(&mut buf);
+        buf
+    });
+
+    let deadline = Instant::now() + QEMU_TIMEOUT;
+    let exit_status = loop {
+        if let Some(status) = child.try_wait().context("failed to poll qemu process")? {
+            break status;
+        }
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            anyhow::bail!(
+                "qemu-system-riscv32 did not exit within {:?}; \
+                 monitor-bin likely never reached the sifive_test finisher",
+                QEMU_TIMEOUT
+            );
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    };
+
+    let stdout = stdout_reader.join().unwrap_or_default();
+    let stderr = stderr_reader.join().unwrap_or_default();
+    print!("{stdout}");
+    eprint!("{stderr}");
+
+    anyhow::ensure!(
+        stdout.contains(BOOT_BANNER),
+        "qemu stdout did not contain the expected boot banner {BOOT_BANNER:?}"
+    );
+    anyhow::ensure!(
+        exit_status.success(),
+        "qemu-system-riscv32 exited with {exit_status:?}; expected a clean exit \
+         (monitor-bin writes 0x5555 to the sifive_test finisher on success, 0x3333 on panic)"
+    );
+
+    println!("cargo xtask qemu: PASS (boot banner observed, qemu exited 0)");
+    Ok(())
 }
 
 #[cfg(test)]

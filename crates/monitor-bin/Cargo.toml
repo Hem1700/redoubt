@@ -5,3 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+
+# monitor-bin is a #![no_std] #![no_main] bare-metal image for the QEMU
+# `virt` machine. It is not host-buildable; see the workspace Cargo.toml
+# `default-members` and `cargo xtask qemu`.

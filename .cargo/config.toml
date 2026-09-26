@@ -1,0 +1,6 @@
+[alias]
+# `cargo xtask <cmd>` runs the workspace's xtask crate (host target).
+# This is distinct from crates/monitor-bin/.cargo/config.toml, which only
+# takes effect when cargo is invoked from within that crate's directory
+# (as xtask itself does internally when cross-building monitor-bin).
+xtask = "run --package xtask --"

@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
 members = ["xtask", "crates/abi", "crates/monitor", "crates/monitor-bin", "crates/host-sdk"]
+# monitor-bin is #![no_std] #![no_main] and only builds for the
+# riscv32imac-unknown-none-elf target; excluding it from default-members
+# keeps a bare `cargo build`/`cargo test --workspace` (host target) green.
+# It is built and run only via `cargo xtask qemu`.
+default-members = ["xtask", "crates/abi", "crates/monitor", "crates/host-sdk"]
 
 [workspace.package]
 edition = "2021"
