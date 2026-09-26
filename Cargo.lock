@@ -19,6 +19,9 @@ version = "0.1.0"
 [[package]]
 name = "monitor"
 version = "0.1.0"
+dependencies = [
+ "abi",
+]
 
 [[package]]
 name = "monitor-bin"
