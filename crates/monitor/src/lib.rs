@@ -5,6 +5,7 @@ use abi::ReasonCode;
 
 pub mod cap;
 pub mod parse;
+pub mod predicate;
 
 /// Check if a capability's tool_id matches the expected tool_id.
 /// Returns `Ok(())` if they match, `Err(ReasonCode::DenyTool)` if they don't.
