@@ -85,6 +85,11 @@ fn trap_stack_top() -> usize {
 const MTIMECMP_LO: *mut u32 = 0x0200_4000 as *mut u32;
 const MTIMECMP_HI: *mut u32 = 0x0200_4004 as *mut u32;
 
+/// QEMU `virt` `sifive_test` finisher (same device `main.rs` uses). Writing
+/// 0x3333 exits QEMU nonzero; used here for the fail-closed halt on an
+/// unexpected M-mode exception.
+const FINISHER: *mut u32 = 0x0010_0000 as *mut u32;
+
 // ---------------------------------------------------------------------------
 // Shared / owned statics. See the module-level single-threaded soundness
 // note for why the handler's references to these are never aliased.
@@ -461,8 +466,26 @@ extern "C" fn trap_rust(frame: *mut u32) {
         return;
     }
 
-    // Exception. Environment call from U(8)/S(9)/M(11). Read the ABI regs
-    // out of the saved frame.
+    // Exception. Only an environment call from U(8)/S(9)/M(11) is a legitimate
+    // trap into this trampoline. ANY other exception cause (illegal
+    // instruction, access fault — the latter arrives once Phase-2 adds PMP) is
+    // an unexpected fault inside the M-mode TCB: it is unrecoverable, so we
+    // FAIL CLOSED. Silently treating it as a DENY_MALFORMED "ecall" and
+    // resuming at mepc+4 would be a fail-open recovery (resuming mid-fault into
+    // an unknown state), contrary to the project's fail-closed principle. We
+    // instead signal failure on the sifive_test finisher (0x3333, mirroring the
+    // main.rs panic-handler convention) and halt forever — never advancing mepc,
+    // never returning.
+    if !matches!(cause, 8 | 9 | 11) {
+        unsafe {
+            core::ptr::write_volatile(FINISHER, 0x3333);
+        }
+        loop {
+            unsafe { core::arch::asm!("wfi") };
+        }
+    }
+
+    // Read the ecall's ABI regs out of the saved frame.
     let (a7, a0, a1) = unsafe {
         (
             *frame.add(FR_A7) as usize,
