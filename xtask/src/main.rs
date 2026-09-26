@@ -8,9 +8,16 @@ fn main() -> anyhow::Result<()> {
     let mut args = std::env::args().skip(1);
     match args.next().as_deref() {
         Some("loc-gate") => loc_gate(),
-        Some("qemu") => qemu(),
+        Some("qemu") => {
+            // `cargo xtask qemu -- mediate` reaches us as ["qemu", "--",
+            // "mediate"] (the alias contributes one `--`). Drop any `--`
+            // separators and treat the first remaining token as the
+            // scenario selector.
+            let rest: Vec<String> = args.filter(|a| a != "--").collect();
+            qemu(rest.first().map(String::as_str))
+        }
         Some(other) => anyhow::bail!("unknown xtask command: {other}"),
-        None => anyhow::bail!("usage: cargo xtask <loc-gate|qemu>"),
+        None => anyhow::bail!("usage: cargo xtask <loc-gate|qemu [-- mediate]>"),
     }
 }
 
@@ -121,6 +128,19 @@ fn loc_gate() -> anyhow::Result<()> {
 const BOOT_BANNER: &str = "redoubt: monitor online";
 const QEMU_TIMEOUT: Duration = Duration::from_secs(15);
 
+/// The exact UART lines the `mediate` scenario must emit — the three
+/// containment demo verdicts, proof the injected secret went outbound but
+/// not into the response, and the interrupt-masking (Review-Focus 7) frame
+/// check. Asserted by `cargo xtask qemu -- mediate`.
+const MEDIATE_EXPECTED_LINES: &[&str] = &[
+    "mediate: benign=ALLOW",
+    "mediate: benign-secret=outbound-present",
+    "mediate: benign-secret=response-absent",
+    "mediate: attack=DENY_ARG",
+    "mediate: flow=DENY_FLOW",
+    "mediate: irq-frame=OK",
+];
+
 /// Path to the workspace root, derived from this crate's own manifest
 /// directory (`<repo>/xtask`) so this works regardless of the directory
 /// `cargo xtask` was invoked from.
@@ -136,7 +156,13 @@ fn repo_root() -> PathBuf {
 /// the boot banner appears on stdout and (b) QEMU exits cleanly (status 0),
 /// which it does via the `sifive_test` finisher device at 0x0010_0000 once
 /// `monitor-bin` writes 0x5555 to it. No human needs to watch the console.
-fn qemu() -> anyhow::Result<()> {
+fn qemu(scenario: Option<&str>) -> anyhow::Result<()> {
+    let mediate = match scenario {
+        None => false,
+        Some("mediate") => true,
+        Some(other) => anyhow::bail!("unknown qemu scenario: {other} (expected `mediate`)"),
+    };
+
     let repo_root = repo_root();
     let monitor_bin_dir = repo_root.join("crates/monitor-bin");
     anyhow::ensure!(
@@ -235,7 +261,20 @@ fn qemu() -> anyhow::Result<()> {
          (monitor-bin writes 0x5555 to the sifive_test finisher on success, 0x3333 on panic)"
     );
 
-    println!("cargo xtask qemu: PASS (boot banner observed, qemu exited 0)");
+    if mediate {
+        for line in MEDIATE_EXPECTED_LINES {
+            anyhow::ensure!(
+                stdout.contains(line),
+                "qemu stdout did not contain the expected mediate line {line:?}"
+            );
+        }
+        println!(
+            "cargo xtask qemu -- mediate: PASS (boot banner + all {} mediate verdict lines + clean exit)",
+            MEDIATE_EXPECTED_LINES.len()
+        );
+    } else {
+        println!("cargo xtask qemu: PASS (boot banner observed, qemu exited 0)");
+    }
     Ok(())
 }
 

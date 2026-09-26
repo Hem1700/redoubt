@@ -9,6 +9,7 @@
 #![no_std]
 #![no_main]
 
+mod arch;
 mod uart;
 
 core::arch::global_asm!(
@@ -31,8 +32,17 @@ const FINISHER: *mut u32 = 0x0010_0000 as *mut u32;
 #[no_mangle]
 extern "C" fn main() -> ! {
     uart::puts("redoubt: monitor online\n");
+
+    // Install the M-mode trap vector + seed the monitor statics, then drive
+    // the Task-14 `mediate` pipeline from `ecall` traps. The image signals
+    // PASS to the finisher only if every containment scenario matched its
+    // expected verdict (and the interrupt-masking frame survived).
+    arch::init();
+    let all_passed = arch::run_demo();
+
+    let code = if all_passed { 0x5555 } else { 0x3333 };
     unsafe {
-        core::ptr::write_volatile(FINISHER, 0x5555); // PASS -> qemu exits 0
+        core::ptr::write_volatile(FINISHER, code);
     }
     loop {
         unsafe { core::arch::asm!("wfi") };

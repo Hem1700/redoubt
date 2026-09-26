@@ -5,6 +5,8 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+monitor = { path = "../monitor" }
+abi = { path = "../abi" }
 
 # monitor-bin is a #![no_std] #![no_main] bare-metal image for the QEMU
 # `virt` machine. It is not host-buildable; see the workspace Cargo.toml

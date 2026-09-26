@@ -76,6 +76,10 @@ dependencies = [
 [[package]]
 name = "monitor-bin"
 version = "0.1.0"
+dependencies = [
+ "abi",
+ "monitor",
+]
 
 [[package]]
 name = "subtle"
