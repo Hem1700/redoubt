@@ -247,6 +247,16 @@ impl<'a> Args<'a> {
         self
     }
 
+    /// The structured URL parts of the `url` arg, iff it is present AND is an
+    /// `ArgVal::Url`. Returns None otherwise. This is the ONLY way egress obtains
+    /// a target; there is deliberately no string form to re-parse.
+    pub fn url_parts(&self) -> Option<abi::UrlParts<'a>> {
+        match self.url {
+            Some(ArgVal::Url(parts)) => Some(parts),
+            _ => None,
+        }
+    }
+
     /// Resolve a `FieldSel` to the `ArgVal` occupying that slot, or
     /// `DenyMalformed` if the slot is absent. Callers still must check
     /// the returned `ArgVal`'s variant matches what their `Op` expects —

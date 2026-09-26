@@ -4,6 +4,7 @@
 use abi::ReasonCode;
 
 pub mod cap;
+pub mod egress;
 pub mod flow;
 pub mod parse;
 pub mod predicate;
