@@ -348,15 +348,21 @@ pub fn eval(clauses: &[Clause], args: &Args, pool: &ConstPool) -> Result<(), Rea
             }
             Op::LenLe => {
                 let val = args.slot(clause.field)?;
-                let len = match val {
-                    ArgVal::Bytes(b) => b.len(),
-                    ArgVal::Path(b) => b.len(),
-                    ArgVal::Url(parts) => parts.host.len(),
-                    ArgVal::Int(n) if n >= 0 => n as usize,
+                // Compare in a fixed 64-bit width so the verdict is identical
+                // on the 32-bit target and the 64-bit host. Never narrow to
+                // `usize`: on riscv32 that truncates a wire `Int` above
+                // u32::MAX, which could let an over-limit length pass. The
+                // byte-length arms widen from `usize` (always exact), and the
+                // non-negative `Int` widens from `i64` (also exact).
+                let len: u64 = match val {
+                    ArgVal::Bytes(b) => b.len() as u64,
+                    ArgVal::Path(b) => b.len() as u64,
+                    ArgVal::Url(parts) => parts.host.len() as u64,
+                    ArgVal::Int(n) if n >= 0 => n as u64,
                     _ => return Err(ReasonCode::DenyMalformed),
                 };
-                let limit = pool.len_limit(clause.operand)?;
-                if len > limit as usize {
+                let limit = pool.len_limit(clause.operand)? as u64;
+                if len > limit {
                     return Err(ReasonCode::DenyArg);
                 }
             }
@@ -584,6 +590,44 @@ mod tests {
         assert_eq!(
             eval(&[clause], &args_path(b"/way/too/long"), &p).unwrap_err(),
             ReasonCode::DenyArg
+        );
+    }
+
+    #[test]
+    fn len_le_bounds_int_field() {
+        let p = pool();
+        let clause = Clause { field: FieldSel::LEN, op: Op::LenLe, operand: POOL_LEN_8 };
+        // At and below the limit pass; just over denies.
+        assert!(eval(&[clause], &Args::new().with_len(ArgVal::Int(8)), &p).is_ok());
+        assert!(eval(&[clause], &Args::new().with_len(ArgVal::Int(0)), &p).is_ok());
+        assert_eq!(
+            eval(&[clause], &Args::new().with_len(ArgVal::Int(9)), &p).unwrap_err(),
+            ReasonCode::DenyArg
+        );
+    }
+
+    #[test]
+    fn len_le_int_above_u32_denies_no_truncation() {
+        // A wire Int larger than u32::MAX must be treated as its true value,
+        // not silently truncated to its low 32 bits. `(u32::MAX as i64) + 9`
+        // truncates to 8 on a 32-bit `usize`, which equals the limit and
+        // would wrongly pass; the fixed-width u64 comparison denies it.
+        let p = pool();
+        let clause = Clause { field: FieldSel::LEN, op: Op::LenLe, operand: POOL_LEN_8 };
+        let over = (u32::MAX as i64) + 9;
+        assert_eq!(
+            eval(&[clause], &Args::new().with_len(ArgVal::Int(over)), &p).unwrap_err(),
+            ReasonCode::DenyArg
+        );
+    }
+
+    #[test]
+    fn len_le_negative_int_denies_malformed() {
+        let p = pool();
+        let clause = Clause { field: FieldSel::LEN, op: Op::LenLe, operand: POOL_LEN_8 };
+        assert_eq!(
+            eval(&[clause], &Args::new().with_len(ArgVal::Int(-1)), &p).unwrap_err(),
+            ReasonCode::DenyMalformed
         );
     }
 
