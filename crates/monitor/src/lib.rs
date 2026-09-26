@@ -3,6 +3,7 @@
 
 use abi::ReasonCode;
 
+pub mod audit;
 pub mod cap;
 pub mod egress;
 pub mod flow;

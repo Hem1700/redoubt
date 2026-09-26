@@ -6,3 +6,4 @@ license.workspace = true
 
 [dependencies]
 abi = { path = "../abi" }
+blake2 = { version = "0.10", default-features = false }
