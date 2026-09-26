@@ -53,10 +53,56 @@ fn count_lines_in_file(path: &Path) -> usize {
     let Ok(contents) = std::fs::read_to_string(path) else {
         return 0;
     };
-    contents
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .count()
+    count_significant_lines(&contents)
+}
+
+/// True if `trimmed` marks the start of a test-only block we should skip:
+/// a `#[cfg(test)]` attribute, or a `mod tests` item (with or without a
+/// trailing `{`).
+fn is_test_marker(trimmed: &str) -> bool {
+    if trimmed.starts_with("#[cfg(test)]") {
+        return true;
+    }
+    if let Some(rest) = trimmed.strip_prefix("mod tests") {
+        let rest = rest.trim_start();
+        return rest.is_empty() || rest.starts_with('{') || rest.starts_with(';');
+    }
+    false
+}
+
+/// Counts non-blank lines, excluding anything inside a `#[cfg(test)]` /
+/// `mod tests { ... }` block (tracked by brace depth), so unit tests do not
+/// count against the TCB LoC budget.
+fn count_significant_lines(contents: &str) -> usize {
+    let mut count = 0usize;
+    let mut depth = 0i32;
+    let mut skip_from_depth: Option<i32> = None;
+
+    for line in contents.lines() {
+        let trimmed = line.trim();
+        let brace_delta = line.matches('{').count() as i32 - line.matches('}').count() as i32;
+
+        if skip_from_depth.is_none() && is_test_marker(trimmed) {
+            skip_from_depth = Some(depth);
+            depth += brace_delta;
+            continue;
+        }
+
+        if let Some(start_depth) = skip_from_depth {
+            depth += brace_delta;
+            if depth <= start_depth {
+                skip_from_depth = None;
+            }
+            continue;
+        }
+
+        depth += brace_delta;
+        if !trimmed.is_empty() {
+            count += 1;
+        }
+    }
+
+    count
 }
 
 fn loc_gate() -> anyhow::Result<()> {
@@ -70,4 +116,37 @@ fn loc_gate() -> anyhow::Result<()> {
 
 fn qemu() -> anyhow::Result<()> {
     anyhow::bail!("cargo xtask qemu is implemented in Task 3")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::count_significant_lines;
+
+    #[test]
+    fn excludes_cfg_test_blocks() {
+        let sample = "\
+fn real_code() {
+    1;
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn it_works() {
+        assert_eq!(2 + 2, 4);
+    }
+}
+
+fn more_real_code() {
+    2;
+}
+";
+        // Only the two real functions' lines should count (3 lines each);
+        // everything inside the cfg(test) mod tests block must be excluded.
+        assert_eq!(
+            count_significant_lines(sample),
+            6,
+            "cfg(test) mod tests block lines should not be counted"
+        );
+    }
 }
