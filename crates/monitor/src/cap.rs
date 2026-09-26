@@ -27,7 +27,7 @@ pub struct Cap {
     pub secret_ref: u16,
     pub aux: u16,
     pub epoch: u16,
-    _pad: u16, // Explicit padding to reach 16 bytes.
+    pub _pad: u16, // Explicit padding to reach 16 bytes.
 }
 
 /// A session holds an epoch and a capability space of 32 slots.
