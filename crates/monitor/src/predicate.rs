@@ -340,7 +340,10 @@ pub fn eval(clauses: &[Clause], args: &Args, pool: &ConstPool) -> Result<(), Rea
                     Op::Prefix => bytes.starts_with(pool.str(clause.operand)?),
                     Op::Suffix => bytes.ends_with(pool.str(clause.operand)?),
                     Op::InSet => pool.str_set(clause.operand)?.contains(&bytes),
-                    _ => unreachable!(),
+                    // Unreachable: the outer arm restricts `op` to these four.
+                    // A reference-monitor TCB carries no panicking macros, so
+                    // fail closed rather than `unreachable!()` for defense in depth.
+                    _ => return Err(ReasonCode::DenyMalformed),
                 };
                 if !ok {
                     return Err(ReasonCode::DenyArg);
