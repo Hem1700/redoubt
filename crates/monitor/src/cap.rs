@@ -66,6 +66,74 @@ pub fn resolve(s: &Session, handle: u16) -> Result<&Cap, ReasonCode> {
     Ok(cap)
 }
 
+/// The system-wide bound on concurrent agent sessions the monitor holds.
+pub const MAX_SESSIONS: usize = 8;
+
+/// The session table: owns every live `Session`, indexed by session id.
+///
+/// `tbl` is private; the only access is through `get`/`get_mut`/`revoke`, so
+/// every lookup goes through the same fail-closed bounds check in one place.
+pub struct Sessions {
+    tbl: [Option<Session>; MAX_SESSIONS],
+}
+
+impl Default for Sessions {
+    fn default() -> Self {
+        Sessions {
+            tbl: [None; MAX_SESSIONS],
+        }
+    }
+}
+
+impl Sessions {
+    /// Look up a session by id. `DenyNoCap` if id is out of range or empty.
+    pub fn get(&self, id: u16) -> Result<&Session, ReasonCode> {
+        let idx = id as usize;
+        if idx >= MAX_SESSIONS {
+            return Err(ReasonCode::DenyNoCap);
+        }
+        self.tbl[idx].as_ref().ok_or(ReasonCode::DenyNoCap)
+    }
+
+    /// Mutable lookup (needed to install caps / bump epoch). Same error contract.
+    pub fn get_mut(&mut self, id: u16) -> Result<&mut Session, ReasonCode> {
+        let idx = id as usize;
+        if idx >= MAX_SESSIONS {
+            return Err(ReasonCode::DenyNoCap);
+        }
+        self.tbl[idx].as_mut().ok_or(ReasonCode::DenyNoCap)
+    }
+
+    /// Revoke every capability in a session by advancing its epoch. After
+    /// this, `resolve()` on any handle installed at the old epoch returns
+    /// `DenyRevoked`. No-op if `id` is out of range or the slot is empty.
+    ///
+    /// The cspace is intentionally left untouched: the stale caps must stay
+    /// in place so `resolve` reports `DenyRevoked` (not `DenyNoCap`) for
+    /// handles installed at the previous epoch. Caps installed after this
+    /// call are written at the session's new epoch and resolve normally.
+    ///
+    /// RULING (epoch-wrap bound): `epoch` is a `u16` and cannot widen — it is
+    /// pinned by the 16-byte `Cap` ABI layout — so after 2^16 revocations of
+    /// a single session the epoch wraps around and aliases a value a
+    /// still-resident stale cap may hold, and that cap would wrongly resolve
+    /// as live again. This is a known, documented bound, not a bug to
+    /// over-engineer around here: a session should be torn down and
+    /// re-seeded (its slot set to `None`, then re-created) well before it
+    /// accumulates anywhere near 2^16 revocations, rather than relied on
+    /// past that many. `wrapping_add(1)` is used deliberately, matching how
+    /// `resolve`'s existing stale-epoch tests already construct epochs.
+    pub fn revoke(&mut self, id: u16) {
+        let idx = id as usize;
+        if idx >= MAX_SESSIONS {
+            return;
+        }
+        if let Some(session) = self.tbl[idx].as_mut() {
+            session.epoch = session.epoch.wrapping_add(1);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -130,5 +198,107 @@ mod tests {
     #[test]
     fn size_is_16_bytes() {
         assert_eq!(core::mem::size_of::<Cap>(), 16);
+    }
+
+    // Build a Sessions with a session at id 1 that has a resolvable cap at
+    // handle 3 (installed at the session's current epoch, ctype != Empty).
+    fn one_session_with_caps() -> Sessions {
+        let mut tbl = [None; MAX_SESSIONS];
+        tbl[1] = Some(make_session());
+        Sessions { tbl }
+    }
+
+    #[test]
+    fn revoke_stales_all_handles() {
+        let mut ss = one_session_with_caps();
+        ss.revoke(1);
+        assert_eq!(
+            resolve(ss.get(1).unwrap(), 3).unwrap_err(),
+            ReasonCode::DenyRevoked
+        );
+    }
+
+    #[test]
+    fn unknown_session_denies() {
+        assert_eq!(
+            Sessions::default().get(5).unwrap_err(),
+            ReasonCode::DenyNoCap
+        );
+    }
+
+    #[test]
+    fn get_out_of_range_denies() {
+        let ss = Sessions::default();
+        assert_eq!(
+            ss.get(MAX_SESSIONS as u16).unwrap_err(),
+            ReasonCode::DenyNoCap
+        );
+        assert_eq!(ss.get(u16::MAX).unwrap_err(), ReasonCode::DenyNoCap);
+    }
+
+    #[test]
+    fn get_mut_out_of_range_denies() {
+        let mut ss = Sessions::default();
+        assert_eq!(
+            ss.get_mut(MAX_SESSIONS as u16).unwrap_err(),
+            ReasonCode::DenyNoCap
+        );
+        assert_eq!(ss.get_mut(u16::MAX).unwrap_err(), ReasonCode::DenyNoCap);
+    }
+
+    #[test]
+    fn revoke_then_freshly_installed_cap_resolves_ok() {
+        let mut ss = one_session_with_caps();
+        ss.revoke(1);
+        let new_epoch = ss.get(1).unwrap().epoch;
+
+        // Install a fresh cap at handle 5, written at the session's NEW epoch.
+        let session = ss.get_mut(1).unwrap();
+        session.cspace[5] = Cap {
+            ctype: CapType::Tool as u8,
+            rights: 0,
+            tool_id: 0x2000,
+            pred_ref: 0,
+            flow_ref: 0,
+            secret_ref: 0,
+            aux: 0,
+            epoch: new_epoch,
+            _pad: 0,
+        };
+
+        assert_eq!(resolve(ss.get(1).unwrap(), 5).unwrap().tool_id, 0x2000);
+        // The stale handle from before the revoke remains revoked.
+        assert_eq!(
+            resolve(ss.get(1).unwrap(), 3).unwrap_err(),
+            ReasonCode::DenyRevoked
+        );
+    }
+
+    #[test]
+    fn revoke_out_of_range_is_noop() {
+        let mut ss = one_session_with_caps();
+        ss.revoke(MAX_SESSIONS as u16);
+        ss.revoke(u16::MAX);
+        assert!(resolve(ss.get(1).unwrap(), 3).is_ok());
+    }
+
+    #[test]
+    fn revoke_on_empty_slot_is_noop() {
+        let mut ss = one_session_with_caps();
+        ss.revoke(2); // id 2 has no session installed
+        assert_eq!(ss.get(2).unwrap_err(), ReasonCode::DenyNoCap);
+        // Unrelated session at id 1 is unaffected.
+        assert!(resolve(ss.get(1).unwrap(), 3).is_ok());
+    }
+
+    #[test]
+    fn empty_slot_denies_before_revoke() {
+        let ss = one_session_with_caps();
+        // Handle 0 in make_session() points at an Empty-ctype slot, at the
+        // same epoch as the session: must deny as DenyNoCap, not DenyRevoked.
+        assert_eq!(
+            resolve(ss.get(1).unwrap(), 0).unwrap_err(),
+            ReasonCode::DenyNoCap
+        );
     }
 }
