@@ -331,7 +331,36 @@ tests) run on the raw stream, and if the source degrades, operations that consum
 than proceed on weak randomness.<sup><a href="#n7">7</a></sup> A silently failing RNG is one of the
 classic ways secure systems rot, so its failure here is designed to be loud.</p>
 
-<h2><span class="n">4.7</span>Resource and failure notes</h2>
+<h2><span class="n">4.7</span>DMA, bus mastering, and the limit of PMP</h2>
+<p>There is an honest limit to everything Chapter 3 promised, and it lives here in the SoC. LiteX
+stitches the core and the peripherals onto one flat interconnect (Wishbone, or AXI-lite in some
+builds). PMP, the wall the whole isolation story rests on, checks only the <em>processor's</em> own
+accesses. It does not check any other master on that bus.</p>
+<p>Some peripherals can be masters. A storage or network block with a DMA engine, once programmed,
+reads and writes memory on its own, without asking the CPU, and those transfers never pass through PMP.
+So picture a compromised user-mode driver, which our threat model already hands the attacker: if that
+driver can reach a DMA engine's descriptor registers, it can point the engine at the SECRETS region or
+at the Monitor's own memory and move bytes the CPU in user mode could never touch. PMP would not fire,
+because no CPU load or store ever happened. This is a real gap, and nothing in Chapter 3 closes it.</p>
+<p>There are two ways to close it, and v1 leans on the first while the roadmap builds the second.</p>
+<ul>
+<li><b>By construction (v1).</b> Prefer programmed-I/O peripherals over DMA where we can. Where a DMA
+engine is unavoidable, put its descriptor and control registers inside an M-only region so that only
+the Monitor can arm a transfer, and have the Monitor pin the engine's source and destination to ranges
+that never overlap SECRETS, MON_*, or WARDEN. The attacker's driver can ask for a transfer; it cannot
+arm one, and the Monitor never arms one outside the caller's own buffers.</li>
+<li><b>By hardware (roadmap).</b> Add a bus-level protection unit that constrains each master the way
+PMP constrains the CPU. RISC-V standardized this as <b>IOPMP</b> (I/O physical memory protection); the
+custom RTL mediation gate in the Chapter 13 roadmap is the same idea, built for our egress bus. With
+one in place, a rogue or mis-programmed master faults at the bus exactly as a rogue CPU access faults
+at the core.</li>
+</ul>
+<p>Until that hardware exists, read "PMP isolates the compartments" as a statement about CPU-initiated
+access. Isolation against a bus master in v1 is a constraint we enforce by keeping masters out of the
+trusted regions, not a boundary the silicon checks for us. Chapter 13 lists this among the things we do
+not yet claim, and among the things the verification plan must demonstrate.</p>
+
+<h2><span class="n">4.8</span>Resource and failure notes</h2>
 <p>A few practical realities of building this on a real, finite FPGA:</p>
 <ul>
 <li><b>Fitting.</b> The core, the caches, LiteDRAM, and the peripherals must all fit within the 85F's
@@ -348,7 +377,7 @@ implements the entries we asked for. We request at least eight and check the cou
 reports fewer fails to start rather than running with a hole in the wall.</li>
 </ul>
 
-<h2><span class="n">4.8</span>Alternatives rejected</h2>
+<h2><span class="n">4.9</span>Alternatives rejected</h2>
 <p>The board and SoC could have been assembled differently. Here is what we declined, and why.</p>
 <p class="rej"><b>A bigger board with a closed toolchain (Arty A7-100T / Vivado).</b> The Xilinx-based
 Arty offers more logic headroom, but only through Vivado, a large closed toolchain. For a device whose
@@ -371,7 +400,7 @@ peripheral on the egress bus that enforces capabilities in silicon, unbypassable
 Monitor (Chapter 13). It is the distinctive contribution, and exactly the sort of thing to attempt only
 after a software-plus-PMP v1 has taught us what the primitive must do.</p>
 
-<h2><span class="n">4.9</span>Open questions</h2>
+<h2><span class="n">4.10</span>Open questions</h2>
 <p>The honest loose ends specific to the hardware:</p>
 <ul>
 <li>Whether the Sv32 MMU is enabled for v1 multi-compartment isolation or held for a later revision

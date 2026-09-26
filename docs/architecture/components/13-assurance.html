@@ -287,6 +287,28 @@ frame that would corrupt memory is caught rather than trusted to good luck. Beca
 <li>the Verilator PMP assertion, run in the pipeline so a hardware-config regression breaks the build.</li>
 </ul>
 
+<h4>Correctness obligations the implementation must demonstrate</h4>
+<p>Several properties this manual asserts are only claims until code and simulation show them. The plan
+above exists to turn each into a checked result rather than a promise. In particular:</p>
+<ul>
+<li><b>PMP actually faults.</b> The synthesized core must raise a load, store, or fetch access fault
+(mcause 5, 7, or 1) when S or U touches an M-only region. The Verilator run asserts this directly, and
+in doing so confirms the core was built with the PMP plugin and not a demo config that omits it.</li>
+<li><b>The trap handler is ABI-correct and non-re-entrant.</b> Entry keeps the machine stack 16-byte
+aligned, saves mepc and mstatus before anything else, runs with interrupts masked to completion (the
+Monitor never re-enables MIE mid-handler), and restores exactly, so a timer tick during a mediation
+cannot clobber the return path. Exercised by fault injection in simulation.</li>
+<li><b>No MMIO aliasing into trusted regions.</b> The generated interconnect must fully decode each
+peripheral's range, so an out-of-range offset cannot wrap into an adjacent peripheral, and above all
+cannot alias into an M-only region. Checked against the memory map at build time.</li>
+<li><b>The random source is real, and honest in simulation.</b> Entropy is a ring oscillator with NIST
+SP 800-90B health tests (Chapter 12), never a cycle counter or a software PRNG. Simulation has no real
+entropy, so the test build uses a clearly-marked deterministic seed that is compiled out of any
+hardware image.</li>
+<li><b>DMA masters stay out of the trusted regions</b> (Chapter 4), until IOPMP or the RTL gate turns
+that construction rule into a hardware boundary.</li>
+</ul>
+
 <h2><span class="n">13.5</span>Performance and resource budget</h2>
 <p>Assurance includes fitting on the target and answering fast enough to be usable. The numbers here are
 draft estimates for the ULX3S (ECP5-85F) build, to be replaced by measurement; they are flagged as
@@ -333,6 +355,18 @@ the box.</p>
 root of trust for the bitstream itself, closing the gap beneath the measured-boot chain so the measurement
 starts from silicon rather than from an assumed-good configuration.</p>
 
+<p>Two items were added after external review sharpened them.</p>
+<ul>
+<li><b>A bus-level protection unit.</b> PMP guards the CPU, not other masters (Chapter 4). A later
+version adds either RISC-V IOPMP or the custom RTL mediation gate on the egress bus, so a DMA-capable
+master is constrained in hardware and the v1 "by construction" rule becomes an enforced boundary.</li>
+<li><b>A physical root-of-trust ladder.</b> v1 has none: the bitstream and firmware load from external
+flash in the clear, and a physical attacker can tap or rewrite them. A hardened build can use the
+ECP5's AES-256 encrypted-and-authenticated bitstream with a key in on-chip OTP fuses, which defeats
+flash rewrite and readback for a moderately resourced attacker. A truly immutable ROM-based root of
+trust needs an ASIC, which is where an eventual tapeout leads.</li>
+</ul>
+
 <h2><span class="n">13.7</span>What we deliberately do not claim</h2>
 <p>An assurance chapter earns its trust as much by its disclaimers as by its claims. Some tempting stronger
 statements were considered and turned down.</p>
@@ -348,6 +382,20 @@ name that than paper over it.</p>
 <p class="rej"><b>"End-to-end information-flow secure."</b> Redoubt tracks labels only at the mediation
 boundary; it does not follow data through the host LLM's reasoning (Chapter 10). We claim boundary IFC,
 which is the checkable part, and say plainly that full end-to-end IFC is not on offer.</p>
+
+<ul>
+<li><b>Not a physically tamper-resistant secure element.</b> Against an attacker with physical access
+to the board, tapping or rewriting the SPI flash, reading the bitstream back, or measuring power and
+timing side channels, v1 offers nothing. Those are out of scope (Chapter 2). Redoubt is a
+remote-software containment device; it complements a secure element, it does not replace one.</li>
+<li><b>PMP isolation is CPU-only in v1.</b> A DMA-capable bus master is kept out of the trusted regions
+by construction, not by an enforced hardware boundary, until IOPMP or the RTL gate lands (Chapters 4
+and 13.6).</li>
+<li><b>The core's PMP and trap logic is trusted, not proven.</b> VexRiscv is not a formally verified
+core. That its PMP checks and its CSR and trap machinery are correct is a TCB assumption, checked
+behaviorally by the Verilator assertion (13.4) and strengthened later by a verified core or the RTL
+gate.</li>
+</ul>
 
 <h2><span class="n">13.8</span>Open questions</h2>
 <p>The loose ends that bear on assurance specifically:</p>

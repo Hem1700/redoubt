@@ -119,6 +119,20 @@ the other way: the more capable the model, the more damage a hijacked agent coul
 small, auditable guard is worth.</p>
 </div>
 
+<div class="note">
+<span class="lbl">What Redoubt is, and is not.</span>
+<p style="text-align:justify">Redoubt is a <em>remote-software</em> containment device. Its guarantee
+is about an agent that has been hijacked but can still only reach the world by sending tool calls over
+a wire: such an attacker cannot exceed the authority the Monitor grants it. Redoubt is <em>not</em> a
+physically tamper-resistant secure element. An attacker who holds the board can tap the external flash
+with a logic analyzer, watch power and timing side channels, or read the bitstream back; v1 stops none
+of that, and those attacks are out of scope (Chapter 2). When this manual says "hardware-rooted" it
+means isolation rooted in a hardware <em>privilege</em> boundary, machine mode plus PMP (Chapter 3),
+not a hardware root-of-trust for the boot image, which v1 does not yet have (Chapter 5, with the
+hardening ladder in Chapter 13). Think of Redoubt as something that sits alongside a secure element or
+a trusted platform, not as a replacement for one.</p>
+</div>
+
 <h2><span class="n">1.1</span>What an agent is, and why a captured one is dangerous</h2>
 <p>Start with an ordinary chatbot. You type, it answers, and that is the end of it. However convincing
 its reply, it changed nothing: no file moved, no message was sent, no money left an account. It is a

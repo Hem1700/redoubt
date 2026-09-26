@@ -404,6 +404,20 @@ executable. No region is both.</li>
 <li>The number of implemented PMP entries meets the map's needs, checked at boot.</li>
 </ol>
 
+<div class="note">
+<span class="lbl">What PMP does not cover.</span>
+<p style="text-align:justify">One boundary is worth drawing before we move on, because it is easy to
+over-read what this chapter proves. PMP checks the <em>processor's own</em> loads, stores, and
+instruction fetches. It says nothing about other masters on the bus. If a peripheral can drive the
+interconnect itself, a DMA engine in a storage or network block, for instance, its transfers are not
+filtered by the CPU's PMP at all. So a compromised user-mode driver that manages to program such an
+engine could move bytes the processor could never touch directly, straight past every rule in this
+chapter. Closing that gap needs a separate wall at the bus, not at the core: RISC-V IOPMP, or an
+equivalent firewall, or the hardware mediation gate on the roadmap. We take it up in Chapter 4 ("DMA,
+bus mastering, and the limit of PMP") and again in the Chapter 13 roadmap. For this chapter, read every
+guarantee as holding for CPU-initiated access.</p>
+</div>
+
 <h2><span class="n">3.10</span>The lineage of the idea</h2>
 <p>None of this is invented here, which is the most reassuring thing one can say about a security
 mechanism. Placing a small, maximally-privileged monitor beneath the operating system and using
