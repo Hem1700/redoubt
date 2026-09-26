@@ -104,6 +104,20 @@ impl Sessions {
         self.tbl[idx].as_mut().ok_or(ReasonCode::DenyNoCap)
     }
 
+    /// Install a session at `id`, replacing whatever (if anything) was
+    /// there. `DenyNoCap` if `id` is out of range. This is the path
+    /// `SESSION_OPEN` will use to seed a fresh session (Task 11 deferred
+    /// it); overwriting an existing slot is allowed -- callers that want
+    /// "must not already exist" semantics check `get` first themselves.
+    pub fn install(&mut self, id: u16, session: Session) -> Result<(), ReasonCode> {
+        let idx = id as usize;
+        if idx >= MAX_SESSIONS {
+            return Err(ReasonCode::DenyNoCap);
+        }
+        self.tbl[idx] = Some(session);
+        Ok(())
+    }
+
     /// Revoke every capability in a session by advancing its epoch. After
     /// this, `resolve()` on any handle installed at the old epoch returns
     /// `DenyRevoked`. No-op if `id` is out of range or the slot is empty.
@@ -289,6 +303,32 @@ mod tests {
         assert_eq!(ss.get(2).unwrap_err(), ReasonCode::DenyNoCap);
         // Unrelated session at id 1 is unaffected.
         assert!(resolve(ss.get(1).unwrap(), 3).is_ok());
+    }
+
+    #[test]
+    fn install_out_of_range_denies() {
+        let mut ss = Sessions::default();
+        assert_eq!(
+            ss.install(MAX_SESSIONS as u16, make_session()).unwrap_err(),
+            ReasonCode::DenyNoCap
+        );
+    }
+
+    #[test]
+    fn install_then_get_resolves() {
+        let mut ss = Sessions::default();
+        ss.install(2, make_session()).unwrap();
+        assert_eq!(resolve(ss.get(2).unwrap(), 3).unwrap().tool_id, 0x1000);
+    }
+
+    #[test]
+    fn install_overwrites_existing_slot() {
+        let mut ss = Sessions::default();
+        ss.install(2, make_session()).unwrap();
+        let mut fresh = make_session();
+        fresh.cspace[3].tool_id = 0x9999;
+        ss.install(2, fresh).unwrap();
+        assert_eq!(resolve(ss.get(2).unwrap(), 3).unwrap().tool_id, 0x9999);
     }
 
     #[test]
