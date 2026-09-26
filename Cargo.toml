@@ -1,0 +1,7 @@
+[workspace]
+resolver = "2"
+members = ["xtask", "crates/abi", "crates/monitor", "crates/monitor-bin", "crates/host-sdk"]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
