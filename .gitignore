@@ -3,3 +3,8 @@
 .DS_Store
 .superpowers/
 .claude/
+
+# Phase 2 sim toolchain (large, provisioned locally; see sim/README.md)
+sim/.venv/
+sim/oss-cad-suite/
+sim/build/
