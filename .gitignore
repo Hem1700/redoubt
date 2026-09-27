@@ -4,7 +4,9 @@
 .superpowers/
 .claude/
 
-# Phase 2 sim toolchain (large, provisioned locally; see sim/README.md)
-sim/.venv/
-sim/oss-cad-suite/
-sim/build/
+# Phase 2 sim toolchain (large, provisioned locally; see sim/README.md).
+# No trailing slash: these are symlinks/dirs locally and must match either.
+sim/.venv
+sim/oss-cad-suite
+sim/simdeps
+sim/build

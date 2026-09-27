@@ -2,6 +2,7 @@ use anyhow::Context;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 fn main() -> anyhow::Result<()> {
@@ -16,8 +17,13 @@ fn main() -> anyhow::Result<()> {
             let rest: Vec<String> = args.filter(|a| a != "--").collect();
             qemu(rest.first().map(String::as_str))
         }
+        Some("verilator") => {
+            // `cargo xtask verilator -- boot` -> ["verilator", "--", "boot"].
+            let rest: Vec<String> = args.filter(|a| a != "--").collect();
+            verilator(rest.first().map(String::as_str))
+        }
         Some(other) => anyhow::bail!("unknown xtask command: {other}"),
-        None => anyhow::bail!("usage: cargo xtask <loc-gate|qemu [-- mediate]>"),
+        None => anyhow::bail!("usage: cargo xtask <loc-gate|qemu [-- mediate]|verilator -- boot>"),
     }
 }
 
@@ -275,6 +281,214 @@ fn qemu(scenario: Option<&str>) -> anyhow::Result<()> {
     } else {
         println!("cargo xtask qemu: PASS (boot banner observed, qemu exited 0)");
     }
+    Ok(())
+}
+
+// ===========================================================================
+// Phase-2 V1: Verilator harness.
+//
+// `cargo xtask verilator -- boot` mirrors the qemu() runner (build image ->
+// run -> assert-on-UART -> timeout), but for the LiteX/VexRiscv-secure SoC in
+// Verilator instead of QEMU:
+//
+//   1. Build the SIM monitor image (ruling P2-1 dual target). The `secure`
+//      core is rv32ima with NO compressed decoder, and stable rustc silently
+//      ignores `-C target-feature=-c`; so the sim image is built for the
+//      compressed-free `riscv32ima-unknown-none-elf` target via nightly
+//      `-Z build-std=core`, linked with link-sim.ld at MON_CODE. The QEMU
+//      image (imac) and `cargo xtask qemu` are untouched.
+//   2. Emit the canonical memory map to sim/memory_map.json (ruling P2-2).
+//   3. Generate the SoC Verilog (venv Python) with the image baked into MON RAM.
+//   4. Verilate + compile the model (native), producing gateware/obj_dir/Vsim.
+//   5. Run Vsim, stream the UART, and assert the boot banner appears; the LiteX
+//      sim has no sifive finisher, so success = banner observed, then we kill.
+//
+// Toolchain locations + the SIM_* env are documented in sim/README.md. All of
+// sim/{.venv,oss-cad-suite,simdeps} are provisioned locally and gitignored.
+// ===========================================================================
+
+/// Verilator toolchain paths, all under the worktree.
+struct SimPaths {
+    repo: PathBuf,
+}
+
+impl SimPaths {
+    fn new() -> Self {
+        Self { repo: repo_root() }
+    }
+    fn venv_python(&self) -> PathBuf { self.repo.join("sim/.venv/bin/python") }
+    fn oss_bin(&self) -> PathBuf { self.repo.join("sim/oss-cad-suite/bin") }
+    fn verilator_root(&self) -> PathBuf { self.repo.join("sim/oss-cad-suite/share/verilator") }
+    fn simdeps_include(&self) -> PathBuf { self.repo.join("sim/simdeps/include") }
+    fn simdeps_lib(&self) -> PathBuf { self.repo.join("sim/simdeps/lib") }
+    fn generator(&self) -> PathBuf { self.repo.join("sim/redoubt_soc.py") }
+    fn memory_map(&self) -> PathBuf { self.repo.join("sim/memory_map.json") }
+    fn link_script(&self) -> PathBuf { self.repo.join("crates/monitor-bin/link-sim.ld") }
+    fn sim_target_dir(&self) -> PathBuf { self.repo.join("target/sim") }
+    fn sim_elf(&self) -> PathBuf {
+        self.repo
+            .join("target/sim/riscv32ima-unknown-none-elf/debug/monitor-bin")
+    }
+    fn build_dir(&self) -> PathBuf { self.repo.join("sim/build") }
+    fn gateware_dir(&self) -> PathBuf { self.build_dir().join("gateware") }
+    fn vsim(&self) -> PathBuf { self.gateware_dir().join("obj_dir/Vsim") }
+}
+
+/// PATH with the oss-cad-suite bin (verilator) prepended.
+fn path_with_oss(p: &SimPaths) -> String {
+    let existing = std::env::var("PATH").unwrap_or_default();
+    format!("{}:{}", p.oss_bin().display(), existing)
+}
+
+/// Timeout for the Verilated run to reach the banner. The sim runs at 1 MHz
+/// and prints the banner within a few simulated ms; 90s covers CI variance.
+const VERILATOR_RUN_TIMEOUT: Duration = Duration::from_secs(90);
+
+fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
+    match scenario {
+        Some("boot") => {}
+        None => anyhow::bail!("usage: cargo xtask verilator -- boot"),
+        Some(other) => anyhow::bail!("unknown verilator scenario: {other} (expected `boot`)"),
+    }
+
+    let p = SimPaths::new();
+
+    // Preflight: the locally-provisioned toolchain must be present.
+    anyhow::ensure!(p.venv_python().is_file(),
+        "missing LiteX venv Python at {} — see sim/README.md", p.venv_python().display());
+    anyhow::ensure!(p.verilator_root().is_dir(),
+        "missing Verilator at {} — see sim/README.md", p.verilator_root().display());
+    anyhow::ensure!(p.simdeps_lib().is_dir(),
+        "missing arm64 json-c/libevent at {} — build them per sim/README.md", p.simdeps_lib().display());
+
+    // --- Step 1: build the SIM monitor image (rv32ima, compressed-free). ---
+    // nightly + build-std/core for the tier-3 riscv32ima target; link-sim.ld
+    // via per-image rustflags (ruling P2-1); its own target dir so the QEMU
+    // (imac) artifact is never touched.
+    println!("cargo xtask verilator: building sim monitor image (riscv32ima, build-std)...");
+    let rustflags = format!("-C link-arg=-T{}", p.link_script().display());
+    let build = Command::new("rustup")
+        .current_dir(&p.repo)
+        .args([
+            "run", "nightly", "cargo", "build",
+            "-p", "monitor-bin", "--features", "sim",
+            "--target", "riscv32ima-unknown-none-elf",
+            "-Z", "build-std=core",
+        ])
+        .env("RUSTFLAGS", &rustflags)
+        .env("CARGO_TARGET_DIR", p.sim_target_dir())
+        .status()
+        .context("failed to spawn `rustup run nightly cargo build` for the sim image \
+                  (is the `nightly` toolchain + `rust-src` installed? see sim/README.md)")?;
+    anyhow::ensure!(build.success(), "sim monitor-bin build failed");
+    anyhow::ensure!(p.sim_elf().is_file(),
+        "expected sim ELF at {} after build", p.sim_elf().display());
+
+    // --- Step 2 + 3: emit memory_map.json + generate the SoC Verilog. ------
+    println!("cargo xtask verilator: emitting memory_map.json + generating SoC...");
+    let gen = Command::new(p.venv_python())
+        .current_dir(&p.repo)
+        .args([
+            p.generator().to_str().unwrap(),
+            "--emit-memory-map", p.memory_map().to_str().unwrap(),
+            "--generate",
+            "--image", p.sim_elf().to_str().unwrap(),
+            "--output-dir", p.build_dir().to_str().unwrap(),
+        ])
+        .status()
+        .context("failed to run redoubt_soc.py (LiteX generate)")?;
+    anyhow::ensure!(gen.success(), "redoubt_soc.py generate failed");
+
+    // --- Step 4: Verilate + compile the model (native). -------------------
+    // build_sim.sh runs verilator + the C++ compile. It must run natively (not
+    // under the x86_64 Rosetta Python) and link the arm64 json-c/libevent from
+    // sim/simdeps (CFLAGS/LDFLAGS), with the Verilator env set.
+    println!("cargo xtask verilator: verilating (this takes minutes)...");
+    let compile = Command::new("bash")
+        .current_dir(p.gateware_dir())
+        .arg("build_sim.sh")
+        .env("VERILATOR_ROOT", p.verilator_root())
+        .env("PATH", path_with_oss(&p))
+        .env("CFLAGS", format!("-I{}", p.simdeps_include().display()))
+        .env("LDFLAGS", format!("-L{}", p.simdeps_lib().display()))
+        .status()
+        .context("failed to run build_sim.sh (verilate)")?;
+    anyhow::ensure!(compile.success(), "verilate/compile failed");
+    anyhow::ensure!(p.vsim().is_file(),
+        "expected Verilated model at {} after verilate", p.vsim().display());
+
+    // --- Step 5: run Vsim, stream the UART, assert the banner. ------------
+    println!("cargo xtask verilator: running the Verilated SoC...");
+    let mut child = Command::new(p.vsim())
+        .current_dir(p.gateware_dir())
+        .env("VERILATOR_ROOT", p.verilator_root())
+        .env("PATH", path_with_oss(&p))
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .context("failed to spawn the Verilated Vsim")?;
+
+    // Reader threads accumulate stdout/stderr; the sim never self-terminates,
+    // so we poll the captured UART for the banner and kill on success/timeout.
+    let stdout_buf = Arc::new(Mutex::new(String::new()));
+    let mut stdout_pipe = child.stdout.take().expect("stdout piped");
+    let sb = Arc::clone(&stdout_buf);
+    let stdout_reader = std::thread::spawn(move || {
+        let mut chunk = [0u8; 4096];
+        loop {
+            match stdout_pipe.read(&mut chunk) {
+                Ok(0) | Err(_) => break,
+                Ok(n) => {
+                    if let Ok(mut s) = sb.lock() {
+                        s.push_str(&String::from_utf8_lossy(&chunk[..n]));
+                    }
+                }
+            }
+        }
+    });
+    let mut stderr_pipe = child.stderr.take().expect("stderr piped");
+    let stderr_reader = std::thread::spawn(move || {
+        let mut buf = String::new();
+        let _ = stderr_pipe.read_to_string(&mut buf);
+        buf
+    });
+
+    let deadline = Instant::now() + VERILATOR_RUN_TIMEOUT;
+    let mut saw_banner = false;
+    loop {
+        if stdout_buf.lock().map(|s| s.contains(BOOT_BANNER)).unwrap_or(false) {
+            saw_banner = true;
+            break;
+        }
+        // If the sim exited on its own without the banner, stop waiting.
+        if child.try_wait().context("failed to poll Vsim")?.is_some() {
+            break;
+        }
+        if Instant::now() >= deadline {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = stdout_reader.join();
+    let stderr = stderr_reader.join().unwrap_or_default();
+    let stdout = stdout_buf.lock().map(|s| s.clone()).unwrap_or_default();
+    print!("{stdout}");
+    if !saw_banner {
+        eprint!("{stderr}");
+    }
+
+    anyhow::ensure!(
+        saw_banner,
+        "Verilated SoC did not print the boot banner {BOOT_BANNER:?} within {:?}",
+        VERILATOR_RUN_TIMEOUT
+    );
+    println!(
+        "\ncargo xtask verilator -- boot: PASS (monitor booted on Verilated \
+         VexRiscv-secure SoC; banner {BOOT_BANNER:?} observed on the sim UART)"
+    );
     Ok(())
 }
 

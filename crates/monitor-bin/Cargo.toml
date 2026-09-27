@@ -8,6 +8,16 @@ license.workspace = true
 monitor = { path = "../monitor" }
 abi = { path = "../abi" }
 
+# Dual-target build (ruling P2-1): the default (no feature) image targets the
+# QEMU `virt` machine (RAM @ 0x8000_0000, 16550 UART, sifive_test finisher),
+# driven by `cargo xtask qemu`. The `sim` feature retargets the SAME sources
+# to the LiteX/VexRiscv-secure SoC map (MON_CODE @ 0x1000_0000, LiteX CSR
+# UART), driven by `cargo xtask verilator`. The two never build into the same
+# artifact; each xtask runner passes its own linker script + rustflags.
+[features]
+default = []
+sim = []
+
 # monitor-bin is a #![no_std] #![no_main] bare-metal image for the QEMU
 # `virt` machine. It is not host-buildable; see the workspace Cargo.toml
 # `default-members` and `cargo xtask qemu`.

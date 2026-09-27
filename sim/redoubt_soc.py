@@ -1,0 +1,339 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+#
+# Redoubt Phase 2 — simulated RISC-V SoC generator (VexRiscv + PMP, Verilator).
+#
+# This is the FIRST task of Phase 2 (V1): stand up a LiteX/Verilator SoC built
+# around the prebuilt VexRiscv "secure" core (rv32ima + PMP: 16 regions, TOR)
+# and boot the Phase-1 monitor image on it at the SoC memory map.
+#
+# Two responsibilities live here, and ONLY here:
+#
+#   1. The canonical memory map (Ch 3 §3.5) is defined ONCE, in `MEMORY_MAP`
+#      below, and emitted to `sim/memory_map.json` (ruling P2-2: single source
+#      of truth). The Rust side (pmp.rs in V2, the link scripts) consumes that
+#      JSON; addresses are never hand-duplicated.
+#
+#   2. The SoC itself: the secure CPU with its reset vector at MON_CODE, the
+#      canonical regions as bus slaves / declared regions, a "sim" UART whose
+#      CSRs live inside the EGRESS_MMIO window at 0xF000_0000, and the monitor
+#      image baked into the MON RAM so Verilator boots it directly.
+#
+# The sim toolchain (LiteX venv + oss-cad-suite Verilator) is provisioned
+# locally and gitignored; see sim/README.md. This script is driven by
+# `cargo xtask verilator` but is also runnable standalone (see `main`).
+
+import argparse
+import json
+import os
+import struct
+
+from migen import *
+
+from litex.build.generic_platform import Pins, Subsignal
+from litex.build.io import CRG
+from litex.build.sim import SimPlatform
+from litex.build.sim.config import SimConfig
+
+from litex.soc.integration.soc import SoCRegion
+from litex.soc.integration.soc_core import SoCCore
+from litex.soc.integration.builder import Builder
+
+# ---------------------------------------------------------------------------
+# Canonical memory map — Ch 3 §3.5 (ruling P2-2: THE single source of truth).
+#
+# Each entry: base, size, and the per-privilege permission string the hardware
+# PMP will later enforce (M / S / U). "---" means no access from that mode.
+# `backing` tells the generator how this region is realised in the sim SoC:
+#   "ram"     : a writable+executable RAM slave (real block RAM in Verilator)
+#   "rom"     : a read/exec RAM slave preloaded with the monitor image
+#   "csr"     : the LiteX CSR/MMIO window (the UART lives here) — EGRESS_MMIO
+#   "declare" : address-space reservation only (no backing store yet)
+#   "sdram"   : backed by external SDRAM at `sdram_base` (arrives in a later task)
+#
+# For THIS task (V1) only MON_CODE, MON_DATA and EGRESS_MMIO (the UART) must be
+# live to boot + print the banner; the rest are declared so V2 (PMP) and V4
+# (Warden round-trip) have their addresses and can grow real backing later.
+# ---------------------------------------------------------------------------
+MEMORY_MAP = [
+    # name          base          size        M      S      U        backing
+    ("BROM",        0x0000_0000,  0x0000_2000, "r-x", "---", "---",   "declare"),
+    ("MON_CODE",    0x1000_0000,  0x0000_8000, "r-x", "---", "---",   "rom"),
+    ("MON_DATA",    0x1000_8000,  0x0001_8000, "rw-", "---", "---",   "ram"),
+    ("SECRETS",     0x1002_0000,  0x0000_4000, "rw-", "---", "---",   "ram"),
+    ("EGRESS_MMIO", 0xF000_0000,  0x0001_0000, "rw-", "---", "---",   "csr"),
+    ("WARDEN",      0x2000_0000,  0x0010_0000, "rwx", "rwx", "---",   "ram"),
+    ("SHARED_REQ",  0x4000_0000,  0x0000_1000, "rw-", "---", "rw-",   "ram"),
+    ("COMPT_0",     0x3000_0000,  0x0010_0000, "---", "---", "rw-",   "sdram"),
+]
+
+# The compartment window (COMPT_0) is backed by external SDRAM at this base in
+# later tasks. Recorded in the emitted JSON so V4 can wire it up.
+SDRAM_BASE = 0x8000_0000
+
+# Reset vector for THIS task: MON_CODE. The measured-boot BROM at 0x0 arrives
+# in V3, at which point the reset vector moves to BROM.
+RESET_ADDRESS = 0x1000_0000
+
+# CSR / EGRESS_MMIO window base. LiteX's default CSR base coincides with the
+# canonical EGRESS_MMIO base, so the two are unified: the UART is a CSR-mock
+# inside EGRESS_MMIO. These UART register addresses are deterministic for this
+# fixed SoC config (csr_data_width=32, csr_paging=0x800) and are consumed by
+# the sim UART driver in crates/monitor-bin/src/uart.rs.
+CSR_BASE       = 0xF000_0000
+UART_RXTX      = 0xF000_1800   # write a byte here to transmit
+UART_TXFULL    = 0xF000_1804   # reads nonzero while the TX FIFO is full
+
+SYS_CLK_FREQ = int(1e6)
+
+
+def _perm_bits(m, s, u):
+    return {"m": m, "s": s, "u": u}
+
+
+def memory_map_dict():
+    """The canonical memory map as a plain dict, ready to serialise."""
+    regions = []
+    for name, base, size, m, s, u, backing in MEMORY_MAP:
+        entry = {
+            "name":  name,
+            "base":  base,
+            "size":  size,
+            "base_hex": f"0x{base:08x}",
+            "end_hex":  f"0x{base + size:08x}",
+            "perms": _perm_bits(m, s, u),
+            "backing": backing,
+        }
+        if backing == "sdram":
+            entry["sdram_base"] = SDRAM_BASE
+        regions.append(entry)
+    return {
+        "// note": "GENERATED by sim/redoubt_soc.py (ruling P2-2). Do not hand-edit.",
+        "reset_address": RESET_ADDRESS,
+        "reset_address_hex": f"0x{RESET_ADDRESS:08x}",
+        "cpu": {"type": "vexriscv", "variant": "secure", "isa": "rv32ima"},
+        "csr": {
+            "base": CSR_BASE,
+            "uart_rxtx": UART_RXTX,
+            "uart_txfull": UART_TXFULL,
+        },
+        "regions": regions,
+    }
+
+
+def emit_memory_map(path):
+    with open(path, "w") as f:
+        json.dump(memory_map_dict(), f, indent=2)
+        f.write("\n")
+    print(f"redoubt_soc: wrote memory map -> {path}")
+
+
+# ---------------------------------------------------------------------------
+# Sim platform: just the clock/reset and the serial (UART) pads the LiteX
+# "sim" UART + serial2console module drive to stdout.
+# ---------------------------------------------------------------------------
+_io = [
+    ("sys_clk", 0, Pins(1)),
+    ("sys_rst", 0, Pins(1)),
+    ("serial", 0,
+        Subsignal("source_valid", Pins(1)),
+        Subsignal("source_ready", Pins(1)),
+        Subsignal("source_data",  Pins(8)),
+        Subsignal("sink_valid",   Pins(1)),
+        Subsignal("sink_ready",   Pins(1)),
+        Subsignal("sink_data",    Pins(8)),
+    ),
+]
+
+
+class Platform(SimPlatform):
+    def __init__(self):
+        SimPlatform.__init__(self, "SIM", _io)
+
+
+class RedoubtSimSoC(SoCCore):
+    # Place the CSR/MMIO window at the canonical EGRESS_MMIO base.
+    mem_map = {**SoCCore.mem_map, "csr": CSR_BASE}
+
+    def __init__(self, image_words=None):
+        platform = Platform()
+        self.crg = CRG(platform.request("sys_clk"))
+
+        SoCCore.__init__(self, platform, clk_freq=SYS_CLK_FREQ,
+            ident            = "Redoubt Phase 2 Sim SoC",
+            cpu_type         = "vexriscv",
+            cpu_variant      = "secure",   # prebuilt PMP core: rv32ima, 16 TOR regions
+            # We supply our own image + regions; no integrated ROM/SRAM/BIOS.
+            integrated_rom_size      = 0,
+            integrated_sram_size     = 0,
+            integrated_main_ram_size = 0,
+            csr_data_width   = 32,
+            uart_name        = "sim",
+            with_timer       = True,
+        )
+
+        # -- Canonical regions -------------------------------------------------
+        # MON_CODE + MON_DATA are backed by a single, size-aligned RAM spanning
+        # both (0x1000_0000 .. 0x1002_0000, 128 KiB) so the monitor ELF — .text
+        # in MON_CODE, .data/.bss/stack in MON_DATA — loads and runs directly.
+        # The two logical regions remain distinct in memory_map.json for the V2
+        # PMP split. A wishbone slave's origin must be aligned to its (power-of-
+        # two-rounded) size, which a standalone 96 KiB MON_DATA at 0x1000_8000
+        # would violate; the unified RAM sidesteps that cleanly.
+        mon_base = self.region("MON_CODE")["base"]
+        mon_size = self.region("MON_CODE")["size"] + self.region("MON_DATA")["size"]
+        self.add_ram("mon_ram", origin=mon_base, size=mon_size,
+                     contents=image_words or [], mode="rwx")
+
+        # Other backed regions (declared live for V2/V4; small block RAMs).
+        for name in ("SECRETS", "WARDEN", "SHARED_REQ"):
+            r = self.region(name)
+            self.add_ram(_slave(name), origin=r["base"], size=r["size"], mode="rwx")
+
+        # Declared-only regions (no backing store yet): BROM (V3 measured boot)
+        # and COMPT_0 (SDRAM-backed in V4). Reserved in the bus map so nothing
+        # else is placed there and later tasks can attach real memory.
+        for name in ("BROM", "COMPT_0"):
+            r = self.region(name)
+            self.bus.add_region(_slave(name),
+                SoCRegion(origin=r["base"], size=r["size"], linker=True))
+
+        # EGRESS_MMIO is the CSR window (already created at CSR_BASE); the UART
+        # CSRs live inside it. No extra slave needed.
+
+        # -- Reset vector ------------------------------------------------------
+        self.cpu.set_reset_address(RESET_ADDRESS)
+
+    @staticmethod
+    def region(name):
+        for n, base, size, m, s, u, backing in MEMORY_MAP:
+            if n == name:
+                return {"base": base, "size": size, "backing": backing}
+        raise KeyError(name)
+
+
+def _slave(name):
+    return name.lower()
+
+
+# ---------------------------------------------------------------------------
+# Load a bare-metal RISC-V ELF's PT_LOAD segments into a RAM image, returned as
+# a list of little-endian 32-bit words for LiteX `add_ram(contents=...)`. Doing
+# this in-process means the build needs no external objcopy / llvm-tools: the
+# monitor ELF from cargo is consumed directly. Only 32-bit little-endian ELFs
+# (the monitor image) are supported.
+# ---------------------------------------------------------------------------
+def load_elf_ram_image(elf_path, base, size):
+    with open(elf_path, "rb") as f:
+        elf = f.read()
+    if elf[:4] != b"\x7fELF":
+        raise SystemExit(f"{elf_path}: not an ELF")
+    if elf[4] != 1 or elf[5] != 1:
+        raise SystemExit(f"{elf_path}: expected 32-bit little-endian ELF")
+    e_phoff   = struct.unpack_from("<I", elf, 28)[0]
+    e_phentsz = struct.unpack_from("<H", elf, 42)[0]
+    e_phnum   = struct.unpack_from("<H", elf, 44)[0]
+    image = bytearray(size)
+    loaded = 0
+    for i in range(e_phnum):
+        off = e_phoff + i * e_phentsz
+        p_type, p_offset, p_vaddr, p_paddr, p_filesz, p_memsz, p_flags, p_align = \
+            struct.unpack_from("<8I", elf, off)
+        if p_type != 1 or p_filesz == 0:   # PT_LOAD only
+            continue
+        if not (base <= p_vaddr and p_vaddr + p_filesz <= base + size):
+            raise SystemExit(
+                f"{elf_path}: PT_LOAD @0x{p_vaddr:08x}+0x{p_filesz:x} "
+                f"outside MON RAM [0x{base:08x},0x{base + size:08x})")
+        dst = p_vaddr - base
+        image[dst:dst + p_filesz] = elf[p_offset:p_offset + p_filesz]
+        loaded += p_filesz
+    if loaded == 0:
+        raise SystemExit(f"{elf_path}: no PT_LOAD segments found")
+    # Pad to a 4-byte multiple and pack into 32-bit little-endian words.
+    if len(image) % 4:
+        image += bytes(4 - (len(image) % 4))
+    words = list(struct.unpack("<%dI" % (len(image) // 4), image))
+    print(f"redoubt_soc: loaded {loaded} bytes from {os.path.basename(elf_path)} "
+          f"into MON RAM (0x{base:08x}, {size} bytes)")
+    return words
+
+
+# ---------------------------------------------------------------------------
+# Generate: emit the SoC Verilog (monitor image baked into MON RAM) plus the
+# Verilator build script + sim_config.js into <output_dir>/gateware. This does
+# NOT compile — `cargo xtask verilator` runs the generated build_sim.sh (and
+# then Vsim) itself, as a native process, so it can stream the UART and kill
+# after the banner. Keeping the compile out of this (x86_64 Rosetta) Python is
+# also what lets the native (arm64) toolchain do the Verilate cleanly; see
+# sim/README.md. `--no-compile-software` is implied: the LiteX BIOS is never
+# built (there is no RISC-V GCC), we load our own image.
+# ---------------------------------------------------------------------------
+def generate_sim(image_path, output_dir, threads=1):
+    if image_path is None:
+        raise SystemExit("generate requires --image <monitor ELF>")
+
+    mon_base = RedoubtSimSoC.region("MON_CODE")["base"]
+    mon_size = (RedoubtSimSoC.region("MON_CODE")["size"]
+                + RedoubtSimSoC.region("MON_DATA")["size"])
+    image_words = load_elf_ram_image(image_path, mon_base, mon_size)
+
+    soc = RedoubtSimSoC(image_words=image_words)
+
+    sim_config = SimConfig()
+    sim_config.add_clocker("sys_clk", freq_hz=SYS_CLK_FREQ)
+    sim_config.add_module("serial2console", "serial")
+
+    builder = Builder(soc,
+        output_dir       = output_dir,
+        compile_software = False,   # no BIOS / RISC-V GCC; we load our own image
+        compile_gateware = False,
+        csr_csv          = os.path.join(output_dir, "csr.csv"),
+    )
+    # run=False: emit Verilog + build_sim.sh + sim_config.js, do NOT Verilate
+    # or run here.
+    builder.build(
+        sim_config  = sim_config,
+        interactive = False,
+        run         = False,
+        threads     = threads,
+    )
+
+    gateware_dir = os.path.join(output_dir, "gateware")
+    build_script = os.path.join(gateware_dir, "build_sim.sh")
+    if not os.path.isfile(build_script):
+        raise SystemExit(f"expected {build_script} after generate")
+    print(f"redoubt_soc: generated SoC -> {gateware_dir}")
+    print(f"redoubt_soc: verilate with: (cd {gateware_dir} && bash build_sim.sh)")
+    return gateware_dir
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Redoubt Phase 2 sim SoC generator")
+    ap.add_argument("--emit-memory-map", metavar="PATH",
+                    help="write the canonical memory map JSON and exit")
+    ap.add_argument("--image", metavar="ELF",
+                    help="monitor image (bare-metal riscv32 ELF) to bake into MON RAM")
+    ap.add_argument("--output-dir", default="sim/build",
+                    help="LiteX/Verilator build directory (default: sim/build)")
+    ap.add_argument("--threads", default=1, type=int,
+                    help="Verilator simulation threads")
+    ap.add_argument("--generate", action="store_true",
+                    help="generate the SoC Verilog + Verilator build script with --image baked in")
+    args = ap.parse_args()
+
+    if args.emit_memory_map:
+        emit_memory_map(args.emit_memory_map)
+        if not args.generate:
+            return
+
+    if args.generate:
+        generate_sim(args.image, args.output_dir, threads=args.threads)
+        return
+
+    if not args.emit_memory_map:
+        ap.error("nothing to do: pass --emit-memory-map and/or --generate")
+
+
+if __name__ == "__main__":
+    main()
