@@ -1,10 +1,23 @@
 # Redoubt Phase 2 — simulated RISC-V SoC (VexRiscv + PMP, Verilator)
 
 This directory stands up a **simulated SoC** built around the prebuilt VexRiscv
-`secure` core (rv32ima + PMP: 16 TOR regions) in LiteX/Verilator, and boots the
+`secure` core (rv32ima + PMP: 16 regions) in LiteX/Verilator, and boots the
 Phase-1 monitor image on it at the real SoC memory map. It is the foundation for
-the rest of Phase 2: PMP lockdown (V2), measured boot (V3), and the Warden
+the rest of Phase 2: PMP lockdown (V2), measured boot (V3), and the U→M mediation
 round-trip (V4).
+
+**Hardware findings that shaped Phase 2 (verified against `VexRiscv_Secure.v`):**
+- **PMP is NAPOT-only with a *nonstandard* encoding on this core** (region is ¼ the
+  standard size; `pmpaddr = (base>>2) | ((size>>1)-1)`, 4×-size alignment; 128 B
+  granularity). TOR never matches here — do not use it. See `pmp::napot()`.
+- **This core is M+U only — there is NO Supervisor mode.** So Redoubt runs a
+  Keystone/Sanctorum-style two-tier model here (M-mode Monitor = TCB; U = compartments);
+  the manual's three-tier "S-mode Warden" is deferred/folded (a manual-narrative edit).
+- **CPU uncached-MMIO accesses (`addr[31]=1`) BYPASS the PMP permission check** on this
+  core. So EGRESS_MMIO is **not** PMP-deniable to U: egress containment is by monitor
+  *mediation* (the capability model), NOT by PMP. Bus-level egress isolation (IOPMP / an
+  RTL gate) is Phase 5. Do not read the permission table below as a hardware wall on U's
+  MMIO access.
 
 The V1 deliverable is the **boot proof**:
 
@@ -127,7 +140,7 @@ Canonical, defined once in `redoubt_soc.py` and emitted to `memory_map.json`:
 | WARDEN      | `0x2000_0000`–`0x2010_0000` | RWX | RWX | — |
 | COMPT_0     | `0x3000_0000`–`0x3010_0000` | — | — | RW- (SDRAM-backed, V4) |
 | SHARED_REQ  | `0x4000_0000`–`0x4000_1000` | RW- | — | RW- |
-| EGRESS_MMIO | `0xF000_0000`–`0xF001_0000` | RW- | — | — (= LiteX CSR window; UART lives here) |
+| EGRESS_MMIO | `0xF000_0000`–`0xF001_0000` | RW- | — | — (= LiteX CSR window; UART lives here). **Caveat: CPU MMIO bypasses PMP on this core — the "S/U denied" here is the *intended* policy, NOT a hardware wall; U can reach these registers. Egress is contained by monitor mediation, not PMP. See the Hardware findings note above.** |
 
 Reset vector for V1 is **MON_CODE** (`0x1000_0000`); the measured-boot BROM at
 `0x0` arrives in V3.
