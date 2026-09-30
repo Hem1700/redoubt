@@ -36,7 +36,9 @@ from litex.build.io import CRG
 from litex.build.sim import SimPlatform
 from litex.build.sim.config import SimConfig
 
+from litex.gen import LiteXModule
 from litex.soc.integration.soc import SoCRegion
+from litex.soc.interconnect.csr import CSRStorage
 from litex.soc.integration.soc_core import SoCCore
 from litex.soc.integration.builder import Builder
 
@@ -93,6 +95,22 @@ CSR_BASE       = 0xF000_0000
 UART_RXTX      = 0xF000_1800   # write a byte here to transmit
 UART_TXFULL    = 0xF000_1804   # reads nonzero while the TX FIFO is full
 
+# Phase-2 V4 — EGRESS MOCK inside the EGRESS_MMIO CSR window. A stand-in for the
+# egress hardware: M-driven record buffer (EGRESS_WORDS 32-bit words), a
+# record-length register and a perform-call counter. The monitor's
+# `EgressMmioSink` writes the outbound bytes + injected secret here, and the
+# scenario reads them back to prove the secret went outbound (and that a denied
+# request never drove the sink). Registers are zero-padded so LiteX's
+# alphabetical CSR ordering == numeric order; `generate_sim` asserts the emitted
+# csr.csv addresses equal these constants (fail closed on drift).
+# NOTE (F2): the CPU's MMIO accesses bypass PMP on this core, so this window is
+# NOT hardware-walled from U; egress isolation here is by monitor mediation.
+EGRESS_PAGE    = 0xF000_2000   # 5th CSR page (ctrl, identifier_mem, timer0, uart, egress)
+EGRESS_WORDS   = 32
+EGRESS_REC     = EGRESS_PAGE                     # egress_rec00 .. egress_rec31 (rw)
+EGRESS_CALLS   = EGRESS_PAGE + 4 * EGRESS_WORDS  # egress_reccnt (rw)
+EGRESS_LEN     = EGRESS_CALLS + 4                # egress_reclen (rw)
+
 SYS_CLK_FREQ = int(1e6)
 
 
@@ -125,6 +143,10 @@ def memory_map_dict(reset_address=RESET_ADDRESS):
             "base": CSR_BASE,
             "uart_rxtx": UART_RXTX,
             "uart_txfull": UART_TXFULL,
+            "egress_rec": EGRESS_REC,
+            "egress_words": EGRESS_WORDS,
+            "egress_len": EGRESS_LEN,
+            "egress_calls": EGRESS_CALLS,
         },
         "regions": regions,
     }
@@ -158,6 +180,16 @@ _io = [
 class Platform(SimPlatform):
     def __init__(self):
         SimPlatform.__init__(self, "SIM", _io)
+
+
+class EgressMock(LiteXModule):
+    """CSR-backed egress record: rec00..rec31 + reccnt + reclen, all rw.
+    (Alphabetical: rec00..rec31 < reccnt < reclen.)"""
+    def __init__(self):
+        for i in range(EGRESS_WORDS):
+            setattr(self, f"rec{i:02d}", CSRStorage(32, name=f"rec{i:02d}"))
+        self.reccnt = CSRStorage(32, name="reccnt")
+        self.reclen = CSRStorage(32, name="reclen")
 
 
 class RedoubtSimSoC(SoCCore):
@@ -218,7 +250,12 @@ class RedoubtSimSoC(SoCCore):
             SoCRegion(origin=compt["base"], size=compt["size"], linker=True))
 
         # EGRESS_MMIO is the CSR window (already created at CSR_BASE); the UART
-        # CSRs live inside it. No extra slave needed.
+        # CSRs live inside it. V4 adds the egress record mock (LAST, so the
+        # earlier CSR pages — incl. the UART — keep their addresses).
+        # Pin its CSR page explicitly (LiteX otherwise allocates alphabetically,
+        # which would shift the UART): page 4 = 0xF000_2000.
+        self.csr.add("egress", n=(EGRESS_PAGE - CSR_BASE) // 0x800)
+        self.add_module(name="egress", module=EgressMock())
 
         # -- Reset vector ------------------------------------------------------
         self.cpu.set_reset_address(reset_address)
@@ -427,6 +464,8 @@ def generate_sim(image_path, output_dir, threads=1, brom_path=None,
         threads     = threads,
     )
 
+    _check_egress_csrs(os.path.join(output_dir, "csr.csv"))
+
     gateware_dir = os.path.join(output_dir, "gateware")
     build_script = os.path.join(gateware_dir, "build_sim.sh")
     if not os.path.isfile(build_script):
@@ -434,6 +473,22 @@ def generate_sim(image_path, output_dir, threads=1, brom_path=None,
     print(f"redoubt_soc: generated SoC -> {gateware_dir}")
     print(f"redoubt_soc: verilate with: (cd {gateware_dir} && bash build_sim.sh)")
     return gateware_dir
+
+
+def _check_egress_csrs(csv_path):
+    """Fail closed if LiteX placed the egress CSRs anywhere but where the
+    monitor (via memory_map.json) expects them."""
+    seen = {}
+    with open(csv_path) as f:
+        for line in f:
+            parts = line.strip().split(",")
+            if len(parts) > 2 and parts[0] == "csr_register" and parts[1].startswith("egress_"):
+                seen[parts[1]] = int(parts[2], 0)
+    want = {f"egress_rec{i:02d}": EGRESS_REC + 4 * i for i in range(EGRESS_WORDS)}
+    want["egress_reccnt"] = EGRESS_CALLS
+    want["egress_reclen"] = EGRESS_LEN
+    if seen != want:
+        raise SystemExit(f"egress CSR layout drift: got {seen}, expected {want}")
 
 
 def main():

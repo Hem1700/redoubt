@@ -20,6 +20,8 @@
 // QEMU image only. The sim image (V1) is a pure boot-banner proof; its trap
 // path arrives with PMP in V2. Gating the module out also keeps the sim image
 // tiny (the 128 KiB trap stack static never exists), well within MON_DATA.
+// Shared `mediate` fixtures (Policy/Sessions/three requests): both images.
+mod fixtures;
 #[cfg(not(feature = "sim"))]
 mod arch;
 // Phase-2 V2: PMP lockdown + U-mode fault-injection prober live behind the
@@ -29,6 +31,9 @@ mod arch;
 mod pmp;
 #[cfg(feature = "sim")]
 mod simtrap;
+// Phase-2 V4: U-compartment -> M `mediate` round trip + egress MMIO sink.
+#[cfg(feature = "mediate")]
+mod simmediate;
 mod uart;
 
 core::arch::global_asm!(
@@ -84,7 +89,13 @@ extern "C" fn main() -> ! {
     {
         simtrap::run_stack_overflow_demo();
     }
-    #[cfg(not(feature = "stackflow"))]
+    // V4: the `mediate` sub-image runs the U-compartment -> M `mediate` round
+    // trip (`cargo xtask verilator -- mediate`) instead of the PMP prober.
+    #[cfg(all(feature = "mediate", not(feature = "stackflow")))]
+    {
+        simmediate::run_mediate_demo();
+    }
+    #[cfg(not(any(feature = "stackflow", feature = "mediate")))]
     {
         simtrap::run_pmp_demo();
     }

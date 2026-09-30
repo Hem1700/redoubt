@@ -27,7 +27,7 @@ fn main() -> anyhow::Result<()> {
         }
         Some(other) => anyhow::bail!("unknown xtask command: {other}"),
         None => anyhow::bail!(
-            "usage: cargo xtask <loc-gate|qemu [-- mediate]|verilator -- <boot|pmp|measure>>"
+            "usage: cargo xtask <loc-gate|qemu [-- mediate]|verilator -- <boot|pmp|measure|mediate>>"
         ),
     }
 }
@@ -141,12 +141,16 @@ fn loc_gate() -> anyhow::Result<()> {
     let arch = count_rust_lines("crates/monitor-bin/src/arch.rs").unwrap_or(0);
     let pmp = count_rust_lines("crates/monitor-bin/src/pmp.rs").unwrap_or(0);
     let simtrap = count_rust_lines("crates/monitor-bin/src/simtrap.rs").unwrap_or(0);
-    let tcb = arch + pmp + simtrap;
+    // V4: the shared fixtures and the sim `mediate` driver are TCB too.
+    let fixtures = count_rust_lines("crates/monitor-bin/src/fixtures.rs").unwrap_or(0);
+    let simmediate = count_rust_lines("crates/monitor-bin/src/simmediate.rs").unwrap_or(0);
+    let tcb = arch + pmp + simtrap + fixtures + simmediate;
     anyhow::ensure!(tcb <= 2000, "monitor-bin M-mode TCB {tcb} > 2000 LoC budget");
 
     println!(
         "loc-gate ok: monitor={mon} brom={brom} \
-         monitor-bin-tcb={tcb} (arch={arch} pmp={pmp} simtrap={simtrap})"
+         monitor-bin-tcb={tcb} (arch={arch} pmp={pmp} simtrap={simtrap} \
+         fixtures={fixtures} simmediate={simmediate})"
     );
     Ok(())
 }
@@ -404,14 +408,40 @@ const PMP_FORBIDDEN_LINES: &[&str] = &[
     "addr=0x40000800", // a fault at the own-region control address = wall too tight
 ];
 
+/// UART lines the Verilated `mediate` scenario (Phase-2 V4) must observe: one
+/// deterministic line per canonical case, byte-identical in shape to the QEMU
+/// `mediate` demo's, plus the sink-driven evidence. M + U model (no S-mode).
+const SIM_MEDIATE_EXPECTED_LINES: &[&str] = &[
+    "MEDIATE-ARMED",
+    "mediate: benign=ALLOW",
+    "mediate: benign-secret=outbound-present", // secret is in the EGRESS_MMIO record
+    "mediate: benign-secret=response-absent",  // ...and nowhere in U-visible memory
+    "mediate: attack=DENY_ARG",
+    "mediate: attack-sink=not-driven",
+    "mediate: flow=DENY_FLOW",
+    "mediate: flow-sink=not-driven",
+    "MEDIATE-DONE",
+];
+
+/// Any of these means containment (or the harness) failed — fail closed.
+const SIM_MEDIATE_FORBIDDEN_LINES: &[&str] = &[
+    "MEDIATE-FAIL",
+    "outbound-MISSING",
+    "response-LEAK",
+    "sink=DRIVEN",
+    "M-FAULT",
+    "PMP-FAIL",
+];
+
 fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
-    let pmp = match scenario {
-        Some("boot") => false,
-        Some("pmp") => true,
-        None => anyhow::bail!("usage: cargo xtask verilator -- <boot|pmp>"),
-        Some(other) => {
-            anyhow::bail!("unknown verilator scenario: {other} (expected `boot` or `pmp`)")
-        }
+    let (pmp, mediate) = match scenario {
+        Some("boot") => (false, false),
+        Some("pmp") => (true, false),
+        Some("mediate") => (false, true),
+        None => anyhow::bail!("usage: cargo xtask verilator -- <boot|pmp|measure|mediate>"),
+        Some(other) => anyhow::bail!(
+            "unknown verilator scenario: {other} (expected `boot`, `pmp`, `measure` or `mediate`)"
+        ),
     };
 
     let p = SimPaths::new();
@@ -428,27 +458,21 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
     // nightly + build-std/core for the tier-3 riscv32ima target; link-sim.ld
     // via per-image rustflags (ruling P2-1); its own target dir so the QEMU
     // (imac) artifact is never touched.
+    // (Ruling P2-3: nightly pinned inside `nightly_build` so the compressed-free
+    // guarantee — stable ignores `-C target-feature=-c`; the `secure` core has no
+    // C decoder — can't drift.) The `mediate` image is built `--release` in its
+    // own target dir: the debug `monitor::mediate` pipeline + BLAKE2 is ~220 KiB,
+    // far past the 128 KiB mon_ram; release fits with ample headroom.
     println!("cargo xtask verilator: building sim monitor image (riscv32ima, build-std)...");
-    let rustflags = format!("-C link-arg=-T{}", p.link_script().display());
-    let build = Command::new("rustup")
-        .current_dir(&p.repo)
-        .args([
-            // Ruling P2-3: pin the nightly so the compressed-free guarantee
-            // (stable ignores `-C target-feature=-c`; the `secure` core has no C
-            // decoder) can't drift. rustc 1.101.0-nightly (75a75c3e0).
-            "run", "nightly-2026-09-26", "cargo", "build",
-            "-p", "monitor-bin", "--features", "sim",
-            "--target", "riscv32ima-unknown-none-elf",
-            "-Z", "build-std=core",
-        ])
-        .env("RUSTFLAGS", &rustflags)
-        .env("CARGO_TARGET_DIR", p.sim_target_dir())
-        .status()
-        .context("failed to spawn `rustup run nightly-2026-09-26 cargo build` for the sim image \
-                  (is the `nightly-2026-09-26` toolchain + its `rust-src` installed? see sim/README.md)")?;
-    anyhow::ensure!(build.success(), "sim monitor-bin build failed");
-    anyhow::ensure!(p.sim_elf().is_file(),
-        "expected sim ELF at {} after build", p.sim_elf().display());
+    let (sim_elf, sim_features, sim_release, sim_dir) = if mediate {
+        let dir = p.repo.join("target/sim-mediate");
+        (dir.join("riscv32ima-unknown-none-elf/release/monitor-bin"), "mediate", true, dir)
+    } else {
+        (p.sim_elf(), "sim", false, p.sim_target_dir())
+    };
+    nightly_build(&p, "monitor-bin", &p.link_script(), Some(sim_features), sim_release, &sim_dir, None)?;
+    anyhow::ensure!(sim_elf.is_file(),
+        "expected sim ELF at {} after build", sim_elf.display());
 
     // --- Step 2 + 3: emit memory_map.json + generate the SoC Verilog. ------
     println!("cargo xtask verilator: emitting memory_map.json + generating SoC...");
@@ -458,7 +482,7 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
             p.generator().to_str().unwrap(),
             "--emit-memory-map", p.memory_map().to_str().unwrap(),
             "--generate",
-            "--image", p.sim_elf().to_str().unwrap(),
+            "--image", sim_elf.to_str().unwrap(),
             "--output-dir", p.build_dir().to_str().unwrap(),
         ])
         .status()
@@ -521,11 +545,22 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
 
     // Wait for the scenario's terminal sentinel (boot: the banner; pmp: the
     // prober's final `PMP-DONE`), then kill. The sim never self-terminates.
-    let done_marker = if pmp { "PMP-DONE" } else { BOOT_BANNER };
+    let done_marker = if mediate {
+        "MEDIATE-DONE"
+    } else if pmp {
+        "PMP-DONE"
+    } else {
+        BOOT_BANNER
+    };
     let deadline = Instant::now() + VERILATOR_RUN_TIMEOUT;
     let mut saw_done = false;
     loop {
-        if stdout_buf.lock().map(|s| s.contains(done_marker)).unwrap_or(false) {
+        // The mediate scenario also stops on its fail-closed terminal line.
+        if stdout_buf
+            .lock()
+            .map(|s| s.contains(done_marker) || (mediate && s.contains("MEDIATE-FAIL")))
+            .unwrap_or(false)
+        {
             saw_done = true;
             break;
         }
@@ -555,6 +590,36 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
         "Verilated SoC did not print the boot banner {BOOT_BANNER:?} within {:?}",
         VERILATOR_RUN_TIMEOUT
     );
+
+    if mediate {
+        for bad in SIM_MEDIATE_FORBIDDEN_LINES {
+            anyhow::ensure!(
+                !stdout.contains(bad),
+                "mediate: observed failure marker {bad:?} — containment did not hold \
+                 (fail closed).\nUART:\n{stdout}"
+            );
+        }
+        anyhow::ensure!(
+            saw_done,
+            "mediate: monitor did not reach `MEDIATE-DONE` within {:?} — the U \
+             compartment / mediate path stalled; UART so far:\n{stdout}",
+            VERILATOR_RUN_TIMEOUT
+        );
+        for line in SIM_MEDIATE_EXPECTED_LINES {
+            anyhow::ensure!(
+                stdout.contains(line),
+                "mediate: missing expected UART line {line:?}.\nUART:\n{stdout}"
+            );
+        }
+        println!(
+            "\ncargo xtask verilator -- mediate: PASS (U-compartment -> M `mediate` on RTL: \
+             benign=ALLOW with the secret in the EGRESS_MMIO record and absent from U-visible \
+             memory; wrong-host=DENY_ARG and secret-to-public=DENY_FLOW never drove the sink — \
+             all {} lines observed)",
+            SIM_MEDIATE_EXPECTED_LINES.len()
+        );
+        return Ok(());
+    }
 
     if !pmp {
         anyhow::ensure!(

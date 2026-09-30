@@ -55,9 +55,13 @@ const FN_OK: u32 = 1; // a1 = value read from own region
 const FN_DONE: u32 = 2;
 
 // --- trap frame layout (matches the trampoline below; x_N at word N-1) -----
-const FR_A1: usize = 10; // x11
+#[cfg(feature = "mediate")]
+pub(crate) const FR_A0: usize = 9; // x10
+pub(crate) const FR_A1: usize = 10; // x11
+#[cfg(feature = "mediate")]
+pub(crate) const FR_A2: usize = 11; // x12
 const FR_A7: usize = 16; // x17
-const FR_MEPC: usize = 31;
+pub(crate) const FR_MEPC: usize = 31;
 const FR_MSTATUS: usize = 32; // saved mstatus (128(sp)); MPP = bits 12:11
 
 /// `mstatus.MPP` (bits 12:11) == M (0b11): the trapped context was M-mode.
@@ -68,7 +72,13 @@ fn trapped_from_machine(frame: *mut u32) -> bool {
 }
 
 // --- M trap stack ----------------------------------------------------------
-const TRAP_STACK_WORDS: usize = 1024; // 4 KiB — the handler only calls uart::*
+// The pmp/measure handlers only call uart::*, so 4 KiB is plenty. The `mediate`
+// image runs the whole (debug, stack-hungry) `monitor::mediate` pipeline on this
+// stack, so it gets 24 KiB (still well inside the .bss..stack-guard gap).
+#[cfg(not(feature = "mediate"))]
+const TRAP_STACK_WORDS: usize = 1024; // 4 KiB
+#[cfg(feature = "mediate")]
+const TRAP_STACK_WORDS: usize = 6144; // 24 KiB
 #[repr(align(16))]
 struct TrapStack([u32; TRAP_STACK_WORDS]);
 static mut TRAP_STACK: TrapStack = TrapStack([0; TRAP_STACK_WORDS]);
@@ -194,7 +204,7 @@ extern "C" {
 }
 
 /// Halt forever (fail closed). Interrupts are already masked on trap entry.
-fn halt() -> ! {
+pub(crate) fn halt() -> ! {
     loop {
         unsafe { core::arch::asm!("wfi") };
     }
@@ -281,6 +291,15 @@ extern "C" fn sim_trap_rust(frame: *mut u32) {
                     halt();
                 }
                 _ => {
+                    // V4: the U compartment's mediation ecalls (MEDIATE / request
+                    // fetch / verdict report). Additive to the pmp prober arms.
+                    #[cfg(feature = "mediate")]
+                    if crate::simmediate::handle_ecall(frame, a7) {
+                        unsafe {
+                            *frame.add(FR_MEPC) = frame.add(FR_MEPC).read().wrapping_add(4);
+                        }
+                        return;
+                    }
                     uart::puts("PMP-FAIL\n");
                     halt();
                 }
@@ -329,29 +348,72 @@ core::arch::global_asm!(
     fn_done = const FN_DONE,
 );
 
-/// Drop from M to U at `entry` via `mret` (MPP←U). Never returns: U runs the
-/// prober and all subsequent control flow arrives through `sim_trap_entry`.
-fn drop_to_user(entry: u32) -> ! {
+/// Install the M trap vector + M trap stack (first step of every sim scenario).
+pub(crate) fn install_trap() {
+    write_mscratch(trap_stack_top());
+    write_mtvec(sim_trap_entry as *const () as usize);
+}
+
+/// Drop from M to U at `entry` via `mret` (MPP<-U). Never returns: U runs from
+/// `entry` and all subsequent control flow arrives through `sim_trap_entry`.
+///
+/// Register hygiene (V2 deferred minor, fixed in V4): U must not inherit any of
+/// M's register state. `sp` is set to a FRESH U stack (`user_sp`, inside U's own
+/// SHARED_REQ grant) and every other general register x1,x3..x31 is zeroed
+/// before `mret`. `entry`/`user_sp` travel in t1/t2, which are consumed first and
+/// zeroed last.
+pub(crate) fn drop_to_user(entry: u32, user_sp: u32) -> ! {
     unsafe {
-        // `noreturn` forbids output operands; `mepc` is read from {e} before
-        // t0 is clobbered, and after `mret` this hart never resumes here, so
-        // clobbering t0 undeclared is sound.
+        // `noreturn` forbids output operands; after `mret` this hart never
+        // resumes here, so clobbering registers undeclared is sound.
         core::arch::asm!(
-            "csrw mepc, {e}",
+            "csrw mepc, t1",
             "li   t0, 0x1800",   // mstatus.MPP mask (bits 12:11)
             "csrc mstatus, t0",  // MPP = 00 => next mret enters U-mode
+            "mv   sp, t2",       // fresh U stack pointer (not M's)
+            "li x1, 0",
+            "li x3, 0",
+            "li x4, 0",
+            "li x5, 0",
+            "li x6, 0",
+            "li x7, 0",
+            "li x8, 0",
+            "li x9, 0",
+            "li x10, 0",
+            "li x11, 0",
+            "li x12, 0",
+            "li x13, 0",
+            "li x14, 0",
+            "li x15, 0",
+            "li x16, 0",
+            "li x17, 0",
+            "li x18, 0",
+            "li x19, 0",
+            "li x20, 0",
+            "li x21, 0",
+            "li x22, 0",
+            "li x23, 0",
+            "li x24, 0",
+            "li x25, 0",
+            "li x26, 0",
+            "li x27, 0",
+            "li x28, 0",
+            "li x29, 0",
+            "li x30, 0",
+            "li x31, 0",
             "mret",
-            e = in(reg) entry,
+            in("t1") entry,
+            in("t2") user_sp,
             options(noreturn, nostack),
         );
     }
 }
 
 /// Entry point for the `pmp` scenario (called from `main` on the sim image).
+#[allow(dead_code)] // unused in the `mediate` sub-image
 pub fn run_pmp_demo() -> ! {
     // 1. M trap vector + trap stack.
-    write_mscratch(trap_stack_top());
-    write_mtvec(sim_trap_entry as *const () as usize);
+    install_trap();
 
     // 2. Program + lock the PMP walls (first M-mode security act).
     pmp::lock_regions();
@@ -368,7 +430,7 @@ pub fn run_pmp_demo() -> ! {
     }
 
     // 5. Drop to the U prober; the DONE handler halts the monitor in M.
-    drop_to_user(pmp::utext_base());
+    drop_to_user(pmp::utext_base(), pmp::SHARED_REQ_END);
 }
 
 // --- V3-2 / Review-Focus 6: M-stack overflow self-fault demo ---------------

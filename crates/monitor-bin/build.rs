@@ -64,6 +64,17 @@ fn main() {
     let uart_rxtx = num_after(csr_seg, "\"uart_rxtx\"").expect("csr.uart_rxtx");
     let uart_txfull = num_after(csr_seg, "\"uart_txfull\"").expect("csr.uart_txfull");
 
+    // Phase-2 V4: the egress record mock's CSR layout (single-sourced from the
+    // generator; redoubt_soc.py asserts LiteX placed the CSRs exactly here).
+    let egress_rec = num_after(csr_seg, "\"egress_rec\"").expect("csr.egress_rec");
+    let egress_words = num_after(csr_seg, "\"egress_words\"").expect("csr.egress_words");
+    let egress_len = num_after(csr_seg, "\"egress_len\"").expect("csr.egress_len");
+    let egress_calls = num_after(csr_seg, "\"egress_calls\"").expect("csr.egress_calls");
+    out.push_str(&format!("pub const EGRESS_REC: u32 = 0x{egress_rec:08x};\n"));
+    out.push_str(&format!("pub const EGRESS_WORDS: u32 = {egress_words};\n"));
+    out.push_str(&format!("pub const EGRESS_LEN: u32 = 0x{egress_len:08x};\n"));
+    out.push_str(&format!("pub const EGRESS_CALLS: u32 = 0x{egress_calls:08x};\n"));
+
     out.push_str(&format!("pub const RESET_ADDRESS: u32 = 0x{reset:08x};\n"));
     out.push_str(&format!("pub const CSR_BASE: u32 = 0x{csr_base:08x};\n"));
     out.push_str(&format!("pub const UART_RXTX: u32 = 0x{uart_rxtx:08x};\n"));

@@ -20,6 +20,9 @@ sim = []
 # V3-2: build the sim image so it overflows the M stack into the locked guard
 # page after boot (the `--stack-overflow` measure sub-scenario). Implies `sim`.
 stackflow = ["sim"]
+# V4: build the sim image to run the U-compartment -> M `mediate` round trip on
+# the Verilated SoC (`cargo xtask verilator -- mediate`). Implies `sim`.
+mediate = ["sim"]
 
 # monitor-bin is a #![no_std] #![no_main] bare-metal image for the QEMU
 # `virt` machine. It is not host-buildable; see the workspace Cargo.toml

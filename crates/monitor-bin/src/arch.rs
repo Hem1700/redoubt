@@ -25,13 +25,18 @@
 use core::ptr::{addr_of, addr_of_mut};
 
 use abi::ReasonCode;
-use monitor::cap::{self, Cap, CapType, Session, Sessions};
+use monitor::cap::{Cap, Sessions};
 use monitor::egress::{EgressSink, Response, RESP_BODY_MAX};
-use monitor::flow::FlowRule;
 use monitor::parse::MAX_REQ;
-use monitor::predicate::{Args, Clause, ConstPool, FieldSel, Op, PoolEntry};
-use monitor::{audit::Audit, mediate, Policy};
+use monitor::predicate::Args;
+use monitor::{audit::Audit, mediate};
 
+// The Policy / Sessions / three request fixtures are shared with the sim image
+// (`fixtures.rs`); only the egress sink differs (`ImageSink` here).
+use crate::fixtures::{
+    build_policy, build_sessions, case_request, verdict_name, ReqBuf, CASE_ATTACK, CASE_BENIGN,
+    CASE_FLOW, RESPONSE_BODY, SECRET,
+};
 use crate::uart;
 
 /// The MEDIATE opcode the lower-privilege caller passes in `a7`
@@ -170,134 +175,8 @@ impl EgressSink for ImageSink {
         if let Some(s) = secret {
             self.record(s); // outbound only — never in the returned body
         }
-        Ok(Response::with_body(ReasonCode::Allow, abi::Label::UNTRUSTED, b"OK-RESPONSE-BODY"))
+        Ok(Response::with_body(ReasonCode::Allow, abi::Label::UNTRUSTED, RESPONSE_BODY))
     }
-}
-
-// ---------------------------------------------------------------------------
-// Phase-1 policy fixture — SAME shape as the Task-14 host demo tests, so the
-// QEMU verdicts are parity-by-construction with the host verdicts.
-// ---------------------------------------------------------------------------
-const SECRET: &[u8] = b"API_KEY_SECRET_VALUE";
-static API_HOSTS: [&[u8]; 1] = [b"api.example.com"];
-static CLAUSES_HOST_ONLY: [Clause; 1] =
-    [Clause { field: FieldSel::URL_HOST, op: Op::HostInSet, operand: 0 }];
-static PRED_SETS: [&[Clause]; 1] = [&CLAUSES_HOST_ONLY];
-static FLOWS: [FlowRule; 1] = [FlowRule {
-    inject: Some(0),
-    deny_secret_to_public: true,
-    result_label: abi::Label::UNTRUSTED,
-}];
-static SECRETS: [&[u8]; 1] = [SECRET];
-
-fn build_policy() -> Policy<'static> {
-    let pool = ConstPool::new().with(0, PoolEntry::StrSet(&API_HOSTS));
-    Policy { preds: &PRED_SETS, flows: &FLOWS, secrets: &SECRETS, pool }
-}
-
-fn build_sessions() -> Sessions {
-    let empty = Cap {
-        ctype: CapType::Empty as u8,
-        rights: 0,
-        tool_id: 0,
-        pred_ref: 0,
-        flow_ref: 0,
-        secret_ref: 0,
-        aux: 0,
-        epoch: 1,
-        _pad: 0,
-    };
-    let mut cspace = [empty; cap::CSPACE_LEN];
-    // Live Net cap at handle 3, tool_id 0x1000 (matches the host demo).
-    cspace[3] = Cap {
-        ctype: CapType::Net as u8,
-        rights: 0,
-        tool_id: 0x1000,
-        pred_ref: 0,
-        flow_ref: 0,
-        secret_ref: 0,
-        aux: 0,
-        epoch: 1,
-        _pad: 0,
-    };
-    let mut sessions = Sessions::default();
-    let _ = sessions.install(1, Session { epoch: 1, cspace });
-    sessions
-}
-
-// ---------------------------------------------------------------------------
-// Wire-format request builder (safe; identical layout to the host demo).
-// ---------------------------------------------------------------------------
-struct ReqBuf {
-    bytes: [u8; MAX_REQ],
-    len: usize,
-}
-
-impl ReqBuf {
-    fn push(&mut self, b: u8) {
-        if self.len < MAX_REQ {
-            self.bytes[self.len] = b;
-            self.len += 1;
-        }
-    }
-    fn extend(&mut self, s: &[u8]) {
-        for &b in s {
-            self.push(b);
-        }
-    }
-    fn u16(&mut self, v: u16) {
-        self.extend(&v.to_le_bytes());
-    }
-}
-
-/// Build one request. `url` is `(scheme, host, port, path)`; `method` is an
-/// optional BYTES arg; `secret_label` adds a one-byte SECRET in_label.
-fn build_request(
-    session: u16,
-    cap_handle: u16,
-    tool: u16,
-    url: (u8, &[u8], u16, &[u8]),
-    method: Option<&[u8]>,
-    secret_label: bool,
-) -> ReqBuf {
-    let mut r = ReqBuf { bytes: [0; MAX_REQ], len: 0 };
-    let n_args: u8 = 1 + method.is_some() as u8;
-    let labels_len: u16 = secret_label as u16;
-
-    // Header (16 bytes).
-    r.extend(&abi::MAGIC.to_le_bytes());
-    r.u16(session);
-    r.u16(1); // req_id
-    r.u16(cap_handle);
-    r.u16(tool);
-    r.push(n_args);
-    r.push(0); // reserved
-    r.u16(labels_len);
-
-    // URL TLV (tag 0x01): scheme, host_len, host, port, path_len, path.
-    let (scheme, host, port, path) = url;
-    let url_val_len = 1 + 2 + host.len() + 2 + 2 + path.len();
-    r.push(0x01);
-    r.u16(url_val_len as u16);
-    r.push(scheme);
-    r.u16(host.len() as u16);
-    r.extend(host);
-    r.u16(port);
-    r.u16(path.len() as u16);
-    r.extend(path);
-
-    // Optional METHOD arg (tag 0x05, BYTES).
-    if let Some(m) = method {
-        r.push(0x05);
-        r.u16(m.len() as u16);
-        r.extend(m);
-    }
-
-    // Trailing in_labels blob.
-    if secret_label {
-        r.push(abi::Label::SECRET.0);
-    }
-    r
 }
 
 // ---------------------------------------------------------------------------
@@ -617,21 +496,6 @@ const ALLOW: u8 = ReasonCode::Allow as u8;
 const DENY_ARG: u8 = ReasonCode::DenyArg as u8;
 const DENY_FLOW: u8 = ReasonCode::DenyFlow as u8;
 
-fn verdict_name(status: u8) -> &'static str {
-    match status {
-        x if x == ALLOW => "ALLOW",
-        x if x == DENY_ARG => "DENY_ARG",
-        x if x == DENY_FLOW => "DENY_FLOW",
-        x if x == ReasonCode::DenyMalformed as u8 => "DENY_MALFORMED",
-        x if x == ReasonCode::DenyRevoked as u8 => "DENY_REVOKED",
-        x if x == ReasonCode::DenyTool as u8 => "DENY_TOOL",
-        x if x == ReasonCode::DenyNoCap as u8 => "DENY_NOCAP",
-        x if x == ReasonCode::ErrEgress as u8 => "ERR_EGRESS",
-        x if x == ReasonCode::ErrInternal as u8 => "ERR_INTERNAL",
-        _ => "UNKNOWN",
-    }
-}
-
 fn print_verdict(name: &str, status: u8) {
     uart::puts("mediate: ");
     uart::puts(name);
@@ -646,7 +510,7 @@ pub fn run_demo() -> bool {
 
     // -- Scenario A.1: benign -> ALLOW, secret injected outbound, absent
     //    from the response body. ---------------------------------------
-    let req = build_request(1, 3, 0x1000, (1, b"api.example.com", 443, b"/x"), None, false);
+    let req = case_request(CASE_BENIGN);
     let (status, resp_len) = run_request(&req);
     print_verdict("benign", status);
     let secret_out = outbound_contains(SECRET);
@@ -664,13 +528,13 @@ pub fn run_demo() -> bool {
     ok &= status == ALLOW && secret_out && !secret_in_resp;
 
     // -- Scenario A.2: wrong host -> DENY_ARG (dies at stage 4). --------
-    let req = build_request(1, 3, 0x1000, (1, b"evil.tld", 443, b"/steal"), Some(b"POST"), false);
+    let req = case_request(CASE_ATTACK);
     let (status, _) = run_request(&req);
     print_verdict("attack", status);
     ok &= status == DENY_ARG;
 
     // -- Scenario A.3: SECRET input to public sink -> DENY_FLOW (stage 5).
-    let req = build_request(1, 3, 0x1000, (1, b"api.example.com", 443, b"/x"), None, true);
+    let req = case_request(CASE_FLOW);
     let (status, _) = run_request(&req);
     print_verdict("flow", status);
     ok &= status == DENY_FLOW;
@@ -685,7 +549,7 @@ pub fn run_demo() -> bool {
         *addr_of_mut!(TIMER_FIRED) = false;
     }
     arm_timer_and_enable();
-    let req = build_request(1, 3, 0x1000, (1, b"api.example.com", 443, b"/x"), None, false);
+    let req = case_request(CASE_BENIGN);
     let (status, _) = run_request(&req);
     disable_global_interrupts();
     let fired = unsafe { *addr_of!(TIMER_FIRED) };

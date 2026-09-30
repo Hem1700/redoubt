@@ -46,7 +46,7 @@ SECTIONS {
    * size (2 KiB window -> 8 KiB align). pmp.rs reads `_uprobe_entry` for the base.
    * 0x1001_0000 leaves ~4 KiB headroom over the current image; the linker errors
    * loudly (region/overlap) if .text+.rodata ever grow past it. */
-  .utext 0x10010000 : { KEEP(*(.utext)) } >MON_RAM
+  .utext 0x10010000 : { KEEP(*(.utext)) KEEP(*(.utext.*)) } >MON_RAM
   _image_end = .;                 /* end of the measured (executed/read) image */
 
   /* .bss starts past the FULL UTEXT NAPOT window (0x800 = pmp::UTEXT_SIZE) so no
