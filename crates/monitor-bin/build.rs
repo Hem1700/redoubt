@@ -41,6 +41,11 @@ fn main() {
     let map_path = Path::new(&manifest).join("../../sim/memory_map.json");
     println!("cargo:rerun-if-changed={}", map_path.display());
     println!("cargo:rerun-if-changed=build.rs");
+    // The linker scripts are passed via `-C link-arg=-T...` (not tracked by cargo
+    // as compilation inputs), so a script-only edit would otherwise reuse a stale
+    // link. Watch them here to force a relink when their layout changes.
+    println!("cargo:rerun-if-changed=link-sim.ld");
+    println!("cargo:rerun-if-changed=link-qemu.ld");
 
     let json = fs::read_to_string(&map_path)
         .unwrap_or_else(|e| panic!("failed to read {}: {e}", map_path.display()));

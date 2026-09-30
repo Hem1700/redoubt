@@ -51,13 +51,15 @@
 //!   * The only DESCRIBED entries are the U-reachable windows:
 //!       - entry 0: SHARED_REQ, NAPOT, `RW-`, `L=1` — U's mailbox (own region),
 //!         and the target of the lock-immutability check.
-//!       - entry 1: UTEXT, NAPOT, `R-X`, `L=1` — a 2 KiB executable window at
-//!         `0x1001_E000` (in mon_ram's tail, 8 KiB-aligned to satisfy the 4x
-//!         NAPOT rule) that hosts the baked-in U prober so U has somewhere to
-//!         fetch from without exposing the rest of the monitor image. (Models
-//!         the compartment's own code region; V4 moves this to COMPT_0.)
-//!   * entries 2..15 are left `A=OFF`, UNLOCKED, so V3 (stack guard) and V4
-//!     (Warden/compartment windows) can still program them.
+//!       - entry 1: UTEXT, NAPOT, `R-X`, `L=1` — a 2 KiB executable window
+//!         (linker-placed just after `.data`, 8 KiB-aligned to satisfy the 4x
+//!         NAPOT rule; the base lives only in link-sim.ld, read via the
+//!         `_uprobe_entry` symbol) that hosts the baked-in U prober so U has
+//!         somewhere to fetch from without exposing the rest of the monitor
+//!         image. (Models the compartment's own code region; V4 moves this to
+//!         COMPT_0.)
+//!   * entry 2 is the V3 M-stack guard (locked, no-access); entries 3..15 are
+//!     left `A=OFF`, UNLOCKED, so V4 (Warden/compartment windows) can program them.
 //!
 //! All `unsafe` (CSR writes) is confined to this `sim`-only module; `monitor`
 //! and `abi` remain `#![forbid(unsafe_code)]` and untouched.
@@ -96,8 +98,8 @@ const PMPCFG0_WORD: u32 = CFG0_SHARED_REQ | (CFG1_UTEXT << 8) | (CFG2_STACK_GUAR
 pub const STACK_GUARD_SIZE: u32 = 0x1000; // 4 KiB
 
 /// Size of the U-executable window. Power of two; the linker places `.utext`
-/// at `0x1001_E000`, which is aligned to `4*UTEXT_SIZE` (8 KiB) as this core's
-/// NAPOT encoding requires (see `napot`).
+/// aligned to `4*UTEXT_SIZE` (8 KiB) as this core's NAPOT encoding requires
+/// (see `napot`), immediately after `.data` (so it is inside the measured image).
 pub const UTEXT_SIZE: u32 = 0x800; // 2 KiB
 
 extern "C" {

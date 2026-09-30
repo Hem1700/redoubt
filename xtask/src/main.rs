@@ -845,11 +845,14 @@ fn verilator_measure() -> anyhow::Result<()> {
     println!("measure[1/3] good boot: PASS (BROM-MEASURE-OK + banner)");
 
     // --- Sub-test 2: tamper -> BROM halts before the monitor. ----------------
-    println!("\nmeasure[2/3] tamper: flip one MON_CODE byte AFTER hashing...");
+    // Flip a byte at 0x9000 — in the `.text` tail that the OLD fixed-0x8000
+    // measurement did NOT cover. That this now halts proves the measurement
+    // spans the full executed image (the round-1 review finding).
+    println!("\nmeasure[2/3] tamper: flip one .text byte at 0x9000 (past the old 0x8000)...");
     run_soc_py(&p, &["--emit-init",
                      "--image", mon_good.to_str().unwrap(),
                      "--brom-image", brom_good.to_str().unwrap(),
-                     "--tamper-offset", "0x100",
+                     "--tamper-offset", "0x9000",
                      "--output-dir", build_s])?;
     let (out2, saw2) = run_vsim(&p, &["BROM-TAMPER-HALT"])?;
     print!("{out2}");

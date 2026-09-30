@@ -20,15 +20,14 @@
 
 use blake2::{Blake2s256, Digest};
 
-// H_EXPECTED: [u8; 32] — baked by build.rs from $REDOUBT_H_EXPECTED (the
-// BLAKE2s-256 of the monitor image built first; see the xtask `measure` flow).
+// HASH_LEN + H_EXPECTED: [u8; 32] — baked by build.rs from $REDOUBT_H_EXPECTED
+// (the measured length + BLAKE2s-256 of the monitor image built first; see the
+// xtask `measure` flow). Both are single-sourced from the built monitor ELF, so
+// the BROM measures EXACTLY the range that was hashed — the full executed image.
 include!(concat!(env!("OUT_DIR"), "/h_expected_gen.rs"));
 
 /// Monitor code window base (canonical map MON_CODE) and its entry point.
 const MON_CODE_BASE: usize = 0x1000_0000;
-/// Bytes measured: the MON_CODE region size (0x8000). A fixed, bounded range;
-/// the `H_EXPECTED` baked at build time covers exactly these bytes.
-const HASH_LEN: usize = 0x0000_8000;
 /// Monitor reset/entry (the monitor's `_start`), reached only on a good match.
 const MON_ENTRY: usize = 0x1000_0000;
 
@@ -88,9 +87,11 @@ fn digests_equal(a: &[u8], b: &[u8; 32]) -> bool {
 extern "C" fn brom_main() -> ! {
     puts("BROM: measuring monitor\n");
 
-    // SAFETY: MON_CODE is a live, readable RAM window ([MON_CODE_BASE, +HASH_LEN)
-    // fits the 32 KiB MON_CODE region); we form a read-only view and never write
-    // through it. Bounded: exactly HASH_LEN bytes.
+    // SAFETY: [MON_CODE_BASE, +HASH_LEN) is a live, readable span of the monitor
+    // RAM (the full executed image; HASH_LEN is baked from the built ELF and lies
+    // within the 128 KiB mon_ram, and at reset — before any PMP — M may read it).
+    // We form a read-only view and never write through it. Bounded: exactly
+    // HASH_LEN bytes.
     let code = unsafe { core::slice::from_raw_parts(MON_CODE_BASE as *const u8, HASH_LEN) };
 
     let mut hasher = Blake2s256::new();

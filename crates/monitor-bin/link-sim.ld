@@ -33,7 +33,25 @@ SECTIONS {
   .rodata : { *(.rodata*) } >MON_RAM
 
   .data : { *(.data*) } >MON_RAM
-  .bss  : { *(.bss*) *(COMMON) } >MON_RAM
+
+  /* V3 (measured-boot completeness): the U-mode prober window (UTEXT) is placed
+   * at a fixed 8 KiB-aligned address JUST above .rodata/.data, so the whole
+   * EXECUTED/READ image — .text, .rodata, .data and .utext (U executes it) —
+   * lies in one measured extent [0x1000_0000, _image_end). .bss
+   * (runtime-mutable, not executed) is placed AFTER the UTEXT window, deliberately
+   * OUTSIDE the measured range, so the measurement never spans the non-deterministic
+   * .bss. (The small placement gap between .data and the 8 KiB-aligned .utext is
+   * deterministic zero fill, loaded identically by the sim and hashed identically
+   * by redoubt_soc.py.) This core's NAPOT needs the window base aligned to 4x its
+   * size (2 KiB window -> 8 KiB align). pmp.rs reads `_uprobe_entry` for the base.
+   * 0x1001_0000 leaves ~4 KiB headroom over the current image; the linker errors
+   * loudly (region/overlap) if .text+.rodata ever grow past it. */
+  .utext 0x10010000 : { KEEP(*(.utext)) } >MON_RAM
+  _image_end = .;                 /* end of the measured (executed/read) image */
+
+  /* .bss starts past the FULL UTEXT NAPOT window (0x800 = pmp::UTEXT_SIZE) so no
+   * monitor data lands inside a U-readable window. */
+  .bss 0x10010800 : { *(.bss*) *(COMMON) } >MON_RAM
   _bss_end = .;
 
   /* Phase-2 V3 (carry V3-2) — M-stack guard page.
@@ -50,17 +68,8 @@ SECTIONS {
   _stack_guard_size = 0x1000;   /* 4 KiB */
   _stack_guard_base = 0x10018000;
 
-  /* The U-mode prober window (UTEXT): a 2 KiB R-X window near mon_ram's tail.
-   * This core's NAPOT encoding requires a region's base be aligned to 4x its
-   * size, so a 2 KiB window sits at the 8 KiB-aligned 0x1001E000. U needs its
-   * own executable region to fetch the prober from; the rest of mon_ram stays
-   * undescribed (U-denied). pmp.rs reads the `.utext` `_uprobe_entry` label for
-   * the base; 0x1001E000 is the one place it is spelled. */
-  .utext 0x1001E000 : { KEEP(*(.utext)) } >MON_RAM
-
-  /* M-mode stack grows DOWN from just below UTEXT (away from it). If the image
-   * (.text/.rodata/.data/.bss) ever reaches 0x1001E000, the MON_RAM region
-   * overflows into .utext and the linker errors on region overflow. */
+  /* M-mode stack grows DOWN from 0x1001E000. If the image (.text/.rodata/.data/
+   * .utext/.bss) ever reaches the guard, the ASSERTs below fire. */
   _stack_top = 0x1001E000;
 }
 

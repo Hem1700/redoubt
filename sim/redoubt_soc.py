@@ -77,10 +77,12 @@ SDRAM_BASE = 0x8000_0000
 # CPU resets into the BROM, which measures MON_CODE and only then jumps to it.
 RESET_ADDRESS = 0x1000_0000
 
-# Bytes the measured-boot BROM (V3) hashes: the MON_CODE region size. The baked
-# H_EXPECTED and the BROM's runtime measurement both cover exactly this range,
-# starting at MON_CODE base. Keep in sync with crates/brom/src/main.rs HASH_LEN.
-HASH_LEN = 0x0000_8000
+# The measured-boot BROM (V3) hashes the monitor's FULL loaded/executed image:
+# from MON_CODE base through the end of the last loaded-with-content section
+# (.utext, after the link-sim.ld relayout), i.e. .text + .rodata + .data + .utext.
+# The length is derived from the built ELF (`monitor_image_len`) — the SINGLE
+# source — used for the hash here AND baked into the BROM (see `emit_h_expected`),
+# so the two never drift and every executed byte is covered.
 
 # CSR / EGRESS_MMIO window base. LiteX's default CSR base coincides with the
 # canonical EGRESS_MMIO base, so the two are unified: the UART is a CSR-mock
@@ -294,6 +296,32 @@ def _mon_ram_extent():
     return base, size
 
 
+def monitor_image_len(mon_elf):
+    """Length of the monitor's measured image: MON_CODE base through the end of
+    the last loaded-WITH-CONTENT section. Uses max(p_vaddr + p_filesz) over
+    PT_LOAD segments with filesz > 0, so .bss (filesz 0, placed after .utext by
+    the V3 relayout) is excluded and the range is fully-loaded and contiguous.
+    THE single source for the BROM's HASH_LEN and this module's hash + tamper
+    checks."""
+    base = RedoubtSimSoC.region("MON_CODE")["base"]
+    with open(mon_elf, "rb") as f:
+        elf = f.read()
+    e_phoff   = struct.unpack_from("<I", elf, 28)[0]
+    e_phentsz = struct.unpack_from("<H", elf, 42)[0]
+    e_phnum   = struct.unpack_from("<H", elf, 44)[0]
+    end = base
+    for i in range(e_phnum):
+        off = e_phoff + i * e_phentsz
+        p_type, p_offset, p_vaddr, p_paddr, p_filesz, p_memsz, p_flags, p_align = \
+            struct.unpack_from("<8I", elf, off)
+        if p_type == 1 and p_filesz > 0:   # PT_LOAD with actual content
+            end = max(end, p_vaddr + p_filesz)
+    length = end - base
+    if length <= 0:
+        raise SystemExit(f"{mon_elf}: could not determine loaded image length")
+    return length
+
+
 def mon_ram_bytes(mon_elf, tamper_offset=None):
     """The exact MON RAM image the sim loads, with an optional single-byte
     tamper (XOR 0xFF at `tamper_offset`) applied AFTER measurement — models an
@@ -301,12 +329,14 @@ def mon_ram_bytes(mon_elf, tamper_offset=None):
     base, size = _mon_ram_extent()
     image = load_elf_image_bytes(mon_elf, base, size)
     if tamper_offset is not None:
-        if not (0 <= tamper_offset < HASH_LEN):
+        length = monitor_image_len(mon_elf)
+        if not (0 <= tamper_offset < length):
             raise SystemExit(
                 f"--tamper-offset {tamper_offset} must be inside the measured "
-                f"range [0, 0x{HASH_LEN:x}) so the tamper is actually detected")
+                f"range [0, 0x{length:x}) so the tamper is actually detected")
         image[tamper_offset] ^= 0xFF
-        print(f"redoubt_soc: TAMPER flipped MON RAM byte @offset 0x{tamper_offset:x}")
+        print(f"redoubt_soc: TAMPER flipped MON RAM byte @offset 0x{tamper_offset:x} "
+              f"(measured range is [0, 0x{length:x}))")
     return image
 
 
@@ -316,14 +346,20 @@ def brom_ram_bytes(brom_elf):
 
 
 def emit_h_expected(mon_elf, path):
-    """BLAKE2s-256 of the first HASH_LEN MON RAM bytes → 32 raw bytes at `path`.
-    This is what the BROM's baked H_EXPECTED must equal; both the BROM (at run
-    time) and this function measure exactly [MON_CODE_BASE, +HASH_LEN)."""
+    """BLAKE2s-256 of the monitor's full measured image → a 36-byte file at
+    `path`: a 4-byte little-endian length prefix (the measured HASH_LEN) followed
+    by the 32-byte digest. The BROM's build.rs bakes BOTH from this one file, so
+    the length and hash are single-sourced from the built ELF and can never drift
+    from what this function (and the BROM at run time) measure:
+    [MON_CODE_BASE, MON_CODE_BASE + length)."""
+    length = monitor_image_len(mon_elf)
     image = mon_ram_bytes(mon_elf)
-    digest = hashlib.blake2s(bytes(image[:HASH_LEN]), digest_size=32).digest()
+    digest = hashlib.blake2s(bytes(image[:length]), digest_size=32).digest()
     with open(path, "wb") as f:
+        f.write(struct.pack("<I", length))
         f.write(digest)
-    print(f"redoubt_soc: H_EXPECTED = {digest.hex()} -> {path}")
+    print(f"redoubt_soc: measured 0x{length:x} bytes; "
+          f"H_EXPECTED = {digest.hex()} -> {path}")
     return digest
 
 
