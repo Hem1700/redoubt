@@ -34,6 +34,21 @@ SECTIONS {
 
   .data : { *(.data*) } >MON_RAM
   .bss  : { *(.bss*) *(COMMON) } >MON_RAM
+  _bss_end = .;
+
+  /* Phase-2 V3 (carry V3-2) — M-stack guard page.
+   *
+   * The M stack grows DOWN from _stack_top (0x1001E000). This LOCKED, no-access
+   * PMP guard sits below the stack's lowest safe extent so a stack OVERFLOW hits
+   * it (M-mode store fault) before it can corrupt .bss/.data — the first proof a
+   * locked entry faults M (pmp::lock_regions programs it, sim_trap_rust HALTs on
+   * an M-origin fault). This core's nonstandard NAPOT needs the region base
+   * aligned to 4x its size, so a 4 KiB guard must be 16 KiB-aligned: 0x10018000
+   * (inside MON_DATA, which is undescribed elsewhere so nothing else grants it).
+   * Single source of truth: pmp.rs reads _stack_guard_base; sizes must agree
+   * with pmp::STACK_GUARD_SIZE. */
+  _stack_guard_size = 0x1000;   /* 4 KiB */
+  _stack_guard_base = 0x10018000;
 
   /* The U-mode prober window (UTEXT): a 2 KiB R-X window near mon_ram's tail.
    * This core's NAPOT encoding requires a region's base be aligned to 4x its
@@ -48,3 +63,11 @@ SECTIONS {
    * overflows into .utext and the linker errors on region overflow. */
   _stack_top = 0x1001E000;
 }
+
+/* Guard-page placement invariants (outside SECTIONS so lld parses cleanly):
+ * the guard must sit above .bss/.data and below the live M stack, so a stack
+ * overflow hits it without ever overlapping real data. */
+ASSERT(_stack_guard_base >= _bss_end,
+       "stack guard overlaps .bss/.data (image too large)")
+ASSERT(_stack_guard_base + _stack_guard_size <= _stack_top,
+       "stack guard overlaps the live M stack")

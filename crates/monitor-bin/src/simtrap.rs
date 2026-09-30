@@ -58,6 +58,14 @@ const FN_DONE: u32 = 2;
 const FR_A1: usize = 10; // x11
 const FR_A7: usize = 16; // x17
 const FR_MEPC: usize = 31;
+const FR_MSTATUS: usize = 32; // saved mstatus (128(sp)); MPP = bits 12:11
+
+/// `mstatus.MPP` (bits 12:11) == M (0b11): the trapped context was M-mode.
+/// The trampoline saved `mstatus` into the frame; read it there.
+fn trapped_from_machine(frame: *mut u32) -> bool {
+    let mstatus = unsafe { *frame.add(FR_MSTATUS) };
+    ((mstatus >> 11) & 0b11) == 0b11
+}
 
 // --- M trap stack ----------------------------------------------------------
 const TRAP_STACK_WORDS: usize = 1024; // 4 KiB — the handler only calls uart::*
@@ -200,6 +208,17 @@ fn print_fault(cause: u32, addr: u32) {
     uart::puts("\n");
 }
 
+/// A fault that originated in M-mode (a monitor bug, or the M-stack guard).
+/// Deterministic line for the harness; carry V3-1 requires we HALT after it and
+/// never resume M past its own fault.
+fn print_m_fault(cause: u32, addr: u32) {
+    uart::puts("M-FAULT mcause=");
+    uart::put_u32_dec(cause);
+    uart::puts(" addr=0x");
+    uart::put_u32_hex(addr);
+    uart::puts("\n");
+}
+
 /// Rust side of the trap. Runs in M with interrupts masked; never panics.
 ///
 /// # Safety
@@ -214,9 +233,21 @@ extern "C" fn sim_trap_rust(frame: *mut u32) {
         return;
     }
 
+    // Carry V3-1 (fail closed): before treating an access fault as the U-mode
+    // prober's, check whether it came from M-mode. If it did (a monitor bug or
+    // the M-stack guard), print a self-fault line and HALT — resuming M past its
+    // own fault would be a fail-OPEN bug. Only U-mode faults resume.
+    if matches!(cause, 1 | 5 | 7) && trapped_from_machine(frame) {
+        print_m_fault(cause, read_mtval());
+        // Terminal sentinel AFTER the full fault line, so a harness that waits
+        // for it always sees a complete `M-FAULT ...` line first. Then HALT.
+        uart::puts("M-HALT\n");
+        halt();
+    }
+
     match cause {
-        // Load/store access fault = a PMP denial on a data access. Print the
-        // deterministic line and RESUME the prober past the faulting load
+        // Load/store access fault = a PMP denial on a U-mode data access. Print
+        // the deterministic line and RESUME the prober past the faulting load
         // (all instructions are 4 bytes; the `secure` core has no C decoder).
         5 | 7 => {
             print_fault(cause, read_mtval());
@@ -224,8 +255,8 @@ extern "C" fn sim_trap_rust(frame: *mut u32) {
                 *frame.add(FR_MEPC) = frame.add(FR_MEPC).read().wrapping_add(4);
             }
         }
-        // Instruction access fault — not expected from this prober (it never
-        // fetches from a forbidden region). Print, then fail closed.
+        // U-mode instruction access fault — not expected from this prober (it
+        // never fetches from a forbidden region). Print, then fail closed.
         1 => {
             print_fault(cause, read_mtval());
             halt();
@@ -338,4 +369,51 @@ pub fn run_pmp_demo() -> ! {
 
     // 5. Drop to the U prober; the DONE handler halts the monitor in M.
     drop_to_user(pmp::utext_base());
+}
+
+// --- V3-2 / Review-Focus 6: M-stack overflow self-fault demo ---------------
+//
+// Deliberately overflow the M stack so it grows down INTO the locked no-access
+// guard page (pmp entry 2). The store in a recursion frame that lands in the
+// guard raises an M-mode store/access fault; `sim_trap_rust` sees MPP==M and
+// HALTs with an `M-FAULT` line instead of corrupting .bss/.data or resuming.
+// This is the FIRST demonstration that a locked PMP entry faults M on this core.
+
+/// Unbounded, non-tail recursion that touches a per-frame buffer so the compiler
+/// cannot elide the frame or turn it into a loop; each call marches `sp` down by
+/// a frame until it crosses into the guard page.
+#[cfg(feature = "stackflow")]
+#[inline(never)]
+fn overflow_recurse(depth: u32) -> u32 {
+    let mut buf = [0u8; 128];
+    let mut i = 0usize;
+    while i < buf.len() {
+        // Volatile so the stores are real memory traffic into the frame.
+        unsafe { core::ptr::write_volatile(buf.as_mut_ptr().add(i), depth as u8) };
+        i += 1;
+    }
+    let mut sum = 0u32;
+    i = 0;
+    while i < buf.len() {
+        sum = sum.wrapping_add(unsafe { core::ptr::read_volatile(buf.as_ptr().add(i)) } as u32);
+        i += 1;
+    }
+    // Not a tail call: we combine the recursive result with this frame's sum, so
+    // the frame must stay live and `sp` keeps descending.
+    overflow_recurse(depth.wrapping_add(1)).wrapping_add(sum)
+}
+
+/// Entry point for the `--stack-overflow` measure sub-scenario (sim image built
+/// with the `stackflow` feature). Locks the PMP (incl. the guard) then overflows
+/// the M stack; control never returns here — it lands in `sim_trap_rust` at the
+/// guard and HALTs.
+#[cfg(feature = "stackflow")]
+pub fn run_stack_overflow_demo() -> ! {
+    write_mscratch(trap_stack_top());
+    write_mtvec(sim_trap_entry as *const () as usize);
+    pmp::lock_regions();
+    uart::puts("STACK-GUARD-ARMED\n");
+    let _ = overflow_recurse(0);
+    // Unreachable in practice (the guard fault halts first); fail closed.
+    halt();
 }

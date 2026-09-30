@@ -10,3 +10,7 @@ sim/.venv
 sim/oss-cad-suite
 sim/simdeps
 sim/build
+
+# Generated per-image measurements (BLAKE2s of MON_CODE) baked into the BROM by
+# `cargo xtask verilator -- measure`; regenerated on every run.
+sim/h

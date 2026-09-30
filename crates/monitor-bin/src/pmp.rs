@@ -81,9 +81,19 @@ const CFG_L: u32 = 1 << 7;
 const CFG0_SHARED_REQ: u32 = CFG_L | CFG_A_NAPOT | CFG_R | CFG_W; // 0x9b
 /// entry 1 — UTEXT: NAPOT, R-X, locked.
 const CFG1_UTEXT: u32 = CFG_L | CFG_A_NAPOT | CFG_R | CFG_X; // 0x9d
+/// entry 2 — M-stack guard: NAPOT, NO R/W/X, locked (carry V3-2). Because L=1
+/// extends the entry to M and it grants nothing, a matching access faults in
+/// M-mode too — the guard page below the M stack that catches an overflow.
+const CFG2_STACK_GUARD: u32 = CFG_L | CFG_A_NAPOT; // 0x88
 
-/// The full `pmpcfg0` word: byte0 = entry0, byte1 = entry1, bytes2/3 = OFF.
-const PMPCFG0_WORD: u32 = CFG0_SHARED_REQ | (CFG1_UTEXT << 8);
+/// The full `pmpcfg0` word: byte0 = entry0, byte1 = entry1, byte2 = entry2
+/// (stack guard), byte3 = OFF.
+const PMPCFG0_WORD: u32 = CFG0_SHARED_REQ | (CFG1_UTEXT << 8) | (CFG2_STACK_GUARD << 16);
+
+/// Size of the M-stack guard page. Power of two; the linker places its base
+/// (`_stack_guard_base`) 4x-size aligned as this core's NAPOT encoding requires.
+/// Must agree with `_stack_guard_size` in link-sim.ld.
+pub const STACK_GUARD_SIZE: u32 = 0x1000; // 4 KiB
 
 /// Size of the U-executable window. Power of two; the linker places `.utext`
 /// at `0x1001_E000`, which is aligned to `4*UTEXT_SIZE` (8 KiB) as this core's
@@ -95,12 +105,21 @@ extern "C" {
     /// This is the single source for the U-code window base — the address
     /// lives only in `link-sim.ld`; Rust reads the symbol.
     static _uprobe_entry: u8;
+    /// Base of the M-stack guard page (linker-placed, 4x-`STACK_GUARD_SIZE`
+    /// aligned). The address lives only in `link-sim.ld`; Rust reads the symbol.
+    static _stack_guard_base: u8;
 }
 
 /// Address of the baked-in U prober / base of the UTEXT NAPOT window.
 pub fn utext_base() -> u32 {
     // Address-of only; never dereferences the extern static.
     core::ptr::addr_of!(_uprobe_entry) as u32
+}
+
+/// Base of the M-stack guard page (see `lock_regions`).
+pub fn stack_guard_base() -> u32 {
+    // Address-of only; never dereferences the extern static.
+    core::ptr::addr_of!(_stack_guard_base) as u32
 }
 
 /// Encode a NAPOT `pmpaddr` for `[base, base+size)` on THIS core's nonstandard
@@ -132,16 +151,19 @@ macro_rules! csrr {
 pub fn lock_regions() {
     let shared = napot(SHARED_REQ_BASE, SHARED_REQ_SIZE);
     let utext = napot(utext_base(), UTEXT_SIZE);
+    let guard = napot(stack_guard_base(), STACK_GUARD_SIZE);
     unsafe {
         // Addresses first, then cfg — once cfg locks an entry, further writes
         // to its addr/cfg are ignored by hardware.
         csrw!("pmpaddr0", shared);
         csrw!("pmpaddr1", utext);
-        // Entries 4..15 (pmpcfg1/2/3): explicitly OFF + unlocked for V3/V4.
+        csrw!("pmpaddr2", guard);
+        // Entries 4..15 (pmpcfg1/2/3): explicitly OFF + unlocked for V4.
         csrw!("pmpcfg1", 0u32);
         csrw!("pmpcfg2", 0u32);
         csrw!("pmpcfg3", 0u32);
-        // Lock entries 0 (SHARED_REQ RW) and 1 (UTEXT R-X); 2/3 = OFF.
+        // Lock entries 0 (SHARED_REQ RW), 1 (UTEXT R-X), 2 (M-stack guard,
+        // no-access); byte3 = OFF.
         csrw!("pmpcfg0", PMPCFG0_WORD);
     }
 }

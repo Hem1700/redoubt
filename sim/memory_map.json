@@ -16,9 +16,9 @@
     {
       "name": "BROM",
       "base": 0,
-      "size": 8192,
+      "size": 16384,
       "base_hex": "0x00000000",
-      "end_hex": "0x00002000",
+      "end_hex": "0x00004000",
       "perms": {
         "m": "r-x",
         "s": "---",

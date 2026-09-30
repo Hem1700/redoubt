@@ -77,7 +77,17 @@ extern "C" fn main() -> ! {
     // forbidden accesses each fault (proving the walls) while its own region
     // works — the "unbypassable" evidence. `run_pmp_demo` never returns.
     uart::puts(BANNER);
-    simtrap::run_pmp_demo();
+    // V3-2 / Review-Focus 6: the `stackflow` sub-image overflows the M stack into
+    // the locked guard page after banner+lock, proving a locked entry faults M.
+    // The default sim image runs the V2 PMP prober.
+    #[cfg(feature = "stackflow")]
+    {
+        simtrap::run_stack_overflow_demo();
+    }
+    #[cfg(not(feature = "stackflow"))]
+    {
+        simtrap::run_pmp_demo();
+    }
 }
 
 #[cfg(not(feature = "sim"))]

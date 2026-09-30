@@ -20,11 +20,14 @@ fn main() -> anyhow::Result<()> {
         Some("verilator") => {
             // `cargo xtask verilator -- boot` -> ["verilator", "--", "boot"].
             let rest: Vec<String> = args.filter(|a| a != "--").collect();
-            verilator(rest.first().map(String::as_str))
+            match rest.first().map(String::as_str) {
+                Some("measure") => verilator_measure(),
+                other => verilator(other),
+            }
         }
         Some(other) => anyhow::bail!("unknown xtask command: {other}"),
         None => anyhow::bail!(
-            "usage: cargo xtask <loc-gate|qemu [-- mediate]|verilator -- <boot|pmp>>"
+            "usage: cargo xtask <loc-gate|qemu [-- mediate]|verilator -- <boot|pmp|measure>>"
         ),
     }
 }
@@ -127,9 +130,24 @@ fn count_significant_lines(contents: &str) -> usize {
 fn loc_gate() -> anyhow::Result<()> {
     let mon = count_rust_lines("crates/monitor/src").unwrap_or(0); // excludes tests via cfg
     anyhow::ensure!(mon <= 2500, "monitor TCB {mon} > 2500 LoC budget");
-    let brom = count_rust_lines("crates/monitor-bin/src/boot.rs").unwrap_or(0);
+
+    // V3: the boot ROM is now its own crate (was a stale, never-created
+    // crates/monitor-bin/src/boot.rs). Cap the smallest trust element at 300 LoC.
+    let brom = count_rust_lines("crates/brom/src").unwrap_or(0);
     anyhow::ensure!(brom <= 300, "boot ROM {brom} > 300 LoC budget");
-    println!("loc-gate ok: monitor={mon} brom={brom}");
+
+    // V3 (Phase-1 deferred follow-up): the sim-only M-mode `unsafe` modules are
+    // TCB too. Tally arch + pmp + simtrap and hold them under a sensible cap.
+    let arch = count_rust_lines("crates/monitor-bin/src/arch.rs").unwrap_or(0);
+    let pmp = count_rust_lines("crates/monitor-bin/src/pmp.rs").unwrap_or(0);
+    let simtrap = count_rust_lines("crates/monitor-bin/src/simtrap.rs").unwrap_or(0);
+    let tcb = arch + pmp + simtrap;
+    anyhow::ensure!(tcb <= 2000, "monitor-bin M-mode TCB {tcb} > 2000 LoC budget");
+
+    println!(
+        "loc-gate ok: monitor={mon} brom={brom} \
+         monitor-bin-tcb={tcb} (arch={arch} pmp={pmp} simtrap={simtrap})"
+    );
     Ok(())
 }
 
@@ -334,6 +352,7 @@ impl SimPaths {
     fn build_dir(&self) -> PathBuf { self.repo.join("sim/build") }
     fn gateware_dir(&self) -> PathBuf { self.build_dir().join("gateware") }
     fn vsim(&self) -> PathBuf { self.gateware_dir().join("obj_dir/Vsim") }
+    fn brom_link_script(&self) -> PathBuf { self.repo.join("crates/brom/link-brom.ld") }
 }
 
 /// PATH with the oss-cad-suite bin (verilator) prepended.
@@ -576,6 +595,298 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
          forbidden U-mode access faulted, own region worked, undescribed gap + \
          boundary denied — all {} lines observed)",
         PMP_EXPECTED_LINES.len()
+    );
+    Ok(())
+}
+
+// ===========================================================================
+// Phase-2 V3: measured boot (BLAKE2s) + M-stack guard.
+//
+// `cargo xtask verilator -- measure` proves three things, fail-closed, on the
+// Verilated SoC whose reset vector is the BROM at 0x0:
+//
+//   good boot       reset -> BROM -> measure MON_CODE -> match -> jump; the
+//                   monitor banner appears.
+//   --tamper        one MON_CODE byte is flipped AFTER hashing, so the loaded
+//                   image != H_EXPECTED; the BROM prints BROM-TAMPER-HALT and
+//                   the monitor banner NEVER appears (nothing past the BROM runs).
+//   --stack-overflow a monitor built to overflow its M stack hits the LOCKED
+//                   no-access guard page; the handler sees MPP==M and HALTs with
+//                   an M-FAULT line (never resuming M past its own fault).
+//
+// To keep it to ONE (slow) Verilate: the SoC structure (regions, reset=0x0) is
+// identical across the three sub-tests, so we Verilate once with the good images
+// and, for the other two, rewrite only the $readmemh .init files (which Vsim
+// re-reads at startup) via `redoubt_soc.py --emit-init`.
+// ===========================================================================
+
+/// Run one nightly `build-std` image (the sim monitor or the BROM) with a given
+/// linker script, feature set, and (for the BROM) baked `H_EXPECTED` file.
+#[allow(clippy::too_many_arguments)]
+fn nightly_build(
+    p: &SimPaths,
+    package: &str,
+    link_script: &Path,
+    features: Option<&str>,
+    release: bool,
+    target_dir: &Path,
+    h_expected: Option<&Path>,
+) -> anyhow::Result<()> {
+    let rustflags = format!("-C link-arg=-T{}", link_script.display());
+    let mut args: Vec<String> = vec![
+        "run".into(),
+        "nightly-2026-09-26".into(),
+        "cargo".into(),
+        "build".into(),
+        "-p".into(),
+        package.into(),
+    ];
+    if let Some(f) = features {
+        args.push("--features".into());
+        args.push(f.into());
+    }
+    if release {
+        args.push("--release".into());
+    }
+    args.extend([
+        "--target".into(),
+        "riscv32ima-unknown-none-elf".into(),
+        "-Z".into(),
+        "build-std=core".into(),
+    ]);
+
+    let mut cmd = Command::new("rustup");
+    cmd.current_dir(&p.repo)
+        .args(&args)
+        .env("RUSTFLAGS", &rustflags)
+        .env("CARGO_TARGET_DIR", target_dir);
+    if let Some(h) = h_expected {
+        cmd.env("REDOUBT_H_EXPECTED", h);
+    }
+    let status = cmd
+        .status()
+        .with_context(|| format!("failed to spawn nightly build for {package}"))?;
+    anyhow::ensure!(status.success(), "nightly build of {package} failed");
+    Ok(())
+}
+
+/// Run `redoubt_soc.py` with the given args (venv Python, from repo root).
+fn run_soc_py(p: &SimPaths, args: &[&str]) -> anyhow::Result<()> {
+    let mut full = vec![p.generator().to_str().unwrap().to_string()];
+    full.extend(args.iter().map(|s| s.to_string()));
+    let status = Command::new(p.venv_python())
+        .current_dir(&p.repo)
+        .args(&full)
+        .status()
+        .context("failed to run redoubt_soc.py")?;
+    anyhow::ensure!(status.success(), "redoubt_soc.py {args:?} failed");
+    Ok(())
+}
+
+/// Run the (already-Verilated) Vsim, stream its UART, and return the captured
+/// stdout once any of `markers` is seen, the sim exits, or the timeout elapses.
+/// The bool is whether a marker was observed.
+fn run_vsim(p: &SimPaths, markers: &[&str]) -> anyhow::Result<(String, bool)> {
+    let mut child = Command::new(p.vsim())
+        .current_dir(p.gateware_dir())
+        .env("VERILATOR_ROOT", p.verilator_root())
+        .env("PATH", path_with_oss(p))
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .context("failed to spawn the Verilated Vsim")?;
+
+    let stdout_buf = Arc::new(Mutex::new(String::new()));
+    let mut stdout_pipe = child.stdout.take().expect("stdout piped");
+    let sb = Arc::clone(&stdout_buf);
+    let stdout_reader = std::thread::spawn(move || {
+        let mut chunk = [0u8; 4096];
+        loop {
+            match stdout_pipe.read(&mut chunk) {
+                Ok(0) | Err(_) => break,
+                Ok(n) => {
+                    if let Ok(mut s) = sb.lock() {
+                        s.push_str(&String::from_utf8_lossy(&chunk[..n]));
+                    }
+                }
+            }
+        }
+    });
+    let mut stderr_pipe = child.stderr.take().expect("stderr piped");
+    let stderr_reader = std::thread::spawn(move || {
+        let mut buf = String::new();
+        let _ = stderr_pipe.read_to_string(&mut buf);
+        buf
+    });
+
+    let deadline = Instant::now() + VERILATOR_RUN_TIMEOUT;
+    let mut saw = false;
+    loop {
+        if stdout_buf
+            .lock()
+            .map(|s| markers.iter().any(|m| s.contains(m)))
+            .unwrap_or(false)
+        {
+            saw = true;
+            break;
+        }
+        if child.try_wait().context("failed to poll Vsim")?.is_some() {
+            break;
+        }
+        if Instant::now() >= deadline {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = stdout_reader.join();
+    let _ = stderr_reader.join();
+    let stdout = stdout_buf.lock().map(|s| s.clone()).unwrap_or_default();
+    Ok((stdout, saw))
+}
+
+fn verilator_measure() -> anyhow::Result<()> {
+    let p = SimPaths::new();
+
+    // Preflight: the locally-provisioned toolchain must be present.
+    anyhow::ensure!(
+        p.venv_python().is_file(),
+        "missing LiteX venv Python at {} — see sim/README.md",
+        p.venv_python().display()
+    );
+    anyhow::ensure!(
+        p.verilator_root().is_dir(),
+        "missing Verilator at {} — see sim/README.md",
+        p.verilator_root().display()
+    );
+    anyhow::ensure!(
+        p.simdeps_lib().is_dir(),
+        "missing arm64 json-c/libevent at {} — see sim/README.md",
+        p.simdeps_lib().display()
+    );
+
+    let sim_link = p.link_script();
+    let brom_link = p.brom_link_script();
+
+    // Per-scenario artifact locations (separate target dirs so the good and
+    // stack-overflow images + their BROMs never clobber each other).
+    let mon_good_dir = p.repo.join("target/sim");
+    let mon_sf_dir = p.repo.join("target/sim-stackflow");
+    let brom_good_dir = p.repo.join("target/brom-good");
+    let brom_sf_dir = p.repo.join("target/brom-stackflow");
+    let mon_good = mon_good_dir.join("riscv32ima-unknown-none-elf/debug/monitor-bin");
+    let mon_sf = mon_sf_dir.join("riscv32ima-unknown-none-elf/debug/monitor-bin");
+    let brom_good = brom_good_dir.join("riscv32ima-unknown-none-elf/release/brom");
+    let brom_sf = brom_sf_dir.join("riscv32ima-unknown-none-elf/release/brom");
+    let h_dir = p.repo.join("sim/h");
+    std::fs::create_dir_all(&h_dir).ok();
+    let h_good = h_dir.join("h_good.bin");
+    let h_sf = h_dir.join("h_stackflow.bin");
+
+    // --- Build order (matters): monitor images FIRST, then hash, then BROMs. --
+    println!("measure: building the good + stack-overflow sim monitor images...");
+    nightly_build(&p, "monitor-bin", &sim_link, Some("sim"), false, &mon_good_dir, None)?;
+    nightly_build(&p, "monitor-bin", &sim_link, Some("stackflow"), false, &mon_sf_dir, None)?;
+    anyhow::ensure!(mon_good.is_file(), "missing good sim image {}", mon_good.display());
+    anyhow::ensure!(mon_sf.is_file(), "missing stackflow sim image {}", mon_sf.display());
+
+    println!("measure: hashing MON_CODE (BLAKE2s-256) -> H_EXPECTED for each image...");
+    run_soc_py(&p, &["--emit-h-expected", h_good.to_str().unwrap(),
+                     "--image", mon_good.to_str().unwrap()])?;
+    run_soc_py(&p, &["--emit-h-expected", h_sf.to_str().unwrap(),
+                     "--image", mon_sf.to_str().unwrap()])?;
+
+    println!("measure: building the BROM against each baked H_EXPECTED...");
+    nightly_build(&p, "brom", &brom_link, None, true, &brom_good_dir, Some(&h_good))?;
+    nightly_build(&p, "brom", &brom_link, None, true, &brom_sf_dir, Some(&h_sf))?;
+    anyhow::ensure!(brom_good.is_file(), "missing good BROM {}", brom_good.display());
+    anyhow::ensure!(brom_sf.is_file(), "missing stackflow BROM {}", brom_sf.display());
+
+    // --- Generate the SoC (reset=0x0, BROM baked) + Verilate ONCE. -----------
+    println!("measure: emitting memory map (reset=0x0) + generating SoC...");
+    run_soc_py(&p, &["--emit-memory-map", p.memory_map().to_str().unwrap(),
+                     "--reset-address", "0"])?;
+    run_soc_py(&p, &["--generate",
+                     "--image", mon_good.to_str().unwrap(),
+                     "--brom-image", brom_good.to_str().unwrap(),
+                     "--reset-address", "0",
+                     "--output-dir", p.build_dir().to_str().unwrap()])?;
+
+    println!("measure: verilating (once; this takes minutes)...");
+    let compile = Command::new("bash")
+        .current_dir(p.gateware_dir())
+        .arg("build_sim.sh")
+        .env("VERILATOR_ROOT", p.verilator_root())
+        .env("PATH", path_with_oss(&p))
+        .env("CFLAGS", format!("-I{}", p.simdeps_include().display()))
+        .env("LDFLAGS", format!("-L{}", p.simdeps_lib().display()))
+        .status()
+        .context("failed to run build_sim.sh (verilate)")?;
+    anyhow::ensure!(compile.success(), "verilate/compile failed");
+    anyhow::ensure!(p.vsim().is_file(), "expected Vsim at {}", p.vsim().display());
+
+    let build = p.build_dir();
+    let build_s = build.to_str().unwrap();
+
+    // --- Sub-test 1: good boot (init already = mon_good + brom_good). ---------
+    println!("\nmeasure[1/3] good boot: reset -> BROM -> measure -> jump...");
+    let (out1, saw1) = run_vsim(&p, &[BOOT_BANNER])?;
+    print!("{out1}");
+    anyhow::ensure!(saw1 && out1.contains(BOOT_BANNER),
+        "measure good: monitor banner {BOOT_BANNER:?} never appeared (BROM did not jump)\nUART:\n{out1}");
+    anyhow::ensure!(out1.contains("BROM-MEASURE-OK"),
+        "measure good: BROM did not report a successful measurement\nUART:\n{out1}");
+    anyhow::ensure!(!out1.contains("BROM-TAMPER-HALT"),
+        "measure good: BROM wrongly reported tamper on a good image\nUART:\n{out1}");
+    anyhow::ensure!(!out1.contains("M-FAULT"),
+        "measure good: unexpected M-mode self-fault on a good image\nUART:\n{out1}");
+    println!("measure[1/3] good boot: PASS (BROM-MEASURE-OK + banner)");
+
+    // --- Sub-test 2: tamper -> BROM halts before the monitor. ----------------
+    println!("\nmeasure[2/3] tamper: flip one MON_CODE byte AFTER hashing...");
+    run_soc_py(&p, &["--emit-init",
+                     "--image", mon_good.to_str().unwrap(),
+                     "--brom-image", brom_good.to_str().unwrap(),
+                     "--tamper-offset", "0x100",
+                     "--output-dir", build_s])?;
+    let (out2, saw2) = run_vsim(&p, &["BROM-TAMPER-HALT"])?;
+    print!("{out2}");
+    anyhow::ensure!(saw2 && out2.contains("BROM-TAMPER-HALT"),
+        "measure tamper: BROM did not print its tamper-halt line\nUART:\n{out2}");
+    anyhow::ensure!(!out2.contains(BOOT_BANNER),
+        "measure tamper: the monitor banner appeared — the BROM failed OPEN past a tampered image\nUART:\n{out2}");
+    anyhow::ensure!(!out2.contains("BROM-MEASURE-OK"),
+        "measure tamper: BROM reported a good measurement on a tampered image\nUART:\n{out2}");
+    println!("measure[2/3] tamper: PASS (BROM-TAMPER-HALT, no monitor banner)");
+
+    // --- Sub-test 3: M-stack overflow -> guard fault -> M-FAULT HALT. --------
+    println!("\nmeasure[3/3] stack overflow: measured image overflows M stack into the guard...");
+    run_soc_py(&p, &["--emit-init",
+                     "--image", mon_sf.to_str().unwrap(),
+                     "--brom-image", brom_sf.to_str().unwrap(),
+                     "--output-dir", build_s])?;
+    // Wait for the post-line M-HALT sentinel so the full `M-FAULT ...` line has
+    // flushed before we kill (the fault line is the last thing the monitor emits
+    // before halting, so without the sentinel a kill can truncate it).
+    let (out3, saw3) = run_vsim(&p, &["M-HALT"])?;
+    print!("{out3}");
+    anyhow::ensure!(out3.contains(BOOT_BANNER),
+        "measure stack-overflow: banner absent — BROM did not measure+jump the stackflow image\nUART:\n{out3}");
+    anyhow::ensure!(out3.contains("STACK-GUARD-ARMED"),
+        "measure stack-overflow: guard was never armed\nUART:\n{out3}");
+    anyhow::ensure!(saw3 && out3.contains("M-FAULT mcause=7"),
+        "measure stack-overflow: no M-origin store fault (M-FAULT mcause=7) observed\nUART:\n{out3}");
+    anyhow::ensure!(out3.contains("addr=0x10018"),
+        "measure stack-overflow: the fault did not land in the guard page (0x10018xxx)\nUART:\n{out3}");
+    anyhow::ensure!(!out3.contains("PMP-DONE"),
+        "measure stack-overflow: control resumed past the M fault (PMP-DONE seen) — fail OPEN\nUART:\n{out3}");
+    println!("measure[3/3] stack overflow: PASS (banner + M-FAULT at guard, no resume)");
+
+    println!(
+        "\ncargo xtask verilator -- measure: PASS (good boot measured+jumped; \
+         tamper halted before the monitor; M-stack overflow self-fault-HALTed at the guard)"
     );
     Ok(())
 }
