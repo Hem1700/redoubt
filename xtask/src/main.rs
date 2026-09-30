@@ -23,7 +23,9 @@ fn main() -> anyhow::Result<()> {
             verilator(rest.first().map(String::as_str))
         }
         Some(other) => anyhow::bail!("unknown xtask command: {other}"),
-        None => anyhow::bail!("usage: cargo xtask <loc-gate|qemu [-- mediate]|verilator -- boot>"),
+        None => anyhow::bail!(
+            "usage: cargo xtask <loc-gate|qemu [-- mediate]|verilator -- <boot|pmp>>"
+        ),
     }
 }
 
@@ -344,12 +346,54 @@ fn path_with_oss(p: &SimPaths) -> String {
 /// and prints the banner within a few simulated ms; 90s covers CI variance.
 const VERILATOR_RUN_TIMEOUT: Duration = Duration::from_secs(90);
 
+/// UART lines the `pmp` scenario must observe, in the deterministic order the
+/// prober produces them. Addresses mirror `sim/memory_map.json` (the probe
+/// targets in `simtrap.rs`); this list is the test oracle for
+/// `cargo xtask verilator -- pmp`.
+///
+/// `PMP-LOCK=OK` = lock_regions() ran + own-region magic seeded;
+/// `PMP-IMMUTABLE=OK` = post-lock M rewrite of a locked pmpcfg was a no-op;
+/// each `PMP-FAULT` = a U-mode load PMP denied (mcause 5), one per forbidden
+/// (cached) target (SECRETS, MON_DATA, MON_CODE, WARDEN, an undescribed gap,
+/// the SECRETS boundary byte, and the SHARED_REQ NAPOT edge+1);
+/// `PMP-OWN=OK` = U's own region (SHARED_REQ) read back the magic;
+/// `PMP-DONE` = prober finished, monitor idles.
+///
+/// EGRESS_MMIO (0xf000_0000) is intentionally absent: it is uncached IO and
+/// this VexRiscv-secure core bypasses PMP for uncached accesses, so it is not
+/// PMP-deniable (egress is monitor-mediated instead). See the V2 report.
+const PMP_EXPECTED_LINES: &[&str] = &[
+    "PMP-LOCK=OK",
+    "PMP-IMMUTABLE=OK",
+    "PMP-FAULT mcause=5 addr=0x10020100", // SECRETS
+    "PMP-FAULT mcause=5 addr=0x10008000", // MON_DATA
+    "PMP-FAULT mcause=5 addr=0x10000000", // MON_CODE
+    "PMP-FAULT mcause=5 addr=0x20000000", // WARDEN
+    "PMP-FAULT mcause=5 addr=0x50000000", // undescribed gap (Review-Focus 2)
+    "PMP-FAULT mcause=5 addr=0x10023fff", // SECRETS last byte (boundary)
+    "PMP-OWN=OK",                         // SHARED_REQ own-region control read
+    "PMP-FAULT mcause=5 addr=0x40001000", // SHARED_REQ NAPOT edge+1 (boundary)
+    "PMP-DONE",
+];
+
+/// Lines that, if seen, mean a wall failed open or a control read went wrong —
+/// the scenario must fail if any appears.
+const PMP_FORBIDDEN_LINES: &[&str] = &[
+    "PMP-IMMUTABLE=FAIL",
+    "PMP-OWN=BAD",
+    "PMP-FAIL",
+    "addr=0x40000800", // a fault at the own-region control address = wall too tight
+];
+
 fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
-    match scenario {
-        Some("boot") => {}
-        None => anyhow::bail!("usage: cargo xtask verilator -- boot"),
-        Some(other) => anyhow::bail!("unknown verilator scenario: {other} (expected `boot`)"),
-    }
+    let pmp = match scenario {
+        Some("boot") => false,
+        Some("pmp") => true,
+        None => anyhow::bail!("usage: cargo xtask verilator -- <boot|pmp>"),
+        Some(other) => {
+            anyhow::bail!("unknown verilator scenario: {other} (expected `boot` or `pmp`)")
+        }
+    };
 
     let p = SimPaths::new();
 
@@ -370,7 +414,10 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
     let build = Command::new("rustup")
         .current_dir(&p.repo)
         .args([
-            "run", "nightly", "cargo", "build",
+            // Ruling P2-3: pin the nightly so the compressed-free guarantee
+            // (stable ignores `-C target-feature=-c`; the `secure` core has no C
+            // decoder) can't drift. rustc 1.101.0-nightly (75a75c3e0).
+            "run", "nightly-2026-09-26", "cargo", "build",
             "-p", "monitor-bin", "--features", "sim",
             "--target", "riscv32ima-unknown-none-elf",
             "-Z", "build-std=core",
@@ -378,8 +425,8 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
         .env("RUSTFLAGS", &rustflags)
         .env("CARGO_TARGET_DIR", p.sim_target_dir())
         .status()
-        .context("failed to spawn `rustup run nightly cargo build` for the sim image \
-                  (is the `nightly` toolchain + `rust-src` installed? see sim/README.md)")?;
+        .context("failed to spawn `rustup run nightly-2026-09-26 cargo build` for the sim image \
+                  (is the `nightly-2026-09-26` toolchain + its `rust-src` installed? see sim/README.md)")?;
     anyhow::ensure!(build.success(), "sim monitor-bin build failed");
     anyhow::ensure!(p.sim_elf().is_file(),
         "expected sim ELF at {} after build", p.sim_elf().display());
@@ -453,14 +500,17 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
         buf
     });
 
+    // Wait for the scenario's terminal sentinel (boot: the banner; pmp: the
+    // prober's final `PMP-DONE`), then kill. The sim never self-terminates.
+    let done_marker = if pmp { "PMP-DONE" } else { BOOT_BANNER };
     let deadline = Instant::now() + VERILATOR_RUN_TIMEOUT;
-    let mut saw_banner = false;
+    let mut saw_done = false;
     loop {
-        if stdout_buf.lock().map(|s| s.contains(BOOT_BANNER)).unwrap_or(false) {
-            saw_banner = true;
+        if stdout_buf.lock().map(|s| s.contains(done_marker)).unwrap_or(false) {
+            saw_done = true;
             break;
         }
-        // If the sim exited on its own without the banner, stop waiting.
+        // If the sim exited on its own without the sentinel, stop waiting.
         if child.try_wait().context("failed to poll Vsim")?.is_some() {
             break;
         }
@@ -476,18 +526,56 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
     let stderr = stderr_reader.join().unwrap_or_default();
     let stdout = stdout_buf.lock().map(|s| s.clone()).unwrap_or_default();
     print!("{stdout}");
-    if !saw_banner {
+    if !saw_done {
         eprint!("{stderr}");
     }
 
+    // Every scenario requires the boot banner first.
     anyhow::ensure!(
-        saw_banner,
+        stdout.contains(BOOT_BANNER),
         "Verilated SoC did not print the boot banner {BOOT_BANNER:?} within {:?}",
         VERILATOR_RUN_TIMEOUT
     );
+
+    if !pmp {
+        anyhow::ensure!(
+            saw_done,
+            "Verilated SoC did not print the boot banner {BOOT_BANNER:?} within {:?}",
+            VERILATOR_RUN_TIMEOUT
+        );
+        println!(
+            "\ncargo xtask verilator -- boot: PASS (monitor booted on Verilated \
+             VexRiscv-secure SoC; banner {BOOT_BANNER:?} observed on the sim UART)"
+        );
+        return Ok(());
+    }
+
+    // --- pmp scenario assertions (fail closed) ---------------------------
+    anyhow::ensure!(
+        saw_done,
+        "pmp: monitor did not reach `PMP-DONE` within {:?} — the prober or a \
+         PMP fault path stalled; UART so far:\n{stdout}",
+        VERILATOR_RUN_TIMEOUT
+    );
+    for bad in PMP_FORBIDDEN_LINES {
+        anyhow::ensure!(
+            !stdout.contains(bad),
+            "pmp: observed failure marker {bad:?} — a PMP wall did not hold as \
+             expected (fail closed).\nUART:\n{stdout}"
+        );
+    }
+    for line in PMP_EXPECTED_LINES {
+        anyhow::ensure!(
+            stdout.contains(line),
+            "pmp: missing expected UART line {line:?} — the corresponding PMP \
+             assertion did not hold.\nUART:\n{stdout}"
+        );
+    }
     println!(
-        "\ncargo xtask verilator -- boot: PASS (monitor booted on Verilated \
-         VexRiscv-secure SoC; banner {BOOT_BANNER:?} observed on the sim UART)"
+        "\ncargo xtask verilator -- pmp: PASS (PMP locked + immutable; every \
+         forbidden U-mode access faulted, own region worked, undescribed gap + \
+         boundary denied — all {} lines observed)",
+        PMP_EXPECTED_LINES.len()
     );
     Ok(())
 }

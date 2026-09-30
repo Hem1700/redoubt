@@ -56,3 +56,34 @@ pub fn puts(s: &str) {
         p = unsafe { p.add(1) };
     }
 }
+
+/// Print `v` as exactly 8 lowercase hex digits (no `0x` prefix), so a fault
+/// line's address is fixed-width and deterministic for the harness to match.
+/// Digits are computed arithmetically (no array indexing) so no bounds-check /
+/// panic path is emitted. `sim`-only; kept out of the QEMU image.
+#[cfg(feature = "sim")]
+pub fn put_u32_hex(v: u32) {
+    let mut shift = 28i32;
+    while shift >= 0 {
+        let nib = ((v >> shift) & 0xF) as u8;
+        let c = if nib < 10 { b'0' + nib } else { b'a' + (nib - 10) };
+        imp::putc(c);
+        shift -= 4;
+    }
+}
+
+/// Print `v` as decimal with no leading zeros (arithmetic only; no indexing).
+/// `sim`-only.
+#[cfg(feature = "sim")]
+pub fn put_u32_dec(v: u32) {
+    let mut divisor = 1_000_000_000u32;
+    let mut started = false;
+    while divisor > 0 {
+        let d = (v / divisor) % 10;
+        if d != 0 || started || divisor == 1 {
+            imp::putc(b'0' + d as u8);
+            started = true;
+        }
+        divisor /= 10;
+    }
+}

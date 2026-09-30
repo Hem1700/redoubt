@@ -22,6 +22,13 @@
 // tiny (the 128 KiB trap stack static never exists), well within MON_DATA.
 #[cfg(not(feature = "sim"))]
 mod arch;
+// Phase-2 V2: PMP lockdown + U-mode fault-injection prober live behind the
+// `sim` feature; all their `unsafe` (CSR writes, privilege drop) is confined
+// to these modules, not the QEMU image.
+#[cfg(feature = "sim")]
+mod pmp;
+#[cfg(feature = "sim")]
+mod simtrap;
 mod uart;
 
 core::arch::global_asm!(
@@ -65,13 +72,12 @@ extern "C" fn main() -> ! {
 #[cfg(feature = "sim")]
 #[no_mangle]
 extern "C" fn main() -> ! {
-    // Phase-2 V1: prove the monitor boots on the Verilated SoC at the SoC
-    // memory map and reaches its banner over the LiteX UART. The mediate
-    // pipeline is re-lit here in V4 once the Warden + PMP are in place.
+    // Phase-2 V2: boot the monitor on the Verilated SoC, then program + LOCK
+    // the PMP walls as the first M-mode act and drop to a U-mode prober whose
+    // forbidden accesses each fault (proving the walls) while its own region
+    // works — the "unbypassable" evidence. `run_pmp_demo` never returns.
     uart::puts(BANNER);
-    loop {
-        unsafe { core::arch::asm!("wfi") };
-    }
+    simtrap::run_pmp_demo();
 }
 
 #[cfg(not(feature = "sim"))]
