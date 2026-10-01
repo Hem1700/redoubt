@@ -1,0 +1,30 @@
+# Redoubt Phase 2 sim toolchain — pinned Python packages (LiteX + friends).
+#
+# Provision into a Python 3.10 venv at sim/.venv (gitignored). Python 3.10 is
+# REQUIRED: 3.11 breaks migen's clock-domain naming. See sim/README.md.
+#
+#   python3.10 -m venv sim/.venv
+#   sim/.venv/bin/pip install -r sim/requirements.txt
+#
+# These exact versions are what this task was built and verified against.
+certifi==2026.7.22
+charset-normalizer==3.5.1
+colorama==0.4.6
+idna==3.20
+litedram==2024.12
+liteeth==2024.12
+liteiclink==2025.4
+litescope==2024.12
+litesdcard==2024.12
+litespi==2024.12
+litex==2024.12
+migen==0.9.2
+packaging==26.3
+pyserial==3.5
+pythondata-cpu-vexriscv==1.0.1.post407
+pythondata-misc-tapcfg==0.0.post517
+pythondata-software-compiler-rt==0.0.post6206
+pythondata-software-picolibc==1.7.9.post181
+PyYAML==6.0.3
+requests==2.34.2
+urllib3==2.8.0

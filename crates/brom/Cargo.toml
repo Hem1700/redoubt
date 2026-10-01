@@ -1,0 +1,16 @@
+[package]
+name = "brom"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+
+# The measured-boot ROM (Phase-2 V3). A #![no_std] #![no_main] bare-metal image
+# linked at 0x0 (crates/brom/link-brom.ld), booted by the LiteX/VexRiscv-secure
+# SoC in Verilator as the reset vector. It BLAKE2s-measures the monitor image at
+# MON_CODE against a baked hash and HALTS on tamper before the monitor runs.
+#
+# Built only via `cargo xtask verilator -- measure` (nightly, -Z build-std=core,
+# riscv32ima). Not host-buildable; excluded from workspace default-members so a
+# bare `cargo build` / `cargo test` (host target) stays green.
+[dependencies]
+blake2 = { version = "0.10", default-features = false }

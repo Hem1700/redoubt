@@ -1,15 +1,39 @@
-//! Bootable M-mode "hello" image for QEMU's `riscv32` `virt` machine.
+//! Bootable M-mode "hello" image for the Redoubt monitor.
 //!
-//! This proves the boot toolchain end to end: linked at RAM base
-//! (0x8000_0000) per `link-qemu.ld`, entered directly by QEMU's
-//! `-bios` loader in M-mode, prints a banner over the 16550 UART, and
-//! signals success (or failure, on panic) via the `sifive_test`
-//! finisher device so `cargo xtask qemu` can assert a clean exit
-//! without a human watching the console.
+//! Dual-target (ruling P2-1), same sources, two linked images:
+//!
+//! - **default (QEMU)**: linked at RAM base 0x8000_0000 (`link-qemu.ld`),
+//!   entered by QEMU's `-bios` loader in M-mode. Prints the banner, installs
+//!   the trap vector, drives the Task-14 `mediate` containment pipeline from
+//!   `ecall` traps, and signals PASS/FAIL via the `sifive_test` finisher so
+//!   `cargo xtask qemu` asserts a clean exit unattended.
+//!
+//! - **`sim`**: linked at MON_CODE 0x1000_0000 (`link-sim.ld`), booted by the
+//!   LiteX/VexRiscv-secure SoC in Verilator (`cargo xtask verilator -- boot`).
+//!   This is the Phase-2 V1 boot proof: reset -> MON_CODE, print the banner on
+//!   the LiteX UART, then idle. Hardware PMP (V2), measured boot (V3) and the
+//!   Warden round-trip that re-lights the `mediate` pipeline (V4) build on top.
 #![no_std]
 #![no_main]
 
+// The trap trampoline + `mediate` driver + QEMU MMIO (CLINT/finisher) are the
+// QEMU image only. The sim image (V1) is a pure boot-banner proof; its trap
+// path arrives with PMP in V2. Gating the module out also keeps the sim image
+// tiny (the 128 KiB trap stack static never exists), well within MON_DATA.
+// Shared `mediate` fixtures (Policy/Sessions/three requests): both images.
+mod fixtures;
+#[cfg(not(feature = "sim"))]
 mod arch;
+// Phase-2 V2: PMP lockdown + U-mode fault-injection prober live behind the
+// `sim` feature; all their `unsafe` (CSR writes, privilege drop) is confined
+// to these modules, not the QEMU image.
+#[cfg(feature = "sim")]
+mod pmp;
+#[cfg(feature = "sim")]
+mod simtrap;
+// Phase-2 V4: U-compartment -> M `mediate` round trip + egress MMIO sink.
+#[cfg(feature = "mediate")]
+mod simmediate;
 mod uart;
 
 core::arch::global_asm!(
@@ -23,20 +47,21 @@ core::arch::global_asm!(
         j 1b"
 );
 
-/// QEMU `virt` machine's `sifive_test` finisher device. Writing 0x5555
-/// exits QEMU with status 0 (pass); writing 0x3333 exits with a nonzero
-/// status (fail). This is the only other MMIO in the crate besides the
-/// UART driver in `uart.rs`, and the writes are localized here.
+const BANNER: &str = "redoubt: monitor online\n";
+
+/// QEMU `virt` `sifive_test` finisher: write 0x5555 to exit(0) (pass), 0x3333
+/// to exit nonzero (fail). QEMU image only.
+#[cfg(not(feature = "sim"))]
 const FINISHER: *mut u32 = 0x0010_0000 as *mut u32;
 
+#[cfg(not(feature = "sim"))]
 #[no_mangle]
 extern "C" fn main() -> ! {
-    uart::puts("redoubt: monitor online\n");
+    uart::puts(BANNER);
 
     // Install the M-mode trap vector + seed the monitor statics, then drive
-    // the Task-14 `mediate` pipeline from `ecall` traps. The image signals
-    // PASS to the finisher only if every containment scenario matched its
-    // expected verdict (and the interrupt-masking frame survived).
+    // the Task-14 `mediate` pipeline from `ecall` traps. Signal PASS only if
+    // every containment scenario matched its expected verdict.
     arch::init();
     let all_passed = arch::run_demo();
 
@@ -49,10 +74,48 @@ extern "C" fn main() -> ! {
     }
 }
 
+#[cfg(feature = "sim")]
+#[no_mangle]
+extern "C" fn main() -> ! {
+    // Phase-2 V2: boot the monitor on the Verilated SoC, then program + LOCK
+    // the PMP walls as the first M-mode act and drop to a U-mode prober whose
+    // forbidden accesses each fault (proving the walls) while its own region
+    // works — the "unbypassable" evidence. `run_pmp_demo` never returns.
+    uart::puts(BANNER);
+    // V3-2 / Review-Focus 6: the `stackflow` sub-image overflows the M stack into
+    // the locked guard page after banner+lock, proving a locked entry faults M.
+    // The default sim image runs the V2 PMP prober.
+    #[cfg(feature = "stackflow")]
+    {
+        simtrap::run_stack_overflow_demo();
+    }
+    // V4: the `mediate` sub-image runs the U-compartment -> M `mediate` round
+    // trip (`cargo xtask verilator -- mediate`) instead of the PMP prober.
+    #[cfg(all(feature = "mediate", not(feature = "stackflow")))]
+    {
+        simmediate::run_mediate_demo();
+    }
+    #[cfg(not(any(feature = "stackflow", feature = "mediate")))]
+    {
+        simtrap::run_pmp_demo();
+    }
+}
+
+#[cfg(not(feature = "sim"))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
     unsafe {
         core::ptr::write_volatile(FINISHER, 0x3333); // FAIL -> qemu exits nonzero
     }
     loop {}
+}
+
+#[cfg(feature = "sim")]
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    // No finisher on the LiteX sim; fail closed by halting. The harness times
+    // out (no banner / no clean state) and reports failure.
+    loop {
+        unsafe { core::arch::asm!("wfi") };
+    }
 }

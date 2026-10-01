@@ -1,25 +1,89 @@
-//! Minimal polled driver for the NS16550-compatible UART that QEMU's
-//! `virt` machine exposes at 0x1000_0000.
+//! Minimal polled UART driver. This is the only place in the crate (besides
+//! the boot asm, the finisher, and the trap trampoline) that touches raw MMIO;
+//! all `unsafe` is confined here.
 //!
-//! This is the only place in this crate that touches raw MMIO; all
-//! `unsafe` is confined to this module.
+//! Dual-target (ruling P2-1):
+//! - default: QEMU `virt` NS16550 at 0x1000_0000.
+//! - `sim`  : the LiteX "sim" UART, a CSR block inside the EGRESS_MMIO window.
+//!   Its register addresses are fixed by the SoC config in sim/redoubt_soc.py
+//!   and mirrored in sim/memory_map.json (`csr.uart_rxtx` / `csr.uart_txfull`).
 
-const UART_BASE: *mut u8 = 0x1000_0000 as *mut u8;
+#[cfg(not(feature = "sim"))]
+mod imp {
+    /// QEMU `virt` NS16550 transmit-holding register.
+    const UART_THR: *mut u8 = 0x1000_0000 as *mut u8;
 
-/// Write a single byte to the UART transmit-holding register (THR).
-///
-/// QEMU's 16550 model always accepts a byte (it does not model FIFO
-/// backpressure for `-serial mon:stdio`), so no busy-wait on the line
-/// status register is required for this boot-time use.
-fn putc(byte: u8) {
-    unsafe {
-        core::ptr::write_volatile(UART_BASE, byte);
+    pub fn putc(byte: u8) {
+        // QEMU's 16550 always accepts a byte for `-serial mon:stdio`; no
+        // line-status busy-wait needed for this boot-time use.
+        unsafe {
+            core::ptr::write_volatile(UART_THR, byte);
+        }
     }
 }
 
-/// Write a `\n`-terminated ASCII string to the UART, one byte at a time.
+#[cfg(feature = "sim")]
+mod imp {
+    // LiteX "sim" UART CSRs, inside EGRESS_MMIO (0xF000_0000). Deterministic
+    // for the redoubt_soc.py config; see sim/memory_map.json `csr`.
+    const UART_RXTX: *mut u32 = 0xF000_1800 as *mut u32; // write to transmit
+    const UART_TXFULL: *const u32 = 0xF000_1804 as *const u32; // nonzero if TX FIFO full
+
+    pub fn putc(byte: u8) {
+        unsafe {
+            // Busy-wait while the TX FIFO is full, then push the byte.
+            while core::ptr::read_volatile(UART_TXFULL) != 0 {}
+            core::ptr::write_volatile(UART_RXTX, byte as u32);
+        }
+    }
+}
+
+/// Write a byte string to the UART, one byte at a time.
+///
+/// Walked with raw pointers rather than slice indexing so no bounds-check /
+/// `panic_bounds_check` path is emitted: that would drag core's formatting
+/// machinery into the tiny sim image (which must fit MON_CODE, 32 KiB) and, on
+/// the compressed-free `secure` core, is dead weight. On the sim target the
+/// whole image is built for `riscv32ima` (no C extension) via `build-std`, so
+/// there are no compressed opcodes to fetch regardless; see sim/README.md.
 pub fn puts(s: &str) {
-    for byte in s.bytes() {
-        putc(byte);
+    let bytes = s.as_bytes();
+    let mut p = bytes.as_ptr();
+    // SAFETY: `p` is walked over exactly `bytes.len()` valid bytes of `s`.
+    let end = unsafe { p.add(bytes.len()) };
+    while p < end {
+        imp::putc(unsafe { *p });
+        p = unsafe { p.add(1) };
+    }
+}
+
+/// Print `v` as exactly 8 lowercase hex digits (no `0x` prefix), so a fault
+/// line's address is fixed-width and deterministic for the harness to match.
+/// Digits are computed arithmetically (no array indexing) so no bounds-check /
+/// panic path is emitted. `sim`-only; kept out of the QEMU image.
+#[cfg(feature = "sim")]
+pub fn put_u32_hex(v: u32) {
+    let mut shift = 28i32;
+    while shift >= 0 {
+        let nib = ((v >> shift) & 0xF) as u8;
+        let c = if nib < 10 { b'0' + nib } else { b'a' + (nib - 10) };
+        imp::putc(c);
+        shift -= 4;
+    }
+}
+
+/// Print `v` as decimal with no leading zeros (arithmetic only; no indexing).
+/// `sim`-only.
+#[cfg(feature = "sim")]
+pub fn put_u32_dec(v: u32) {
+    let mut divisor = 1_000_000_000u32;
+    let mut started = false;
+    while divisor > 0 {
+        let d = (v / divisor) % 10;
+        if d != 0 || started || divisor == 1 {
+            imp::putc(b'0' + d as u8);
+            started = true;
+        }
+        divisor /= 10;
     }
 }

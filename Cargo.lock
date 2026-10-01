@@ -31,6 +31,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "brom"
+version = "0.1.0"
+dependencies = [
+ "blake2",
+]
+
+[[package]]
 name = "crypto-common"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"

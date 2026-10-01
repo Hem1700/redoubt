@@ -3,3 +3,14 @@
 .DS_Store
 .superpowers/
 .claude/
+
+# Phase 2 sim toolchain (large, provisioned locally; see sim/README.md).
+# No trailing slash: these are symlinks/dirs locally and must match either.
+sim/.venv
+sim/oss-cad-suite
+sim/simdeps
+sim/build
+
+# Generated per-image measurements (BLAKE2s of MON_CODE) baked into the BROM by
+# `cargo xtask verilator -- measure`; regenerated on every run.
+sim/h
