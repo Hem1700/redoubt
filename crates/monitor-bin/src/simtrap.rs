@@ -64,6 +64,16 @@ const FR_A7: usize = 16; // x17
 pub(crate) const FR_MEPC: usize = 31;
 const FR_MSTATUS: usize = 32; // saved mstatus (128(sp)); MPP = bits 12:11
 
+// --- W1 Warden: M-side context handoff (the scheduling MECHANISM) ----------
+// The trampoline saves x1..x31 + mepc + mstatus at 144 bytes = 36 words; the
+// Warden copies this whole frame into a per-compartment saved-context slot and
+// restores it to switch contexts. All of it stays in M with interrupts masked.
+#[cfg(feature = "warden")]
+pub(crate) const FRAME_WORDS: usize = 36;
+/// Frame word index of the saved U stack pointer (x2 at 4(sp)).
+#[cfg(feature = "warden")]
+const FR_SP: usize = 1;
+
 /// `mstatus.MPP` (bits 12:11) == M (0b11): the trapped context was M-mode.
 /// The trampoline saved `mstatus` into the frame; read it there.
 fn trapped_from_machine(frame: *mut u32) -> bool {
@@ -291,9 +301,17 @@ extern "C" fn sim_trap_rust(frame: *mut u32) {
                     halt();
                 }
                 _ => {
+                    // Phase-3 W1: the Warden image's scheduler ecalls (MEDIATE
+                    // relay, W_YIELD, W_DONE). The Warden fully owns `mepc` on
+                    // every selector it handles (resume / context switch /
+                    // preempt), so we must NOT auto-advance here.
+                    #[cfg(feature = "warden")]
+                    if crate::warden::handle_ecall(frame, a7) {
+                        return;
+                    }
                     // V4: the U compartment's mediation ecalls (MEDIATE / request
                     // fetch / verdict report). Additive to the pmp prober arms.
-                    #[cfg(all(feature = "mediate", not(feature = "endpoint")))]
+                    #[cfg(all(feature = "mediate", not(feature = "endpoint"), not(feature = "warden")))]
                     if crate::simmediate::handle_ecall(frame, a7) {
                         unsafe {
                             *frame.add(FR_MEPC) = frame.add(FR_MEPC).read().wrapping_add(4);
@@ -302,7 +320,7 @@ extern "C" fn sim_trap_rust(frame: *mut u32) {
                     }
                     // Phase-3 W2: the Endpoint image's ecalls (MEDIATE relay,
                     // frame-drop signal, done) instead of the V4 stub's.
-                    #[cfg(feature = "endpoint")]
+                    #[cfg(all(feature = "endpoint", not(feature = "warden")))]
                     if crate::endpoint::handle_ecall(frame, a7) {
                         unsafe {
                             *frame.add(FR_MEPC) = frame.add(FR_MEPC).read().wrapping_add(4);
@@ -416,6 +434,46 @@ pub(crate) fn drop_to_user(entry: u32, user_sp: u32) -> ! {
             options(noreturn, nostack),
         );
     }
+}
+
+// --- W1 Warden context handoff helpers -------------------------------------
+//
+// # Safety
+// Each takes the trap frame handed to `sim_trap_rust` (valid, uniquely owned,
+// single hart, interrupts masked) and a 36-word saved-context slot the Warden
+// owns. They never reach up into an M-mode context: they only ever move U
+// contexts (the trampoline handed us a U frame on an `ecall` trap).
+
+/// Save the trapped U frame into a saved-context slot, advancing the saved
+/// `mepc` past the yielding `ecall` so a later `restore_ctx` resumes AT THE
+/// INSTRUCTION AFTER the yield (not re-executing the trap).
+#[cfg(feature = "warden")]
+pub(crate) unsafe fn save_ctx(frame: *const u32, slot: *mut u32) {
+    core::ptr::copy_nonoverlapping(frame, slot, FRAME_WORDS);
+    let pc = slot.add(FR_MEPC);
+    *pc = (*pc).wrapping_add(4);
+}
+
+/// Restore a saved compartment context into the live frame; the trampoline then
+/// `mret`s into it.
+#[cfg(feature = "warden")]
+pub(crate) unsafe fn restore_ctx(frame: *mut u32, slot: *const u32) {
+    core::ptr::copy_nonoverlapping(slot, frame, FRAME_WORDS);
+}
+
+/// Install a FRESH U context into the live frame: entry pc, own stack, MPP=U,
+/// every GPR zeroed — the same register hygiene `drop_to_user` gives the first
+/// compartment (no inheritance of M or another compartment's register state).
+#[cfg(feature = "warden")]
+pub(crate) unsafe fn install_user_ctx(frame: *mut u32, entry: u32, user_sp: u32) {
+    let mut i = 0usize;
+    while i < FRAME_WORDS {
+        *frame.add(i) = 0;
+        i += 1;
+    }
+    *frame.add(FR_SP) = user_sp;
+    *frame.add(FR_MEPC) = entry;
+    *frame.add(FR_MSTATUS) = 0; // MPP=00 => mret enters U; interrupts masked
 }
 
 /// Entry point for the `pmp` scenario (called from `main` on the sim image).

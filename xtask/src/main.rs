@@ -27,7 +27,7 @@ fn main() -> anyhow::Result<()> {
         }
         Some(other) => anyhow::bail!("unknown xtask command: {other}"),
         None => anyhow::bail!(
-            "usage: cargo xtask <loc-gate|qemu [-- mediate]|verilator -- <boot|pmp|measure|mediate|endpoint>>"
+            "usage: cargo xtask <loc-gate|qemu [-- mediate]|verilator -- <boot|pmp|measure|mediate|endpoint|warden>>"
         ),
     }
 }
@@ -456,6 +456,38 @@ const SIM_ENDPOINT_FORBIDDEN_LINES: &[&str] = &[
     "PMP-FAIL",
 ];
 
+/// UART lines the Verilated `warden` scenario (Phase-3 W1) must observe. The
+/// minimal Warden schedules the W2 Endpoint courier (EP), bounds a runaway (RUN)
+/// by slice budget, and shows liveness-without-trust. M+U / PMP realisation (no
+/// S-mode, no CLINT): cooperative scheduler + deterministic slice-budget guard.
+const SIM_WARDEN_EXPECTED_LINES: &[&str] = &[
+    "WARDEN-ARMED",
+    "warden: run=EP",            // (a) scheduler dispatches the Endpoint
+    "warden: frame0=ALLOW",      // (a) framed benign request round-trips to ALLOW
+    "warden: attack=DENY_ARG",   // (c) wrong-host attack still mediated to DENY
+    "warden: forced-allow=ignored", // (c) scheduler cannot override M's verdict
+    "warden: done=EP",           // EP ran to completion (cooperative)
+    "warden: run=RUN",           // scheduler dispatches the runaway
+    "warden: preempt=RUN",       // (b) runaway spun past its slice -> M bounds it
+    "warden: post-preempt=ALLOW", // (b) device still responsive after the preempt
+    "warden: sink-calls=2",      // (c) only the two benign relays drove the sink
+    "warden: secret=absent",     // (c) injected secret never in U-visible memory
+    "WARDEN-DONE",
+];
+
+/// Any of these means liveness-without-trust (or the harness) failed — fail
+/// closed. A DENY turned into an ALLOW, a secret leak, an M-mode fault, or a
+/// honored forced-allow would each break the whole point of the task.
+const SIM_WARDEN_FORBIDDEN_LINES: &[&str] = &[
+    "WARDEN-FAIL",
+    "forced-allow=honored",
+    "attack=ALLOW",
+    "frame0=DENY",
+    "secret=LEAK",
+    "M-FAULT",
+    "PMP-FAIL",
+];
+
 /// Any of these means containment (or the harness) failed — fail closed.
 const SIM_MEDIATE_FORBIDDEN_LINES: &[&str] = &[
     "MEDIATE-FAIL",
@@ -467,14 +499,17 @@ const SIM_MEDIATE_FORBIDDEN_LINES: &[&str] = &[
 ];
 
 fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
-    let (pmp, mediate, endpoint) = match scenario {
-        Some("boot") => (false, false, false),
-        Some("pmp") => (true, false, false),
-        Some("mediate") => (false, true, false),
-        Some("endpoint") => (false, false, true),
-        None => anyhow::bail!("usage: cargo xtask verilator -- <boot|pmp|measure|mediate|endpoint>"),
+    let (pmp, mediate, endpoint, warden) = match scenario {
+        Some("boot") => (false, false, false, false),
+        Some("pmp") => (true, false, false, false),
+        Some("mediate") => (false, true, false, false),
+        Some("endpoint") => (false, false, true, false),
+        Some("warden") => (false, false, false, true),
+        None => anyhow::bail!(
+            "usage: cargo xtask verilator -- <boot|pmp|measure|mediate|endpoint|warden>"
+        ),
         Some(other) => anyhow::bail!(
-            "unknown verilator scenario: {other} (expected `boot`, `pmp`, `measure`, `mediate` or `endpoint`)"
+            "unknown verilator scenario: {other} (expected `boot`, `pmp`, `measure`, `mediate`, `endpoint` or `warden`)"
         ),
     };
 
@@ -498,13 +533,16 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
     // own target dir: the debug `monitor::mediate` pipeline + BLAKE2 is ~220 KiB,
     // far past the 128 KiB mon_ram; release fits with ample headroom.
     println!("cargo xtask verilator: building sim monitor image (riscv32ima, build-std)...");
-    // The endpoint image links wire into a 4 KiB U window (its own script).
-    let link_script = if endpoint {
+    // The endpoint + warden images link wire into a 4 KiB U window (shared script).
+    let link_script = if endpoint || warden {
         p.repo.join("crates/monitor-bin/link-sim-endpoint.ld")
     } else {
         p.link_script()
     };
-    let (sim_elf, sim_features, sim_release, sim_dir) = if endpoint {
+    let (sim_elf, sim_features, sim_release, sim_dir) = if warden {
+        let dir = p.repo.join("target/sim-warden");
+        (dir.join("riscv32ima-unknown-none-elf/release/monitor-bin"), "warden", true, dir)
+    } else if endpoint {
         let dir = p.repo.join("target/sim-endpoint");
         (dir.join("riscv32ima-unknown-none-elf/release/monitor-bin"), "endpoint", true, dir)
     } else if mediate {
@@ -588,7 +626,9 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
 
     // Wait for the scenario's terminal sentinel (boot: the banner; pmp: the
     // prober's final `PMP-DONE`), then kill. The sim never self-terminates.
-    let done_marker = if endpoint {
+    let done_marker = if warden {
+        "WARDEN-DONE"
+    } else if endpoint {
         "ENDPOINT-DONE"
     } else if mediate {
         "MEDIATE-DONE"
@@ -604,7 +644,8 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
         if stdout_buf
             .lock()
             .map(|s| s.contains(done_marker) || (mediate && s.contains("MEDIATE-FAIL"))
-                    || (endpoint && s.contains("ENDPOINT-FAIL")))
+                    || (endpoint && s.contains("ENDPOINT-FAIL"))
+                    || (warden && s.contains("WARDEN-FAIL")))
             .unwrap_or(false)
         {
             saw_done = true;
@@ -636,6 +677,40 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
         "Verilated SoC did not print the boot banner {BOOT_BANNER:?} within {:?}",
         VERILATOR_RUN_TIMEOUT
     );
+
+    if warden {
+        for bad in SIM_WARDEN_FORBIDDEN_LINES {
+            anyhow::ensure!(
+                !stdout.contains(bad),
+                "warden: observed failure marker {bad:?} — liveness-without-trust \
+                 did not hold (fail closed).\nUART:\n{stdout}"
+            );
+        }
+        anyhow::ensure!(
+            saw_done,
+            "warden: monitor did not reach `WARDEN-DONE` within {:?} — the \
+             scheduler / preempt path stalled; UART so far:\n{stdout}",
+            VERILATOR_RUN_TIMEOUT
+        );
+        for line in SIM_WARDEN_EXPECTED_LINES {
+            anyhow::ensure!(
+                stdout.lines().any(|l| l == *line),
+                "warden: missing expected UART line {line:?}.\nUART:\n{stdout}"
+            );
+        }
+        println!(
+            "\ncargo xtask verilator -- warden: PASS (minimal Warden on RTL: \
+             scheduled the Endpoint and a framed benign request round-tripped to \
+             ALLOW; a runaway compartment that spun past its slice was preempted \
+             (M regained control, device stayed responsive: post-preempt=ALLOW); \
+             liveness-without-trust held — a wrong-host attack was still DENY_ARG, \
+             a scheduler that wanted an ALLOW could not override M's verdict, the \
+             runaway drove the sink zero times and the secret stayed out of \
+             U-visible memory — all {} lines observed)",
+            SIM_WARDEN_EXPECTED_LINES.len()
+        );
+        return Ok(());
+    }
 
     if endpoint {
         for bad in SIM_ENDPOINT_FORBIDDEN_LINES {
