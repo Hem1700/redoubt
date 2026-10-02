@@ -108,6 +108,16 @@ permission at once.</dd>
 </dl>
 </div>
 
+<div class="note">
+<span class="lbl">Implementation status (v1, 2026).</span>
+<p style="text-align:justify">The open core the first build runs on offers machine and user mode but no
+supervisor mode, so in v1 the Warden described in this chapter runs in user mode alongside the
+compartments rather than in a supervisor tier of its own. Its job and its place in the trust story are
+unchanged: it is trusted for liveness, never for the verdict, and the Monitor still mediates every call
+regardless of where the Warden sits. Section 3.9 explains the two-tier realization and why it costs the
+security claim nothing. The supervisor-mode split stays the target for a core that provides it.</p>
+</div>
+
 <h2><span class="n">11.1</span>Where the Warden sits, and what it is for</h2>
 <p>The Monitor decides; something still has to do the mundane work of keeping a computer running.
 Threads must take turns on the one processor. A driver that has formatted a packet must get that

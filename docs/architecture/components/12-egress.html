@@ -102,6 +102,17 @@ physical process, as opposed to a formula. Keys and session identifiers need thi
 </dl>
 </div>
 
+<div class="note">
+<span class="lbl">Implementation status (v1, 2026).</span>
+<p style="text-align:justify">One caveat on the first FPGA build, because this chapter is where it bites.
+On the core we started with, the processor's own access to the device registers is uncached and skips
+the PMP permission check, so PMP does not keep user mode out of the egress hardware. That is the reason
+containment here rests on mediation rather than on a memory wall: the Monitor performs the call and
+injects the secret, and a compartment gains nothing by reaching the registers itself because it holds no
+key and no allowed request. The bus-level wall that would deny the device region to user mode outright,
+RISC-V IOPMP or the mediation gate, is roadmap work in Chapter 13. Section 3.9 records the same fact.</p>
+</div>
+
 <h2><span class="n">12.1</span>Why the Monitor owns the exits</h2>
 <p>Recall the embassy guard of Chapter&nbsp;9. The reason the guard's decisions mean anything is that he
 alone works the radio and holds the keys to the gate. If any clerk could walk over and transmit a cable

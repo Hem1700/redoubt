@@ -418,6 +418,32 @@ bus mastering, and the limit of PMP") and again in the Chapter 13 roadmap. For t
 guarantee as holding for CPU-initiated access.</p>
 </div>
 
+<div class="note">
+<span class="lbl">Implementation status (v1, 2026).</span>
+<p style="text-align:justify">Two honest notes on what the first FPGA realization actually does, as
+opposed to what this chapter describes. The design here is the target; the hardware we started on
+constrains the first cut, and we would rather say so plainly than let the drawing stand in for the
+silicon.</p>
+<p style="text-align:justify">The open VexRiscv core we build on, the <code>secure</code> variant chosen
+because it ships a working PMP, implements machine and user mode but no supervisor mode. So v1 realizes
+a two-level subset of the model above: the Monitor in M, and everything else, the Warden's duties
+included, in U. Nothing in the security claim moves. The Monitor is still the only fully trusted
+component, PMP still walls its memory off from every less-privileged instruction, and a takeover below M
+still inherits a locked machine. What changes is only where the Warden's scheduling sits, and that is a
+question of structure, not of trust. This is the same two-tier shape Keystone and Sanctorum use, and the
+three-level design stays the target for a core that offers supervisor mode without dragging in the
+virtual-memory hardware we argued against in section 3.8.</p>
+<p style="text-align:justify">The second note sharpens the boundary just drawn. On this particular core
+the processor's own access to the memory-mapped device region is <em>uncached</em>, and uncached loads
+and stores take a path that never consults the PMP permission result. In other words PMP does not fence
+user mode out of the egress registers here, any more than it fences out a DMA engine. That is why egress
+containment in Redoubt rests on mediation, the Monitor performing the call and injecting the secret,
+rather than on a memory rule a compartment could walk around. The bus-level wall that would make the
+device region unreachable to user mode, RISC-V IOPMP or the hardware mediation gate, is Chapter 13
+roadmap work, not a v1 claim. The simulator's <code>sim/README</code> records both of these facts next
+to the code that proves the rest.</p>
+</div>
+
 <h2><span class="n">3.10</span>The lineage of the idea</h2>
 <p>None of this is invented here, which is the most reassuring thing one can say about a security
 mechanism. Placing a small, maximally-privileged monitor beneath the operating system and using
