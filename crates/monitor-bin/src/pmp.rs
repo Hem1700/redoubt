@@ -90,7 +90,17 @@ const CFG2_STACK_GUARD: u32 = CFG_L | CFG_A_NAPOT; // 0x88
 
 /// The full `pmpcfg0` word: byte0 = entry0, byte1 = entry1, byte2 = entry2
 /// (stack guard), byte3 = OFF.
-const PMPCFG0_WORD: u32 = CFG0_SHARED_REQ | (CFG1_UTEXT << 8) | (CFG2_STACK_GUARD << 16);
+const PMPCFG0_BASE: u32 = CFG0_SHARED_REQ | (CFG1_UTEXT << 8) | (CFG2_STACK_GUARD << 16);
+
+/// Phase-3 W2 — entry 3: SERIAL_IN, NAPOT, R--, locked. Only the `endpoint`
+/// image grants it (the Endpoint compartment's mock serial source); every other
+/// image keeps byte3 = OFF, so the Phase-2 walls are unchanged.
+#[cfg(feature = "endpoint")]
+const CFG3_SERIAL_IN: u32 = CFG_L | CFG_A_NAPOT | CFG_R; // 0x99
+#[cfg(feature = "endpoint")]
+const PMPCFG0_WORD: u32 = PMPCFG0_BASE | (CFG3_SERIAL_IN << 24);
+#[cfg(not(feature = "endpoint"))]
+const PMPCFG0_WORD: u32 = PMPCFG0_BASE;
 
 /// Size of the M-stack guard page. Power of two; the linker places its base
 /// (`_stack_guard_base`) 4x-size aligned as this core's NAPOT encoding requires.
@@ -100,7 +110,16 @@ pub const STACK_GUARD_SIZE: u32 = 0x1000; // 4 KiB
 /// Size of the U-executable window. Power of two; the linker places `.utext`
 /// aligned to `4*UTEXT_SIZE` (8 KiB) as this core's NAPOT encoding requires
 /// (see `napot`), immediately after `.data` (so it is inside the measured image).
+///
+/// Phase-3 W2: the `endpoint` image links `wire::deframe` + `memcpy` into this
+/// window (the Endpoint is U-mode Rust calling the wire codec), which needs
+/// 4 KiB; every other image keeps the 2 KiB window. `.utext` is 64 KiB-aligned
+/// in link-sim.ld so either size satisfies the 4x-alignment rule, and `.bss`
+/// starts at 0x1001_1000 so it is past the window in both cases.
+#[cfg(not(feature = "endpoint"))]
 pub const UTEXT_SIZE: u32 = 0x800; // 2 KiB
+#[cfg(feature = "endpoint")]
+pub const UTEXT_SIZE: u32 = 0x1000; // 4 KiB
 
 extern "C" {
     /// Start of the `.utext` section (linker-placed, `UTEXT_SIZE`-aligned).
@@ -160,6 +179,8 @@ pub fn lock_regions() {
         csrw!("pmpaddr0", shared);
         csrw!("pmpaddr1", utext);
         csrw!("pmpaddr2", guard);
+        #[cfg(feature = "endpoint")]
+        csrw!("pmpaddr3", napot(SERIAL_IN_BASE, SERIAL_IN_SIZE));
         // Entries 4..15 (pmpcfg1/2/3): explicitly OFF + unlocked for V4.
         csrw!("pmpcfg1", 0u32);
         csrw!("pmpcfg2", 0u32);

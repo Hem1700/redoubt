@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 monitor = { path = "../monitor" }
 abi = { path = "../abi" }
+wire = { path = "../wire", optional = true }
 
 # Dual-target build (ruling P2-1): the default (no feature) image targets the
 # QEMU `virt` machine (RAM @ 0x8000_0000, 16550 UART, sifive_test finisher),
@@ -23,6 +24,10 @@ stackflow = ["sim"]
 # V4: build the sim image to run the U-compartment -> M `mediate` round trip on
 # the Verilated SoC (`cargo xtask verilator -- mediate`). Implies `sim`.
 mediate = ["sim"]
+# Phase-3 W2: the Endpoint compartment (U-mode courier: SERIAL_IN -> wire::deframe
+# -> MEDIATE ecall) on the Verilated SoC (`cargo xtask verilator -- endpoint`).
+# Implies `mediate` (reuses the V4 ecall path) and grants U read on SERIAL_IN.
+endpoint = ["mediate", "dep:wire"]
 
 # monitor-bin is a #![no_std] #![no_main] bare-metal image for the QEMU
 # `virt` machine. It is not host-buildable; see the workspace Cargo.toml

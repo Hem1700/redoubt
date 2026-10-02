@@ -121,6 +121,19 @@
       },
       "backing": "sdram",
       "sdram_base": 2147483648
+    },
+    {
+      "name": "SERIAL_IN",
+      "base": 1073758208,
+      "size": 4096,
+      "base_hex": "0x40004000",
+      "end_hex": "0x40005000",
+      "perms": {
+        "m": "rw-",
+        "s": "---",
+        "u": "r--"
+      },
+      "backing": "ram"
     }
   ]
 }

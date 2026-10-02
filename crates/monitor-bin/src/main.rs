@@ -34,6 +34,9 @@ mod simtrap;
 // Phase-2 V4: U-compartment -> M `mediate` round trip + egress MMIO sink.
 #[cfg(feature = "mediate")]
 mod simmediate;
+// Phase-3 W2: the Endpoint compartment (U-mode courier) + its M-side harness.
+#[cfg(feature = "endpoint")]
+mod endpoint;
 mod uart;
 
 core::arch::global_asm!(
@@ -91,9 +94,14 @@ extern "C" fn main() -> ! {
     }
     // V4: the `mediate` sub-image runs the U-compartment -> M `mediate` round
     // trip (`cargo xtask verilator -- mediate`) instead of the PMP prober.
-    #[cfg(all(feature = "mediate", not(feature = "stackflow")))]
+    #[cfg(all(feature = "mediate", not(feature = "endpoint"), not(feature = "stackflow")))]
     {
         simmediate::run_mediate_demo();
+    }
+    // Phase-3 W2: the `endpoint` sub-image runs the Endpoint courier instead.
+    #[cfg(all(feature = "endpoint", not(feature = "stackflow")))]
+    {
+        endpoint::run_endpoint_demo();
     }
     #[cfg(not(any(feature = "stackflow", feature = "mediate")))]
     {

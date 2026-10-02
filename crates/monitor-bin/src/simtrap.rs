@@ -293,8 +293,17 @@ extern "C" fn sim_trap_rust(frame: *mut u32) {
                 _ => {
                     // V4: the U compartment's mediation ecalls (MEDIATE / request
                     // fetch / verdict report). Additive to the pmp prober arms.
-                    #[cfg(feature = "mediate")]
+                    #[cfg(all(feature = "mediate", not(feature = "endpoint")))]
                     if crate::simmediate::handle_ecall(frame, a7) {
+                        unsafe {
+                            *frame.add(FR_MEPC) = frame.add(FR_MEPC).read().wrapping_add(4);
+                        }
+                        return;
+                    }
+                    // Phase-3 W2: the Endpoint image's ecalls (MEDIATE relay,
+                    // frame-drop signal, done) instead of the V4 stub's.
+                    #[cfg(feature = "endpoint")]
+                    if crate::endpoint::handle_ecall(frame, a7) {
                         unsafe {
                             *frame.add(FR_MEPC) = frame.add(FR_MEPC).read().wrapping_add(4);
                         }

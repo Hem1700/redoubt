@@ -50,7 +50,7 @@ use crate::pmp;
 use crate::simtrap::{self, FR_A0, FR_A1, FR_A2};
 use crate::uart;
 
-const MEDIATE_OP: u32 = abi::Opcode::Mediate as u32;
+pub(crate) const MEDIATE_OP: u32 = abi::Opcode::Mediate as u32;
 /// U asks M to stage case `a0`'s request; M returns a0=addr, a1=len.
 const FN_REQ: u32 = 3;
 /// U reports (a0=case, a1=status, a2=resp_len) for M to print + verify.
@@ -62,12 +62,12 @@ const FN_MDONE: u32 = 5;
 const REQ_OFF: usize = 0; // request slot [0, MAX_REQ)
 const TMPL_OFF: usize = 0x200; // template i at TMPL_OFF*(i+1)
 const RESP_OFF: usize = 0x800; // U-visible response body [0x800, 0xA00)
-const SHARED_LEN: usize = pmp::SHARED_REQ_SIZE as usize;
+pub(crate) const SHARED_LEN: usize = pmp::SHARED_REQ_SIZE as usize;
 const _: () = assert!(MAX_REQ <= TMPL_OFF);
 const _: () = assert!(TMPL_OFF * (N_CASES as usize + 1) <= RESP_OFF);
 const _: () = assert!(RESP_OFF + RESP_BODY_MAX <= SHARED_LEN);
 
-fn shared_base() -> *mut u8 {
+pub(crate) fn shared_base() -> *mut u8 {
     pmp::SHARED_REQ_BASE as *mut u8
 }
 
@@ -77,7 +77,7 @@ const REC_BYTES: usize = (pmp::EGRESS_WORDS as usize) * 4;
 fn egress_word(i: u32) -> *mut u32 {
     (pmp::EGRESS_REC + 4 * i) as *mut u32
 }
-fn egress_calls() -> u32 {
+pub(crate) fn egress_calls() -> u32 {
     unsafe { core::ptr::read_volatile(pmp::EGRESS_CALLS as *const u32) }
 }
 fn egress_len() -> usize {
@@ -193,7 +193,7 @@ fn fail() {
 
 /// Run the safe `monitor::mediate` pipeline against SHARED_REQ[ptr..ptr+len],
 /// with the `EgressMmioSink`; write the response body into the U-visible slot.
-fn dispatch_mediate(ptr: usize, len: usize) -> (u8, usize) {
+pub(crate) fn dispatch_mediate(ptr: usize, len: usize) -> (u8, usize) {
     let shared: &[u8] = unsafe { core::slice::from_raw_parts(shared_base(), MAX_REQ) };
     let sessions = match unsafe { (*addr_of_mut!(SESSIONS)).as_mut() } {
         Some(s) => s,
@@ -221,7 +221,7 @@ fn dispatch_mediate(ptr: usize, len: usize) -> (u8, usize) {
 }
 
 /// Does the ENTIRE U-visible SHARED_REQ page contain `needle`?
-fn shared_page_contains(needle: &[u8]) -> bool {
+pub(crate) fn shared_page_contains(needle: &[u8]) -> bool {
     let page: &[u8] = unsafe { core::slice::from_raw_parts(shared_base(), SHARED_LEN) };
     page.iter().copied().collect_window_match(needle)
 }
@@ -373,7 +373,16 @@ extern "C" {
 pub fn run_mediate_demo() -> ! {
     simtrap::install_trap();
     pmp::lock_regions();
+    init_monitor_state();
+    uart::puts("MEDIATE-ARMED\n");
 
+    let entry = core::ptr::addr_of!(_umediate_entry) as u32;
+    simtrap::drop_to_user(entry, pmp::SHARED_REQ_END);
+}
+
+/// Seed the monitor's session/audit state and zero the U-visible SHARED_REQ
+/// page (shared with the Phase-3 `endpoint` image).
+pub(crate) fn init_monitor_state() {
     unsafe {
         *addr_of_mut!(SESSIONS) = Some(build_sessions());
         *addr_of_mut!(AUDIT) = Some(Audit::default());
@@ -386,10 +395,6 @@ pub fn run_mediate_demo() -> ! {
             i += 1;
         }
     }
-    uart::puts("MEDIATE-ARMED\n");
-
-    let entry = core::ptr::addr_of!(_umediate_entry) as u32;
-    simtrap::drop_to_user(entry, pmp::SHARED_REQ_END);
 }
 
 /// Silence an unused-const warning for the request-slot offset (documented in
