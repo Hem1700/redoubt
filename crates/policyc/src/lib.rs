@@ -506,6 +506,7 @@ pub fn compile(src: &str) -> Result<CompiledPolicy, CompileError> {
         let mut quotas: Vec<(QuotaKind, u64)> = Vec::new();
         let mut clauses: Vec<Clause> = Vec::new();
         let mut has_host = false;
+        let mut has_path = false;
 
         loop {
             let line = p.line();
@@ -634,6 +635,9 @@ pub fn compile(src: &str) -> Result<CompiledPolicy, CompileError> {
                     if clauses.len() >= MAX_CLAUSES {
                         return err(line, format!("more than {MAX_CLAUSES} clauses in one capability"));
                     }
+                    if field == FieldSel::PATH {
+                        has_path = true;
+                    }
                     clauses.push(Clause { field, op, operand });
                 }
                 other => return err(line, format!("unknown clause `{other}`")),
@@ -647,6 +651,25 @@ pub fn compile(src: &str) -> Result<CompiledPolicy, CompileError> {
             return err(
                 line,
                 format!("net capability `{name}` must constrain `url.host` (refusing an open net cap)"),
+            );
+        }
+
+        // An empty arg-clause list is legitimate for `tool` (binds a tool_id)
+        // and `secret` (grants a secret_ref) caps, but `file` must constrain
+        // `path`: otherwise it would be an unrestricted file capability.
+        if ct == CT::File && !has_path {
+            return err(
+                line,
+                format!("file capability `{name}` must constrain `path` (refusing an unrestricted file cap)"),
+            );
+        }
+        // A secret-bearing cap must state its flow disposition; omitting
+        // `deny secret to public` must never silently allow a secret to a
+        // public sink.
+        if inject.is_some() && !deny {
+            return err(
+                line,
+                format!("capability `{name}` injects a secret and must state `deny secret to public`"),
             );
         }
 
@@ -916,6 +939,23 @@ mod tests {
         rejected("session \"s\" { capability c = tool { tool = 99999 result = PUBLIC } }");
         rejected("session \"s\" { capability c = tool { tool = 1 result = PUBLIC ; } }");
         rejected("session \"s\" { capability c = tool { tool = 1 result = PUBLIC \"unterminated } }");
+    }
+
+    #[test]
+    fn inject_without_deny_is_rejected() {
+        let src = "session \"s\" { capability c = net { tool = 1 url.host in { a.b } inject secret 0 result = PUBLIC } }";
+        rejected(src);
+        let ok = src.replace("inject secret 0", "inject secret 0 deny secret to public");
+        assert!(compile(&ok).unwrap().flows.iter().all(|f| f.deny_secret_to_public));
+    }
+
+    #[test]
+    fn file_cap_needs_path_but_tool_and_secret_do_not() {
+        rejected("session \"s\" { capability f = file { tool = 1 result = PUBLIC } }");
+        rejected("session \"s\" { capability f = file { tool = 1 len <= 8 result = PUBLIC } }");
+        assert!(compile("session \"s\" { capability f = file { tool = 1 path prefix \"/c/\" result = PUBLIC } }").is_ok());
+        assert!(compile("session \"s\" { capability t = tool { tool = 1 result = PUBLIC } }").is_ok());
+        assert!(compile("session \"s\" { capability k = secret { tool = 2 inject secret 0 deny secret to public result = PUBLIC } }").is_ok());
     }
 
     #[test]
