@@ -7,7 +7,7 @@
 
 use abi::ReasonCode;
 
-use crate::{flow, predicate};
+use crate::{cap, flow, predicate};
 
 /// The compiled allow-policy for a tenant. On real hardware the `secrets`
 /// table lives in the machine-only SECRETS region, loaded once at boot;
@@ -22,6 +22,11 @@ pub struct Policy<'a> {
     /// Interned predicate constants (allowlists, ranges, ...), shared by
     /// every clause in `preds`.
     pub pool: predicate::ConstPool<'a>,
+    /// Capabilities `session_open` installs, in handle order (handle i =
+    /// `caps[i]`); the epoch is stamped at open.
+    pub caps: &'a [cap::Cap],
+    /// Session quota budget installed at open.
+    pub quotas: cap::Quotas,
 }
 
 impl<'a> Policy<'a> {

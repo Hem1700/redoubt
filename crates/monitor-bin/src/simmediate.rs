@@ -195,7 +195,7 @@ fn fail() {
 /// with the `EgressMmioSink`; write the response body into the U-visible slot.
 fn dispatch_mediate(ptr: usize, len: usize) -> (u8, usize) {
     let shared: &[u8] = unsafe { core::slice::from_raw_parts(shared_base(), MAX_REQ) };
-    let sessions = match unsafe { (*addr_of!(SESSIONS)).as_ref() } {
+    let sessions = match unsafe { (*addr_of_mut!(SESSIONS)).as_mut() } {
         Some(s) => s,
         None => return (ReasonCode::ErrInternal as u8, 0),
     };

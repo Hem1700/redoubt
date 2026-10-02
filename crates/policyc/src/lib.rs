@@ -118,15 +118,38 @@ pub struct Lent<'a> {
     secrets: &'a [&'a [u8]],
     pred_slices: Vec<&'a [Clause]>,
     sets: Vec<Vec<&'a [u8]>>,
+    caps: Vec<Cap>,
+    quotas: monitor::cap::Quotas,
 }
 
 impl CompiledPolicy {
+    /// Session quota budget: the most restrictive (minimum) value declared
+    /// across caps for each kind; absent => unlimited. `seconds` is carried
+    /// only (enforced off the decision path by the Warden/timer).
+    fn session_quotas(&self) -> monitor::cap::Quotas {
+        let mut q = monitor::cap::Quotas::UNLIMITED;
+        for c in &self.caps {
+            for (k, v) in &c.quotas {
+                let v = u32::try_from(*v).unwrap_or(u32::MAX);
+                let f = match k {
+                    QuotaKind::Calls => &mut q.requests_left,
+                    QuotaKind::Bytes => &mut q.egress_bytes_left,
+                    QuotaKind::Seconds => &mut q.seconds,
+                };
+                *f = (*f).min(v);
+            }
+        }
+        q
+    }
+
     /// Prepare a lendable view. `secrets` is the secret table indexed by
     /// `inject secret N` (secret bytes are never part of a manifest).
     pub fn lend<'a>(&'a self, secrets: &'a [&'a [u8]]) -> Lent<'a> {
         Lent {
             owner: self,
             secrets,
+            caps: self.caps.iter().map(|c| c.cap).collect(),
+            quotas: self.session_quotas(),
             pred_slices: self.preds.iter().map(|v| v.as_slice()).collect(),
             sets: self
                 .pool
@@ -159,6 +182,8 @@ impl<'a> Lent<'a> {
             flows: &self.owner.flows,
             secrets: self.secrets,
             pool,
+            caps: &self.caps,
+            quotas: self.quotas,
         }
     }
 }
