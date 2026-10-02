@@ -1,0 +1,9 @@
+[package]
+name = "policyc"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+abi = { path = "../abi" }
+monitor = { path = "../monitor" }

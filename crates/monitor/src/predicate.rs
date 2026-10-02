@@ -108,7 +108,7 @@ pub struct Clause {
 /// two possible values are still looked up via `PoolEntry::Scheme` rather
 /// than being packed directly into `operand`, so every clause's operand
 /// means the same thing.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum PoolEntry<'a> {
     /// A single byte string, for `Eq` / `Prefix` / `Suffix`.
     Str(&'a [u8]),
@@ -125,7 +125,7 @@ pub enum PoolEntry<'a> {
 /// A fixed-capacity table of interned policy constants (allowlists,
 /// ranges, ...). Built once by the manifest compiler (Phase 3) and shared
 /// read-only across every `eval` call for a policy.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ConstPool<'a> {
     entries: [Option<PoolEntry<'a>>; MAX_POOL],
 }

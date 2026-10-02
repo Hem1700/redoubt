@@ -45,6 +45,7 @@ const CONFIDENTIALITY_MASK: u8 = 0b0000_0001;
 /// `flow_ref` on a `Cap` (see `crate::cap::Cap`) indexes into a table of
 /// these, compiled ahead of time from the tool's manifest (later task);
 /// this module only defines the shape and evaluates it.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct FlowRule {
     /// `secret_ref` to inject into the outbound request (inject-only,
     /// never returned to the caller). The egress stage (a later task)
