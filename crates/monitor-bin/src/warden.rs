@@ -11,25 +11,27 @@
 //!   (a) the Warden SCHEDULES the Endpoint and a framed benign request
 //!       round-trips (SERIAL_IN -> wire::deframe -> `ecall MEDIATE` -> M) to
 //!       ALLOW — parity with the host/QEMU/`endpoint` demos;
-//!   (b) a compartment that spins past its time slice is PREEMPTED: the Warden
-//!       gives each compartment a bounded slice; the runaway's slice is exhausted
-//!       at an M-boundary crossing, M regains control, bounds it (never resumes
-//!       it), and the device stays responsive (a post-preempt request still
-//!       mediates to ALLOW) with M state intact (no `M-FAULT`, V3 holds);
-//!   (c) liveness WITHOUT trust: a wedged/compromised Warden cannot cause an
-//!       UNAUTHORIZED effect. Every relayed call is still fully mediated by M —
-//!       a wrong-host attack frame is DENY_ARG and a scheduler that *wants* an
-//!       ALLOW cannot override M's verdict (`forced-allow=ignored`); the runaway
-//!       holds no capability and drives the egress sink zero times; the injected
-//!       secret never appears in U-visible memory; the Phase-2 PMP walls are
-//!       unchanged.
+//!   (b) COOPERATIVE slice-budget termination: RUN voluntarily `W_YIELD`s and
+//!       the Warden terminates it once its per-yield budget is spent (never
+//!       resumes it); the device stays responsive (a post-terminate request
+//!       still mediates to ALLOW) with M state intact (no `M-FAULT`, V3 holds).
+//!       Async/timer preemption of a NON-yielding loop is deferred (this SoC has
+//!       no usable async timer) and is NOT demonstrated;
+//!   (c) liveness WITHOUT trust, structurally: the Warden has no path to the
+//!       egress effect. Every relayed call is fully mediated by M BEFORE the
+//!       scheduler sees a status (`no-escalation=by-construction`, not a runtime
+//!       test): a buggy scheduler can at most lie to U about the verdict, never
+//!       cause an unauthorized effect. A wrong-host attack frame is DENY_ARG,
+//!       `sink-calls=2` shows RUN is well-behaved (mediation is the gate), the
+//!       injected secret never appears in U-visible memory; the Phase-2 PMP
+//!       walls are unchanged.
 //!
 //! # Scheduler design (describable in a few sentences — R3-D)
 //! POLICY (M-mode, this file): a fixed two-entry run table — the Endpoint (EP)
 //! and a deliberately-runaway compartment (RUN). Round-robin over the runnable
-//! entries; each entry has a slice BUDGET counted in M-boundary crossings
-//! (`ecall`). EP runs to completion (`W_DONE`); RUN yields repeatedly and never
-//! completes, so when its budget hits zero M preempts it.
+//! entries; each entry has a per-yield BUDGET counted in `W_YIELD` crossings.
+//! EP runs to completion (`W_DONE`); RUN yields repeatedly and never completes,
+//! so when its budget hits zero M terminates it (cooperatively).
 //!
 //! MECHANISM (M-mode, in `simtrap.rs`): on every crossing the trampoline has
 //! already saved the running U context into the trap frame; the Warden copies
@@ -50,12 +52,12 @@
 //! event controller, which is not reliably exercisable from a U spin under
 //! Verilator in the build budget (V3 already hit CLINT flakiness). Per the
 //! brief's escape hatches we therefore take BOTH: a COOPERATIVE scheduler with a
-//! timer-bound liveness guard (hatch 1), where the preempt TRIGGER is a
-//! DETERMINISTIC slice-budget check at the M boundary (hatch 2) rather than an
-//! async timer interrupt. The scheduling MECHANISM (save/restore U context, M
-//! regains control, bound a runaway, device responsive) is real and is the
-//! point; asynchronous timer-interrupt preemption of a compartment that never
-//! crosses into M is the documented follow-up for a supervisor-capable core.
+//! cooperative slice-budget guard (hatch 1), where the termination TRIGGER is a
+//! DETERMINISTIC per-yield budget check at the M boundary (hatch 2) rather than
+//! an async timer interrupt. The scheduling MECHANISM (save/restore U context,
+//! cooperative termination, device responsive) is real; asynchronous
+//! timer-interrupt preemption of a compartment that never crosses into M is
+//! deferred (no usable async timer on this SoC) and NOT demonstrated.
 //!
 //! `warden` feature only; all `unsafe` lives in this binary crate + `simtrap`.
 
@@ -81,9 +83,9 @@ const RUN: usize = 1; // the deliberately-runaway compartment
 const N_COMPT: usize = 2;
 const _: () = assert!(RUN < N_COMPT && EP < N_COMPT);
 
-/// Slice budgets, in M-boundary crossings. EP's is ample (it finishes via
-/// `W_DONE` long before it runs out); RUN's is small so it is preempted after a
-/// couple of yields — modelling "spun past its time slice".
+/// Per-yield budgets: counts `W_YIELD` crossings only (not all M-boundary
+/// crossings). EP's is ample (it finishes via `W_DONE` long before it runs
+/// out); RUN's is small so it is terminated after a couple of yields.
 const BUDGET0: [u32; N_COMPT] = [8, 2];
 
 // --- U-side layout inside SHARED_REQ (shared with the courier; U has RW) ----
@@ -206,6 +208,9 @@ fn entry_of(c: usize) -> u32 {
 
 /// Both compartments run one-at-a-time, so both use the top of the SHARED_REQ
 /// U-grant as their stack (the courier stack lives below the deframe scratch).
+/// Sharing the same `SHARED_REQ_END` stack top is safe ONLY because EP finishes
+/// (`W_DONE`) before RUN ever starts; interleaved compartments would need
+/// distinct stacks.
 fn sp_of(_c: usize) -> u32 {
     pmp::SHARED_REQ_END
 }
@@ -290,22 +295,20 @@ fn on_relay(ptr: u32, len: u32) -> (u8, u32) {
             fail();
         }
     } else {
-        // (c) a wrong-host attack is still DENY_ARG, and a compromised scheduler
-        // that *wanted* an ALLOW cannot override M's verdict: the verdict is
-        // M's, and a denied request drove no effect.
+        // (c) a wrong-host attack is still DENY_ARG and drove no effect.
         line("attack", verdict_name(status));
-        if status != ReasonCode::DenyArg as u8 {
+        if status != ReasonCode::DenyArg as u8 || driven {
             fail();
         }
-        // The "Warden" here asks for an ALLOW it has no power to grant.
-        let warden_wants_allow = true;
-        let forced = warden_wants_allow && status == ReasonCode::Allow as u8;
-        if !forced && !driven {
-            line("forced-allow", "ignored");
-        } else {
-            line("forced-allow", "honored");
-            fail();
-        }
+        // no-escalation is BY CONSTRUCTION, not a runtime test (nothing here
+        // perturbs the Warden, so we do not pretend to have exercised a
+        // compromised one). The scheduler/Warden has no path to the egress
+        // effect: `mediate`/`dispatch_mediate` performs or withholds the effect
+        // (and injects the secret) BEFORE the scheduler ever sees a status, so a
+        // buggy scheduler can at most lie to U about the verdict, never cause an
+        // unauthorized effect. `sink-calls`/`secret=absent` below show the
+        // effect is unchanged.
+        line("no-escalation", "by-construction");
     }
     (status, resp_len as u32)
 }
@@ -336,24 +339,26 @@ fn resume_or_start(frame: *mut u32, n: usize) {
     }
 }
 
-/// The device stays responsive after a preempt: M itself mediates a benign
-/// request (proving the system still services work), then reports the
-/// containment evidence and the terminal verdict. Never returns.
+/// The device stays responsive after the slice-budget termination: M itself
+/// mediates a benign request (proving the system still services work), then
+/// reports the effect evidence and the terminal verdict. Never returns.
 fn finish(_frame: *mut u32) -> ! {
-    // Post-preempt: M stages + mediates a benign request directly.
+    // Post-terminate: M stages + mediates a benign request directly.
     let benign = case_request(CASE_BENIGN);
     unsafe {
         core::ptr::copy_nonoverlapping(benign.bytes.as_ptr(), simmediate::shared_base(), benign.len);
     }
     let (status, _) = simmediate::dispatch_mediate(0, benign.len);
-    line("post-preempt", verdict_name(status));
+    line("post-terminate", verdict_name(status));
     if status != ReasonCode::Allow as u8 {
         fail();
     }
 
-    // Containment evidence: only the two benign relays (EP frame 0 + the
-    // post-preempt one) ever drove the egress sink; the attack and the runaway
-    // drove nothing. The injected secret is nowhere in U-visible memory.
+    // Effect evidence: only the two benign relays (EP frame 0 + the
+    // post-terminate one) drove the egress sink; the denied attack drove nothing.
+    // `sink-calls=2` shows RUN is well-behaved (it makes no MEDIATE call); it does
+    // NOT show a hostile runaway was contained -- mediation is the actual gate.
+    // The injected secret is nowhere in U-visible memory.
     let sink_calls = simmediate::egress_calls();
     line_u32("sink-calls", sink_calls);
     let leak = simmediate::shared_page_contains(SECRET);
@@ -367,8 +372,9 @@ fn finish(_frame: *mut u32) -> ! {
     simtrap::halt();
 }
 
-/// A compartment yielded: charge its slice, preempt it if the slice is spent and
-/// it is not done, then reschedule.
+/// A compartment yielded: charge its per-yield budget, terminate it if the
+/// budget is spent and it is not done, then reschedule. (Cooperative: RUN
+/// voluntarily `W_YIELD`s; a never-yielding loop would NOT be caught.)
 fn on_yield(frame: *mut u32) {
     let cur = unsafe { *addr_of!(CUR) };
     let progress = unsafe { *frame.add(FR_A0) };
@@ -387,10 +393,10 @@ fn on_yield(frame: *mut u32) {
     uart::puts("\n");
 
     if left == 0 && !unsafe { (*addr_of!(DONE))[cur] } {
-        // (b) spun past its slice: M bounds the runaway — mark it done so it is
-        // never resumed, and record the preemption.
+        // (b) yielded past its per-yield budget: M terminates it cooperatively
+        // (marks it done, never resumed). Not async preemption.
         unsafe { (*addr_of_mut!(DONE))[cur] = true };
-        line("preempt", name(cur));
+        line("slice-exhausted", name(cur));
     }
 
     // Save the (possibly-to-be-resumed) context, then reschedule.

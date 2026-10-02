@@ -457,30 +457,29 @@ const SIM_ENDPOINT_FORBIDDEN_LINES: &[&str] = &[
 ];
 
 /// UART lines the Verilated `warden` scenario (Phase-3 W1) must observe. The
-/// minimal Warden schedules the W2 Endpoint courier (EP), bounds a runaway (RUN)
-/// by slice budget, and shows liveness-without-trust. M+U / PMP realisation (no
+/// minimal Warden schedules the W2 Endpoint courier (EP), terminates a yielding runaway (RUN)
+/// by cooperative per-yield budget, and shows liveness-without-trust. M+U / PMP realisation (no
 /// S-mode, no CLINT): cooperative scheduler + deterministic slice-budget guard.
 const SIM_WARDEN_EXPECTED_LINES: &[&str] = &[
     "WARDEN-ARMED",
     "warden: run=EP",            // (a) scheduler dispatches the Endpoint
     "warden: frame0=ALLOW",      // (a) framed benign request round-trips to ALLOW
     "warden: attack=DENY_ARG",   // (c) wrong-host attack still mediated to DENY
-    "warden: forced-allow=ignored", // (c) scheduler cannot override M's verdict
+    "warden: no-escalation=by-construction", // (c) structural: effect decided in M before scheduler sees status
     "warden: done=EP",           // EP ran to completion (cooperative)
     "warden: run=RUN",           // scheduler dispatches the runaway
-    "warden: preempt=RUN",       // (b) runaway spun past its slice -> M bounds it
-    "warden: post-preempt=ALLOW", // (b) device still responsive after the preempt
-    "warden: sink-calls=2",      // (c) only the two benign relays drove the sink
+    "warden: slice-exhausted=RUN", // (b) cooperative per-yield budget spent -> terminated (not async preemption)
+    "warden: post-terminate=ALLOW", // (b) device still responsive afterwards
+    "warden: sink-calls=2",      // only the two benign relays drove the sink (RUN is well-behaved; mediation is the gate)
     "warden: secret=absent",     // (c) injected secret never in U-visible memory
     "WARDEN-DONE",
 ];
 
 /// Any of these means liveness-without-trust (or the harness) failed — fail
 /// closed. A DENY turned into an ALLOW, a secret leak, an M-mode fault, or a
-/// honored forced-allow would each break the whole point of the task.
+/// compromised scheduler effect would each break the whole point of the task.
 const SIM_WARDEN_FORBIDDEN_LINES: &[&str] = &[
     "WARDEN-FAIL",
-    "forced-allow=honored",
     "attack=ALLOW",
     "frame0=DENY",
     "secret=LEAK",
@@ -701,12 +700,14 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
         println!(
             "\ncargo xtask verilator -- warden: PASS (minimal Warden on RTL: \
              scheduled the Endpoint and a framed benign request round-tripped to \
-             ALLOW; a runaway compartment that spun past its slice was preempted \
-             (M regained control, device stayed responsive: post-preempt=ALLOW); \
-             liveness-without-trust held — a wrong-host attack was still DENY_ARG, \
-             a scheduler that wanted an ALLOW could not override M's verdict, the \
-             runaway drove the sink zero times and the secret stayed out of \
-             U-visible memory — all {} lines observed)",
+             ALLOW; a yielding runaway compartment was terminated by cooperative \
+             slice-budget (async/timer preemption of a non-yielding loop is \
+             deferred; this SoC has no usable async timer) and the device stayed \
+             responsive: post-terminate=ALLOW; a wrong-host attack was still \
+             DENY_ARG; no-escalation is structural (by-construction: M decides \
+             and performs/withholds the effect before the scheduler sees a \
+             status), with sink-calls=2 and secret=absent confirming the effect \
+             is unchanged — all {} lines observed)",
             SIM_WARDEN_EXPECTED_LINES.len()
         );
         return Ok(());
