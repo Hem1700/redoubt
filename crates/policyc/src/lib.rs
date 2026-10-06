@@ -317,9 +317,6 @@ impl P {
     fn line(&self) -> usize {
         self.toks.get(self.pos).map(|t| t.1).unwrap_or(self.last_line)
     }
-    fn peek(&self) -> Option<&Tok> {
-        self.toks.get(self.pos).map(|t| &t.0)
-    }
     fn next(&mut self) -> Result<Tok, CompileError> {
         match self.toks.get(self.pos) {
             Some((t, _)) => {
