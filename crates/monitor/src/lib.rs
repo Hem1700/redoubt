@@ -10,7 +10,10 @@ pub mod cap;
 pub mod egress;
 pub mod flow;
 pub mod parse;
+pub mod policy;
 pub mod predicate;
+
+pub use policy::Policy;
 
 use audit::{Audit, Entry};
 use parse::MAX_REQ;
@@ -23,51 +26,6 @@ pub fn check_tool(cap: &cap::Cap, tool_id: u16) -> Result<(), ReasonCode> {
         Ok(())
     } else {
         Err(ReasonCode::DenyTool)
-    }
-}
-
-/// The compiled allow-policy for a tenant. In Phase 1 tests build it by
-/// hand; the manifest -> Policy compiler is Phase 3 (policy.rs). On real
-/// hardware the `secrets` table lives in the machine-only SECRETS region,
-/// loaded once at boot; modeling it as a `Policy` field here is a Phase-1
-/// convenience.
-pub struct Policy<'a> {
-    /// Compiled predicate clauses, indexed by `Cap.pred_ref`.
-    pub preds: &'a [&'a [predicate::Clause]],
-    /// Compiled IFC flow rules, indexed by `Cap.flow_ref`.
-    pub flows: &'a [flow::FlowRule],
-    /// Interned secret bytes, indexed by a `FlowRule.inject` secret_ref.
-    pub secrets: &'a [&'a [u8]],
-    /// Interned predicate constants (allowlists, ranges, ...), shared by
-    /// every clause in `preds`.
-    pub pool: predicate::ConstPool<'a>,
-}
-
-impl<'a> Policy<'a> {
-    /// Resolve a `Cap.pred_ref` to its compiled clause slice. Out-of-range
-    /// => `DenyMalformed` (fail closed): an unresolvable policy reference
-    /// is a policy-construction bug, never treated as "no clauses to
-    /// check".
-    fn clauses(&self, pred_ref: u16) -> Result<&'a [predicate::Clause], ReasonCode> {
-        self.preds
-            .get(pred_ref as usize)
-            .copied()
-            .ok_or(ReasonCode::DenyMalformed)
-    }
-
-    /// Resolve a `Cap.flow_ref` to its compiled `FlowRule`. Out-of-range =>
-    /// `DenyMalformed` (fail closed).
-    fn flow(&self, flow_ref: u16) -> Result<&'a flow::FlowRule, ReasonCode> {
-        self.flows
-            .get(flow_ref as usize)
-            .ok_or(ReasonCode::DenyMalformed)
-    }
-
-    /// Resolve a secret reference to its bytes. `None` if out of range --
-    /// callers treat "no secret configured" and "bad ref" identically: no
-    /// secret is injected.
-    fn secret(&self, sref: u16) -> Option<&'a [u8]> {
-        self.secrets.get(sref as usize).copied()
     }
 }
 
@@ -200,14 +158,37 @@ fn bridge_labels(in_labels: &[u8]) -> Result<([Label; abi::MAX_ARGS], usize), Re
 /// for the single audit append regardless of what this returns.
 fn run_stages(
     req: abi::RequestView<'_>,
-    sessions: &cap::Sessions,
+    sessions: &mut cap::Sessions,
     policy: &Policy,
     sink: &mut dyn egress::EgressSink,
 ) -> Result<ResponseView, ReasonCode> {
     // Stage 2: do you hold this permission? Session lookup, then handle
     // resolve -- `cap::resolve` itself enforces revocation (epoch compare).
+    // The session must be Active (the ONLY state that accepts MEDIATE). A
+    // live non-Active session denies: Created/Provisioned -> DenyNoCap
+    // (powers not yet in force), Draining -> DenyQuota (no new work),
+    // Destroyed -> DenyRevoked.
     let session = sessions.get(req.session_id)?;
-    let cap = cap::resolve(session, req.cap_handle)?;
+    match session.state {
+        cap::SessionState::Active => {}
+        cap::SessionState::Created | cap::SessionState::Provisioned => {
+            return Err(ReasonCode::DenyNoCap)
+        }
+        cap::SessionState::Draining => return Err(ReasonCode::DenyQuota),
+        cap::SessionState::Destroyed => return Err(ReasonCode::DenyRevoked),
+    }
+    // Request quota: debit 1 per request that reaches mediation. Out of
+    // budget -> DenyQuota and Active -> Draining.
+    if session.quotas.requests_left == 0 {
+        sessions.get_mut(req.session_id)?.state = cap::SessionState::Draining;
+        return Err(ReasonCode::DenyQuota);
+    }
+    let sess = sessions.get_mut(req.session_id)?;
+    sess.quotas.requests_left -= 1;
+    // `cap` is a Copy: the borrow of the session ends here, so the egress
+    // debit below can mutate it.
+    let cap = *cap::resolve(sess, req.cap_handle)?;
+    let cap = &cap;
 
     // Stage 3: is this ticket for this tool?
     check_tool(cap, req.tool_id)?;
@@ -228,6 +209,21 @@ fn run_stages(
     // Stage 6: carry it out. Inject the secret the agent never saw; the
     // egress stage stamps the result with `out_label`.
     let secret = flow_rule.inject.and_then(|sref| policy.secret(sref));
+    // Egress quota: the deterministic outbound size (host + path + injected
+    // secret) is checked and debited BEFORE the effect is performed, so the
+    // debit cannot be bypassed. Over budget -> DenyQuota, Active -> Draining,
+    // and the sink is never called.
+    let cost = args
+        .url_parts()
+        .map_or(0, |u| u.host.len() + u.path.len())
+        .saturating_add(secret.map_or(0, |s| s.len()));
+    let cost = u32::try_from(cost).unwrap_or(u32::MAX);
+    let sess = sessions.get_mut(req.session_id)?;
+    if cost > sess.quotas.egress_bytes_left {
+        sess.state = cap::SessionState::Draining;
+        return Err(ReasonCode::DenyQuota);
+    }
+    sess.quotas.egress_bytes_left -= cost;
     let resp = sink.perform(cap, &args, secret)?;
 
     Ok(ResponseView::from_sink(&resp, out_label))
@@ -265,7 +261,7 @@ pub fn mediate(
     ptr: usize,
     len: usize,
     region: Range<usize>,
-    sessions: &cap::Sessions,
+    sessions: &mut cap::Sessions,
     policy: &Policy,
     sink: &mut dyn egress::EgressSink,
     audit: &mut Audit,
@@ -367,7 +363,14 @@ mod tests {
     fn policy_fixture() -> Policy<'static> {
         let pool =
             predicate::ConstPool::new().with(POOL_API_HOSTS, predicate::PoolEntry::StrSet(API_HOSTS));
-        Policy { preds: &PRED_SETS, flows: &FLOWS_PUBLIC_DENY_SECRET, secrets: &SECRETS, pool }
+        Policy {
+            preds: &PRED_SETS,
+            flows: &FLOWS_PUBLIC_DENY_SECRET,
+            secrets: &SECRETS,
+            pool,
+            caps: &[],
+            quotas: cap::Quotas::UNLIMITED,
+        }
     }
 
     fn cap_net_ok() -> cap::Cap {
@@ -400,7 +403,7 @@ mod tests {
         };
         let mut cspace = [empty; cap::CSPACE_LEN];
         cspace[handle] = cap;
-        cap::Session { epoch: 1, cspace }
+        cap::Session::active(1, cspace)
     }
 
     fn sessions_with(session_id: u16, session: cap::Session) -> cap::Sessions {
@@ -530,7 +533,7 @@ mod tests {
     #[test]
     fn demo_benign_allows_and_injects() {
         let policy = policy_fixture();
-        let sessions = sessions_with(1, session_with_cap(cap_net_ok(), 3));
+        let mut sessions = sessions_with(1, session_with_cap(cap_net_ok(), 3));
         let mut sink = RecordingSink::new();
         let mut audit = Audit::default();
 
@@ -545,7 +548,7 @@ mod tests {
         });
         let (shared, region, ptr, len) = shared_with(&req_bytes);
 
-        let (rc, resp) = mediate(&shared, ptr, len, region, &sessions, &policy, &mut sink, &mut audit);
+        let (rc, resp) = mediate(&shared, ptr, len, region, &mut sessions, &policy, &mut sink, &mut audit);
 
         assert_eq!(rc, ReasonCode::Allow);
         assert!(sink.last_outbound_has_auth_header()); // secret injected outbound
@@ -555,7 +558,7 @@ mod tests {
     #[test]
     fn demo_attack_wrong_host_denies_arg() {
         let policy = policy_fixture();
-        let sessions = sessions_with(1, session_with_cap(cap_net_ok(), 3));
+        let mut sessions = sessions_with(1, session_with_cap(cap_net_ok(), 3));
         let mut sink = RecordingSink::new();
         let mut audit = Audit::default();
 
@@ -572,7 +575,7 @@ mod tests {
         });
         let (shared, region, ptr, len) = shared_with(&req_bytes);
 
-        let (rc, resp) = mediate(&shared, ptr, len, region, &sessions, &policy, &mut sink, &mut audit);
+        let (rc, resp) = mediate(&shared, ptr, len, region, &mut sessions, &policy, &mut sink, &mut audit);
 
         assert_eq!(rc, ReasonCode::DenyArg);
         assert!(!sink.was_called());
@@ -582,7 +585,7 @@ mod tests {
     #[test]
     fn demo_flow_secret_in_body_denies_flow() {
         let policy = policy_fixture();
-        let sessions = sessions_with(1, session_with_cap(cap_net_ok(), 3));
+        let mut sessions = sessions_with(1, session_with_cap(cap_net_ok(), 3));
         let mut sink = RecordingSink::new();
         let mut audit = Audit::default();
 
@@ -600,7 +603,7 @@ mod tests {
         });
         let (shared, region, ptr, len) = shared_with(&req_bytes);
 
-        let (rc, resp) = mediate(&shared, ptr, len, region, &sessions, &policy, &mut sink, &mut audit);
+        let (rc, resp) = mediate(&shared, ptr, len, region, &mut sessions, &policy, &mut sink, &mut audit);
 
         assert_eq!(rc, ReasonCode::DenyFlow);
         assert!(!sink.was_called());
@@ -629,7 +632,7 @@ mod tests {
         });
         let (shared, region, ptr, len) = shared_with(&req_bytes);
 
-        let (rc, resp) = mediate(&shared, ptr, len, region, &sessions, &policy, &mut sink, &mut audit);
+        let (rc, resp) = mediate(&shared, ptr, len, region, &mut sessions, &policy, &mut sink, &mut audit);
 
         assert_eq!(rc, ReasonCode::DenyRevoked);
         assert!(!sink.was_called());
@@ -641,7 +644,7 @@ mod tests {
     #[test]
     fn every_verdict_is_audited_including_malformed() {
         let policy = policy_fixture();
-        let sessions = sessions_with(1, session_with_cap(cap_net_ok(), 3));
+        let mut sessions = sessions_with(1, session_with_cap(cap_net_ok(), 3));
         let mut sink = RecordingSink::new();
         let mut audit = Audit::default();
         let h0 = audit.head();
@@ -657,7 +660,7 @@ mod tests {
             labels: &[],
         });
         let (shared, region, ptr, len) = shared_with(&req_bytes);
-        let (rc, _resp) = mediate(&shared, ptr, len, region, &sessions, &policy, &mut sink, &mut audit);
+        let (rc, _resp) = mediate(&shared, ptr, len, region, &mut sessions, &policy, &mut sink, &mut audit);
         assert_eq!(rc, ReasonCode::Allow);
         let h1 = audit.head();
         assert_ne!(h0, h1);
@@ -674,7 +677,7 @@ mod tests {
         });
         let (shared2, region2, ptr2, len2) = shared_with(&req_bytes2);
         let (rc2, _resp2) =
-            mediate(&shared2, ptr2, len2, region2, &sessions, &policy, &mut sink, &mut audit);
+            mediate(&shared2, ptr2, len2, region2, &mut sessions, &policy, &mut sink, &mut audit);
         assert_eq!(rc2, ReasonCode::DenyArg);
         let h2 = audit.head();
         assert_ne!(h1, h2);
@@ -683,7 +686,7 @@ mod tests {
         // reaches parse::parse_into's copy step. Still appends and
         // advances the head.
         let (rc3, resp3) =
-            mediate(&shared, usize::MAX - 4, 16, 0usize..MAX_REQ, &sessions, &policy, &mut sink, &mut audit);
+            mediate(&shared, usize::MAX - 4, 16, 0usize..MAX_REQ, &mut sessions, &policy, &mut sink, &mut audit);
         assert_eq!(rc3, ReasonCode::DenyMalformed);
         assert!(resp3.bytes().is_empty());
         let h3 = audit.head();
@@ -693,7 +696,7 @@ mod tests {
     #[test]
     fn deny_tool_stage3_sink_not_called() {
         let policy = policy_fixture();
-        let sessions = sessions_with(1, session_with_cap(cap_net_ok(), 3)); // cap.tool_id == TOOL_ID
+        let mut sessions = sessions_with(1, session_with_cap(cap_net_ok(), 3)); // cap.tool_id == TOOL_ID
         let mut sink = RecordingSink::new();
         let mut audit = Audit::default();
 
@@ -708,7 +711,7 @@ mod tests {
         });
         let (shared, region, ptr, len) = shared_with(&req_bytes);
 
-        let (rc, resp) = mediate(&shared, ptr, len, region, &sessions, &policy, &mut sink, &mut audit);
+        let (rc, resp) = mediate(&shared, ptr, len, region, &mut sessions, &policy, &mut sink, &mut audit);
 
         assert_eq!(rc, ReasonCode::DenyTool);
         assert!(!sink.was_called());
@@ -718,7 +721,7 @@ mod tests {
     #[test]
     fn sink_error_maps_to_err_egress() {
         let policy = policy_fixture();
-        let sessions = sessions_with(1, session_with_cap(cap_net_ok(), 3));
+        let mut sessions = sessions_with(1, session_with_cap(cap_net_ok(), 3));
         let mut sink = RecordingSink::failing(ReasonCode::ErrEgress);
         let mut audit = Audit::default();
 
@@ -733,10 +736,178 @@ mod tests {
         });
         let (shared, region, ptr, len) = shared_with(&req_bytes);
 
-        let (rc, resp) = mediate(&shared, ptr, len, region, &sessions, &policy, &mut sink, &mut audit);
+        let (rc, resp) = mediate(&shared, ptr, len, region, &mut sessions, &policy, &mut sink, &mut audit);
 
         assert_eq!(rc, ReasonCode::ErrEgress);
         assert!(sink.was_called());
         assert!(resp.bytes().is_empty());
+    }
+
+    // -- W4: session lifecycle + quotas ------------------------------------
+
+    use cap::{session_close, session_open, session_revoke, Quotas, SessionState};
+
+    static OPEN_CAPS: [cap::Cap; 1] = [cap::Cap {
+        ctype: cap::CapType::Net as u8,
+        rights: 0,
+        tool_id: TOOL_ID,
+        pred_ref: 0,
+        flow_ref: 0,
+        secret_ref: 0,
+        aux: 0,
+        epoch: 0, // stamped by session_open
+        _pad: 0,
+    }];
+
+    fn open_policy(q: Quotas) -> Policy<'static> {
+        let mut p = policy_fixture();
+        p.caps = &OPEN_CAPS;
+        p.quotas = q;
+        p
+    }
+
+    // Bytes one benign request costs: host + path + injected secret.
+    const BENIGN_COST: u32 = (15 + 2 + SECRET.len()) as u32;
+
+    fn call(sessions: &mut cap::Sessions, id: u16, handle: u16, policy: &Policy) -> ReasonCode {
+        let url_val = encode_url_value(1, b"api.example.com", 443, b"/x");
+        let req_bytes = build_request(&ReqSpec {
+            session: id,
+            req_id: 1,
+            cap: handle,
+            tool: TOOL_ID,
+            args: &[(0x01, &url_val)],
+            labels: &[],
+        });
+        let (shared, region, ptr, len) = shared_with(&req_bytes);
+        let mut sink = RecordingSink::new();
+        let mut audit = Audit::default();
+        mediate(&shared, ptr, len, region, sessions, policy, &mut sink, &mut audit).0
+    }
+
+    fn state(s: &cap::Sessions, id: u16) -> SessionState {
+        s.get(id).unwrap().state
+    }
+
+    #[test]
+    fn open_provisions_caps_and_benign_allows() {
+        let policy = open_policy(Quotas::UNLIMITED);
+        let mut ss = cap::Sessions::default();
+        let id = session_open(&mut ss, &policy).unwrap();
+        assert_eq!(state(&ss, id), SessionState::Active);
+        let sess = ss.get(id).unwrap();
+        assert_eq!(cap::resolve(sess, 0).unwrap().epoch, sess.epoch);
+        assert_eq!(call(&mut ss, id, 0, &policy), ReasonCode::Allow);
+    }
+
+    #[test]
+    fn mediate_denies_on_non_active_states() {
+        let policy = open_policy(Quotas::UNLIMITED);
+        for (st, want) in [
+            (SessionState::Created, ReasonCode::DenyNoCap),
+            (SessionState::Provisioned, ReasonCode::DenyNoCap),
+            (SessionState::Draining, ReasonCode::DenyQuota),
+            (SessionState::Destroyed, ReasonCode::DenyRevoked),
+        ] {
+            let mut ss = cap::Sessions::default();
+            let id = session_open(&mut ss, &policy).unwrap();
+            ss.get_mut(id).unwrap().state = st;
+            assert_eq!(call(&mut ss, id, 0, &policy), want, "{st:?}");
+        }
+    }
+
+    #[test]
+    fn transitions_in_order_close_and_revoke() {
+        let policy = open_policy(Quotas::UNLIMITED);
+        let mut ss = cap::Sessions::default();
+        let id = session_open(&mut ss, &policy).unwrap();
+        assert_eq!(state(&ss, id), SessionState::Active);
+        session_close(&mut ss, id);
+        assert_eq!(state(&ss, id), SessionState::Destroyed);
+        // Closed: no new work.
+        assert_ne!(call(&mut ss, id, 0, &policy), ReasonCode::Allow);
+        // Revoke shortcut: Active -> Destroyed, every old handle stale.
+        let id2 = session_open(&mut ss, &policy).unwrap();
+        session_revoke(&mut ss, id2);
+        assert_eq!(state(&ss, id2), SessionState::Destroyed);
+        assert_eq!(cap::resolve(ss.get(id2).unwrap(), 0).unwrap_err(), ReasonCode::DenyRevoked);
+        assert_eq!(call(&mut ss, id2, 0, &policy), ReasonCode::DenyRevoked);
+    }
+
+    #[test]
+    fn reused_slot_gets_fresh_epoch() {
+        let policy = open_policy(Quotas::UNLIMITED);
+        let mut ss = cap::Sessions::default();
+        // Fill the table so the freed slot is the only one available.
+        let mut ids = [0u16; cap::MAX_SESSIONS];
+        for id in ids.iter_mut() {
+            *id = session_open(&mut ss, &policy).unwrap();
+        }
+        assert_eq!(session_open(&mut ss, &policy).unwrap_err(), ReasonCode::DenyQuota);
+        let old_epoch = ss.get(ids[3]).unwrap().epoch;
+        session_revoke(&mut ss, ids[3]);
+        let again = session_open(&mut ss, &policy).unwrap();
+        assert_eq!(again, ids[3]);
+        assert_ne!(ss.get(again).unwrap().epoch, old_epoch);
+        // A handle minted at the old epoch never resolves.
+        let mut stale = OPEN_CAPS[0];
+        stale.epoch = old_epoch;
+        ss.get_mut(again).unwrap().cspace[5] = stale;
+        assert_eq!(cap::resolve(ss.get(again).unwrap(), 5).unwrap_err(), ReasonCode::DenyRevoked);
+        assert_eq!(call(&mut ss, again, 0, &policy), ReasonCode::Allow);
+    }
+
+    #[test]
+    fn request_quota_crossing_denies_and_drains() {
+        let q = Quotas { requests_left: 2, ..Quotas::UNLIMITED };
+        let policy = open_policy(q);
+        let mut ss = cap::Sessions::default();
+        let id = session_open(&mut ss, &policy).unwrap();
+        assert_eq!(call(&mut ss, id, 0, &policy), ReasonCode::Allow);
+        assert_eq!(call(&mut ss, id, 0, &policy), ReasonCode::Allow);
+        assert_eq!(state(&ss, id), SessionState::Active); // in-flight finished
+        assert_eq!(call(&mut ss, id, 0, &policy), ReasonCode::DenyQuota);
+        assert_eq!(state(&ss, id), SessionState::Draining);
+        assert_eq!(call(&mut ss, id, 0, &policy), ReasonCode::DenyQuota); // refused
+    }
+
+    #[test]
+    fn egress_quota_crossing_denies_without_performing() {
+        let q = Quotas { egress_bytes_left: BENIGN_COST + BENIGN_COST / 2, ..Quotas::UNLIMITED };
+        let policy = open_policy(q);
+        let mut ss = cap::Sessions::default();
+        let id = session_open(&mut ss, &policy).unwrap();
+        assert_eq!(call(&mut ss, id, 0, &policy), ReasonCode::Allow);
+        assert_eq!(ss.get(id).unwrap().quotas.egress_bytes_left, BENIGN_COST / 2);
+        // Second request would cross the ceiling: sink never called.
+        let url_val = encode_url_value(1, b"api.example.com", 443, b"/x");
+        let rb = build_request(&ReqSpec {
+            session: id,
+            req_id: 2,
+            cap: 0,
+            tool: TOOL_ID,
+            args: &[(0x01, &url_val)],
+            labels: &[],
+        });
+        let (shared, region, ptr, len) = shared_with(&rb);
+        let mut sink = RecordingSink::new();
+        let mut audit = Audit::default();
+        let (rc, _) = mediate(&shared, ptr, len, region, &mut ss, &policy, &mut sink, &mut audit);
+        assert_eq!(rc, ReasonCode::DenyQuota);
+        assert!(!sink.was_called());
+        assert_eq!(state(&ss, id), SessionState::Draining);
+        assert_eq!(call(&mut ss, id, 0, &policy), ReasonCode::DenyQuota);
+    }
+
+    #[test]
+    fn denied_effect_does_not_debit_egress_but_performed_does() {
+        let q = Quotas { egress_bytes_left: 1000, ..Quotas::UNLIMITED };
+        let policy = open_policy(q);
+        let mut ss = cap::Sessions::default();
+        let id = session_open(&mut ss, &policy).unwrap();
+        assert_eq!(call(&mut ss, id, 7, &policy), ReasonCode::DenyNoCap); // empty handle
+        assert_eq!(ss.get(id).unwrap().quotas.egress_bytes_left, 1000);
+        assert_eq!(call(&mut ss, id, 0, &policy), ReasonCode::Allow);
+        assert_eq!(ss.get(id).unwrap().quotas.egress_bytes_left, 1000 - BENIGN_COST);
     }
 }

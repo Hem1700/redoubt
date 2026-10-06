@@ -33,7 +33,7 @@ static SECRETS: [&[u8]; 1] = [SECRET];
 
 pub fn build_policy() -> Policy<'static> {
     let pool = ConstPool::new().with(0, PoolEntry::StrSet(&API_HOSTS));
-    Policy { preds: &PRED_SETS, flows: &FLOWS, secrets: &SECRETS, pool }
+    Policy { preds: &PRED_SETS, flows: &FLOWS, secrets: &SECRETS, pool, caps: &[], quotas: cap::Quotas::UNLIMITED }
 }
 
 pub fn build_sessions() -> Sessions {
@@ -62,7 +62,7 @@ pub fn build_sessions() -> Sessions {
         _pad: 0,
     };
     let mut sessions = Sessions::default();
-    let _ = sessions.install(1, Session { epoch: 1, cspace });
+    let _ = sessions.install(1, Session::active(1, cspace));
     sessions
 }
 

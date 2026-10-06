@@ -108,6 +108,18 @@ device, so that a tampered or downgraded system can be detected remotely.</dd>
 </dl>
 </div>
 
+<div class="note">
+<span class="lbl">Implementation status (v1, 2026).</span>
+<p style="text-align:justify">Two limits of the first FPGA realization belong on this page honestly,
+alongside the assurance argument. First, the core we build on implements machine and user mode only, so
+v1 runs a two-tier subset of the privilege model, with the Monitor in M and the Warden and compartments
+in U; the three-tier design holds as the target. Second, on that core uncached device access bypasses
+PMP, so the egress region is contained by Monitor mediation rather than by a hardware memory wall.
+Closing the second gap is the roadmap item below: a bus-level firewall, RISC-V IOPMP or the hardware
+mediation gate. Both facts are drawn out in section 3.9 and recorded next to the simulator in
+<code>sim/README</code>.</p>
+</div>
+
 <h2><span class="n">13.1</span>What must be trusted, and how small it is</h2>
 <p>Every security architecture has a set of things that simply must be correct. Call it the trusted
 computing base. The honest way to describe a system is to name that set precisely and then make it as

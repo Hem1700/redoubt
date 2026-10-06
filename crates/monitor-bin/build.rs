@@ -45,6 +45,7 @@ fn main() {
     // as compilation inputs), so a script-only edit would otherwise reuse a stale
     // link. Watch them here to force a relink when their layout changes.
     println!("cargo:rerun-if-changed=link-sim.ld");
+    println!("cargo:rerun-if-changed=link-sim-endpoint.ld");
     println!("cargo:rerun-if-changed=link-qemu.ld");
 
     let json = fs::read_to_string(&map_path)
@@ -90,6 +91,7 @@ fn main() {
         "WARDEN",
         "SHARED_REQ",
         "COMPT_0",
+        "SERIAL_IN",
     ] {
         let (base, size) = region(&json, name)
             .unwrap_or_else(|| panic!("region {name} not found in memory_map.json"));

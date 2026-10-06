@@ -68,6 +68,11 @@ MEMORY_MAP = [
     ("WARDEN",      0x2000_0000,  0x0010_0000, "rwx", "rwx", "---",   "ram"),
     ("SHARED_REQ",  0x4000_0000,  0x0000_1000, "rw-", "---", "rw-",   "ram"),
     ("COMPT_0",     0x3000_0000,  0x0010_0000, "---", "---", "rw-",   "sdram"),
+    # Phase-3 W2: the mock serial-in buffer the Endpoint compartment pulls framed
+    # bytes from. RAM-backed (MMIO bypasses PMP on this core), U read-only; the
+    # monitor-side harness seeds [len:u32 LE][stream...] before dropping to U.
+    # 4 KiB at a 16 KiB-aligned base (this core's NAPOT needs base aligned to 4x size).
+    ("SERIAL_IN",   0x4000_4000,  0x0000_1000, "rw-", "---", "r--",   "ram"),
 ]
 
 # The compartment window (COMPT_0) is backed by external SDRAM at this base in
@@ -227,7 +232,7 @@ class RedoubtSimSoC(SoCCore):
                      contents=image_words or [], mode="rwx")
 
         # Other backed regions (declared live for V2/V4; small block RAMs).
-        for name in ("SECRETS", "WARDEN", "SHARED_REQ"):
+        for name in ("SECRETS", "WARDEN", "SHARED_REQ", "SERIAL_IN"):
             r = self.region(name)
             self.add_ram(_slave(name), origin=r["base"], size=r["size"], mode="rwx")
 

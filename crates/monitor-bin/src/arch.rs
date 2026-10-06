@@ -395,7 +395,7 @@ fn dispatch_mediate(ptr: usize, len: usize) -> (u8, usize) {
     // audit / session table. Non-reentrant + interrupts masked => not aliased.
     let shared: &[u8] = unsafe { &*addr_of!(SHARED_REQ) };
 
-    let sessions = match unsafe { (*addr_of!(SESSIONS)).as_ref() } {
+    let sessions = match unsafe { (*addr_of_mut!(SESSIONS)).as_mut() } {
         Some(s) => s,
         None => return (ReasonCode::ErrInternal as u8, 0),
     };

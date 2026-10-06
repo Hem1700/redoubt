@@ -1,9 +1,9 @@
 [package]
-name = "host-sdk"
+name = "policyc"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
-wire = { path = "../wire" }
 abi = { path = "../abi" }
+monitor = { path = "../monitor" }

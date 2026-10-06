@@ -33,10 +33,66 @@ pub struct Cap {
 /// A session holds an epoch and a capability space of 32 slots.
 pub const CSPACE_LEN: usize = 32;
 
+/// Session lifecycle (Ch 11 §11.8). Fixed order
+/// `Created -> Provisioned -> Active -> Draining -> Destroyed`, plus the
+/// revocation shortcut Active -> Destroyed. MEDIATE is accepted ONLY in
+/// `Active`.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum SessionState {
+    Created,
+    Provisioned,
+    Active,
+    Draining,
+    Destroyed,
+}
+
+/// Per-session quota budget. Only the two DETERMINISTIC quotas are enforced
+/// on the decision path (`requests_left`, `egress_bytes_left`).
+/// `seconds` is carried from the policy but NOT enforced here: it needs a
+/// clock, and the decision path stays clock-free. Its enforcement is deferred
+/// to the Warden/timer, which calls `session_revoke`/`session_close`.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct Quotas {
+    pub requests_left: u32,
+    pub egress_bytes_left: u32,
+    /// Carried, unenforced on the decision path (see above).
+    pub seconds: u32,
+}
+
+impl Quotas {
+    /// No ceiling (used by hand-built fixture sessions).
+    pub const UNLIMITED: Quotas =
+        Quotas { requests_left: u32::MAX, egress_bytes_left: u32::MAX, seconds: u32::MAX };
+    /// Everything exhausted (a Destroyed session).
+    pub const ZERO: Quotas = Quotas { requests_left: 0, egress_bytes_left: 0, seconds: 0 };
+}
+
+const EMPTY_CAP: Cap = Cap {
+    ctype: CapType::Empty as u8,
+    rights: 0,
+    tool_id: 0,
+    pred_ref: 0,
+    flow_ref: 0,
+    secret_ref: 0,
+    aux: 0,
+    epoch: 0,
+    _pad: 0,
+};
+
 #[derive(Copy, Clone, Debug)]
 pub struct Session {
     pub epoch: u16,
     pub cspace: [Cap; CSPACE_LEN],
+    pub state: SessionState,
+    pub quotas: Quotas,
+}
+
+impl Session {
+    /// A ready-to-run session (state `Active`, no quota ceiling) over a
+    /// pre-built cspace: the hand-built fixture path.
+    pub const fn active(epoch: u16, cspace: [Cap; CSPACE_LEN]) -> Session {
+        Session { epoch, cspace, state: SessionState::Active, quotas: Quotas::UNLIMITED }
+    }
 }
 
 /// Resolve a capability handle within a session.
@@ -148,12 +204,92 @@ impl Sessions {
     }
 }
 
+/// Allocate a free slot, install the policy's caps stamped with the slot's
+/// fresh epoch, set quotas, and go Active. States pass
+/// Created -> Provisioned -> Active; the table is only written at the end,
+/// so any error leaves it untouched. A slot is free if empty or Destroyed; a
+/// reused slot gets epoch = previous + 1 and a wiped cspace, so no old
+/// handle can resolve. `DenyQuota` if no slot is free; `DenyMalformed` if
+/// the policy holds more caps than the cspace.
+pub fn session_open(s: &mut Sessions, policy: &crate::Policy) -> Result<u16, ReasonCode> {
+    if policy.caps.len() > CSPACE_LEN {
+        return Err(ReasonCode::DenyMalformed);
+    }
+    let mut free = None;
+    for (i, slot) in s.tbl.iter().enumerate() {
+        match slot {
+            None => {
+                free = Some((i, 1u16));
+                break;
+            }
+            Some(old) if old.state == SessionState::Destroyed => {
+                free = Some((i, old.epoch.wrapping_add(1)));
+                break;
+            }
+            Some(_) => {}
+        }
+    }
+    let (idx, epoch) = free.ok_or(ReasonCode::DenyQuota)?;
+
+    // Created: allocated + zeroed.
+    let mut sess = Session {
+        epoch,
+        cspace: [EMPTY_CAP; CSPACE_LEN],
+        state: SessionState::Created,
+        quotas: Quotas::ZERO,
+    };
+    // Provisioned: caps stamped with this epoch; quotas from the policy.
+    for (dst, src) in sess.cspace.iter_mut().zip(policy.caps.iter()) {
+        *dst = *src;
+        dst.epoch = epoch;
+    }
+    sess.quotas = policy.quotas;
+    sess.state = SessionState::Provisioned;
+    // Active.
+    sess.state = SessionState::Active;
+    s.tbl[idx] = Some(sess);
+    Ok(idx as u16)
+}
+
+/// Revoke: bump the epoch (stales every handle at once) and go Destroyed, O(1).
+/// The stale cspace is left in place so old handles resolve `DenyRevoked`.
+/// No-op for an unknown or already-Destroyed session.
+pub fn session_revoke(s: &mut Sessions, id: u16) {
+    let live = matches!(s.get(id), Ok(x) if x.state != SessionState::Destroyed);
+    if !live {
+        return;
+    }
+    s.revoke(id);
+    if let Ok(x) = s.get_mut(id) {
+        x.state = SessionState::Destroyed;
+        x.quotas = Quotas::ZERO;
+    }
+}
+
+/// Close: Active -> Draining -> Destroyed. The monitor runs each request to
+/// completion, so nothing is in flight at this call; Draining is passed
+/// through, then the epoch is bumped, the cspace wiped and quotas cleared.
+/// No-op for an unknown or already-Destroyed session.
+pub fn session_close(s: &mut Sessions, id: u16) {
+    let Ok(x) = s.get_mut(id) else { return };
+    if x.state == SessionState::Destroyed {
+        return;
+    }
+    x.state = SessionState::Draining;
+    x.epoch = x.epoch.wrapping_add(1);
+    x.cspace = [EMPTY_CAP; CSPACE_LEN];
+    x.quotas = Quotas::ZERO;
+    x.state = SessionState::Destroyed;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn make_session() -> Session {
         let mut s = Session {
+            state: SessionState::Active,
+            quotas: Quotas::UNLIMITED,
             epoch: 1,
             cspace: [Cap {
                 ctype: CapType::Empty as u8,
