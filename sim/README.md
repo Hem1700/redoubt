@@ -144,3 +144,33 @@ Canonical, defined once in `redoubt_soc.py` and emitted to `memory_map.json`:
 
 Reset vector for V1 is **MON_CODE** (`0x1000_0000`); the measured-boot BROM at
 `0x0` arrives in V3.
+
+## ULX3S (ECP5) synthesis — `cargo xtask synth` (Phase 4 F1)
+
+`sim/redoubt_ulx3s.py` re-targets the SAME SoC (VexRiscv `secure`, the 8-region
+map, EGRESS_MMIO CSR window — all imported from `redoubt_soc.py`) to the
+ULX3S: real UART, 25 MHz osc -> PLL (`sys_clk` 50 MHz), LiteDRAM (SDR SDRAM) as
+COMPT_0 backing at `0x8000_0000`. No board needed to synthesise.
+
+Extra setup beyond the sim toolchain:
+
+```
+# litex-boards (PyPI only has 2023.12; the 2024.12 tag matches litex 2024.12).
+# Clone natively (the x86_64 venv's git shim is broken) and install from the dir:
+git clone --depth 1 --branch 2024.12 https://github.com/litex-hub/litex-boards /tmp/lb
+sim/.venv/bin/pip install --no-deps /tmp/lb
+```
+
+The ECP5 tools (`yosys`, `nextpnr-ecp5`, `ecppack`, prjtrellis data) come from
+the same `sim/oss-cad-suite`. Then:
+
+```
+cargo xtask synth                    # LFE5U-85F (default)
+cargo xtask synth -- --device 45F    # does it fit the cheaper 45F?
+```
+
+It builds the monitor (`crates/monitor-bin/link-fpga.ld`, `sim` feature) and
+BROM, elaborates the SoC, runs yosys + nextpnr-ecp5 + ecppack (20-40+ min),
+writes `sim/build-ulx3s-<85F|45F>/{synth.log,report.txt,gateware/*.bit}`
+(gitignored), prints utilisation + Fmax-vs-target, and FAILS if any clock
+misses its target (LiteX passes `--timing-allow-fail`; the gate is the xtask).

@@ -10,6 +10,9 @@ sim/.venv
 sim/oss-cad-suite
 sim/simdeps
 sim/build
+# Phase 4 F1: ULX3S synthesis outputs (bitstream, yosys/nextpnr logs, gateware).
+sim/build-ulx3s*
+target/fpga*
 
 # Generated per-image measurements (BLAKE2s of MON_CODE) baked into the BROM by
 # `cargo xtask verilator -- measure`; regenerated on every run.

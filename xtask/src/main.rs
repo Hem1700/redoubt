@@ -5,10 +5,16 @@ use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+mod synth;
+
 fn main() -> anyhow::Result<()> {
     let mut args = std::env::args().skip(1);
     match args.next().as_deref() {
         Some("loc-gate") => loc_gate(),
+        Some("synth") => {
+            let rest: Vec<String> = args.filter(|a| a != "--").collect();
+            synth::synth(&rest)
+        }
         Some("qemu") => {
             // `cargo xtask qemu -- mediate` reaches us as ["qemu", "--",
             // "mediate"] (the alias contributes one `--`). Drop any `--`
@@ -27,7 +33,7 @@ fn main() -> anyhow::Result<()> {
         }
         Some(other) => anyhow::bail!("unknown xtask command: {other}"),
         None => anyhow::bail!(
-            "usage: cargo xtask <loc-gate|qemu [-- mediate]|verilator -- <boot|pmp|measure|mediate|endpoint|warden>>"
+            "usage: cargo xtask <loc-gate|synth [-- --device 85F|45F]|qemu [-- mediate]|verilator -- <boot|pmp|measure|mediate|endpoint|warden>>"
         ),
     }
 }
