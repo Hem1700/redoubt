@@ -41,7 +41,7 @@ fn main() -> anyhow::Result<()> {
         }
         Some(other) => anyhow::bail!("unknown xtask command: {other}"),
         None => anyhow::bail!(
-            "usage: cargo xtask <loc-gate|kani [-- --harness NAME]|synth [-- --device 85F|45F]|qemu [-- mediate]|verilator -- <boot|pmp|measure|mediate|endpoint|warden|egress-gate>>"
+            "usage: cargo xtask <loc-gate|kani [-- --harness NAME]|synth [-- --device 85F|45F]|qemu [-- mediate]|verilator -- <boot|pmp|measure|mediate|endpoint|warden|egress-gate|egress-gate-negctl>>"
         ),
     }
 }
@@ -413,6 +413,8 @@ const VERILATOR_RUN_TIMEOUT: Duration = Duration::from_secs(90);
 /// EGRESS_MMIO (0xf000_0000) is intentionally absent: it is uncached IO and
 /// this VexRiscv-secure core bypasses PMP for uncached accesses, so it is not
 /// PMP-deniable (egress is monitor-mediated instead). See the V2 report.
+/// (Phase-5 H1: the CPU D-bus path into it is now blocked for U by the RTL
+/// EgressGate; see `EGRESS_GATE_EXPECTED_LINES` / the `egress-gate` scenario.)
 const PMP_EXPECTED_LINES: &[&str] = &[
     "PMP-LOCK=OK",
     "PMP-IMMUTABLE=OK",
@@ -542,6 +544,7 @@ const EGRESS_GATE_FORBIDDEN_LINES: &[&str] = &[
     "EGRESS-M=BAD",
     "PMP-FAIL",
     "M-FAULT",
+    "mcause=7", // pins drop-not-fault store semantics: a U store must never trap
     "~", // U's byte pushed through the UART data register must never appear
 ];
 
@@ -556,18 +559,19 @@ const SIM_MEDIATE_FORBIDDEN_LINES: &[&str] = &[
 ];
 
 fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
+    let negctl = scenario == Some("egress-gate-negctl");
     let (pmp, mediate, endpoint, warden, egress) = match scenario {
         Some("boot") => (false, false, false, false, false),
         Some("pmp") => (true, false, false, false, false),
         Some("mediate") => (false, true, false, false, false),
         Some("endpoint") => (false, false, true, false, false),
         Some("warden") => (false, false, false, true, false),
-        Some("egress-gate") => (false, false, false, false, true),
+        Some("egress-gate") | Some("egress-gate-negctl") => (false, false, false, false, true),
         None => anyhow::bail!(
-            "usage: cargo xtask verilator -- <boot|pmp|measure|mediate|endpoint|warden|egress-gate>"
+            "usage: cargo xtask verilator -- <boot|pmp|measure|mediate|endpoint|warden|egress-gate|egress-gate-negctl>"
         ),
         Some(other) => anyhow::bail!(
-            "unknown verilator scenario: {other} (expected `boot`, `pmp`, `measure`, `mediate`, `endpoint`, `warden` or `egress-gate`)"
+            "unknown verilator scenario: {other} (expected `boot`, `pmp`, `measure`, `mediate`, `endpoint`, `warden`, `egress-gate` or `egress-gate-negctl`)"
         ),
     };
 
@@ -626,6 +630,8 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
             "--image", sim_elf.to_str().unwrap(),
             "--output-dir", p.build_dir().to_str().unwrap(),
         ])
+        // Negative control: build the SoC with the egress gate bypassed.
+        .args(if negctl { &["--egress-gate-off"][..] } else { &[][..] })
         .status()
         .context("failed to run redoubt_soc.py (LiteX generate)")?;
     anyhow::ensure!(gen.success(), "redoubt_soc.py generate failed");
@@ -708,7 +714,7 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
             .map(|s| s.contains(done_marker) || (mediate && s.contains("MEDIATE-FAIL"))
                     || (endpoint && s.contains("ENDPOINT-FAIL"))
                     || (warden && s.contains("WARDEN-FAIL"))
-                    || (egress && s.contains("EGRESS-GATE-FAIL")))
+                    || (egress && !negctl && s.contains("EGRESS-GATE-FAIL")))
             .unwrap_or(false)
         {
             saw_done = true;
@@ -741,11 +747,42 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
         VERILATOR_RUN_TIMEOUT
     );
 
+    if negctl {
+        // EXPECT-FAIL semantics: with the gate bypassed the very same prober MUST
+        // leak. Passing here proves the `egress-gate` assertions are not vacuous.
+        anyhow::ensure!(
+            saw_done,
+            "egress-gate-negctl: gate-off run did not reach `EGRESS-GATE-DONE`; UART:\n{stdout}"
+        );
+        for needle in [
+            "~",                                   // U's UART byte got out
+            "EGRESS-GATE-U-WRITE=LEAK",            // U's store reached the egress record
+            "EGRESS-GATE-BLOCKED=0",               // the gate blocked nothing
+            "EGRESS-GATE-FAIL blocked-count",      // the normal test's own check trips
+        ] {
+            anyhow::ensure!(
+                stdout.contains(needle),
+                "egress-gate-negctl: expected leak marker {needle:?} missing; the gate-off \
+                 build did NOT leak as expected, so the egress-gate test may be vacuous.\nUART:\n{stdout}"
+            );
+        }
+        anyhow::ensure!(
+            !stdout.contains("EGRESS-GATE-FAULT"),
+            "egress-gate-negctl: a U load faulted with the gate off.\nUART:\n{stdout}"
+        );
+        println!(
+            "\ncargo xtask verilator -- egress-gate-negctl: PASS (expect-fail: with the gate \
+             bypassed the U prober leaked a UART byte and wrote the egress record, blocked=0, \
+             no faults; so the egress-gate test catches a real leak)"
+        );
+        return Ok(());
+    }
+
     if egress {
         for bad in EGRESS_GATE_FORBIDDEN_LINES {
             anyhow::ensure!(
                 !stdout.contains(bad),
-                "egress-gate: observed failure marker {bad:?} — the gate did not hold \
+                "egress-gate: observed failure marker {bad:?}: the gate did not hold \
                  (fail closed).\nUART:\n{stdout}"
             );
         }
@@ -766,7 +803,7 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
              load from the egress window faulted at the bus (mcause 5), U stores to the egress \
              record and the UART data register were swallowed with no effect, U could not read \
              the gate's audit counter, and the gate counted exactly 4 blocked transactions; the \
-             monitor's (M) egress write+readback still passed — all {} lines observed. Custom \
+             monitor's (M) egress write+readback still passed, all {} lines observed. Custom \
              RTL gate on a patched-netlist privilege tap, not an off-the-shelf IOPMP)",
             EGRESS_GATE_EXPECTED_LINES.len()
         );

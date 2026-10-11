@@ -29,6 +29,8 @@
 //!    `mediate` demo proves it), not by PMP. PMP walls only the CACHED TCB
 //!    memory (secrets, monitor code/data, Warden — all below `0x8000_0000`).
 //!    This is a documented V2 reduction; V3/V4 inherit it.
+//!    (Phase-5 H1: the sim SoC now ALSO gates the CPU D-bus path into EGRESS_MMIO
+//!    with the custom RTL `EgressGate` (sim/redoubt_soc.py); PMP itself is unchanged.)
 //!
 //! 2. **M + U only, no Supervisor.** `misa` advertises no `S` bit and there are
 //!    no `sstatus`/`sepc`/`stvec`/`medeleg` CSRs; all traps target M
