@@ -15,6 +15,14 @@ fn main() -> anyhow::Result<()> {
             let rest: Vec<String> = args.filter(|a| a != "--").collect();
             synth::synth(&rest)
         }
+        Some("kani") => {
+            // Machine-checked (bounded model checking) proofs over the
+            // monitor. Separate, slower run: NOT part of `cargo test` or
+            // `cargo clippy`. Extra args (e.g. `--harness <name>`) pass
+            // through to `cargo kani`.
+            let rest: Vec<String> = args.filter(|a| a != "--").collect();
+            kani(&rest)
+        }
         Some("qemu") => {
             // `cargo xtask qemu -- mediate` reaches us as ["qemu", "--",
             // "mediate"] (the alias contributes one `--`). Drop any `--`
@@ -33,9 +41,23 @@ fn main() -> anyhow::Result<()> {
         }
         Some(other) => anyhow::bail!("unknown xtask command: {other}"),
         None => anyhow::bail!(
-            "usage: cargo xtask <loc-gate|synth [-- --device 85F|45F]|qemu [-- mediate]|verilator -- <boot|pmp|measure|mediate|endpoint|warden>>"
+            "usage: cargo xtask <loc-gate|kani [-- --harness NAME]|synth [-- --device 85F|45F]|qemu [-- mediate]|verilator -- <boot|pmp|measure|mediate|endpoint|warden>>"
         ),
     }
+}
+
+/// Runs the Kani proof harnesses in `crates/monitor/src/proofs.rs`
+/// (`cfg(kani)` only). Requires `cargo install --locked kani-verifier &&
+/// cargo kani setup`. `-Z stubbing` is needed by the harnesses that stub
+/// audit hashing / the predicate stage (see docs/architecture/PROOFS.md).
+fn kani(extra: &[String]) -> anyhow::Result<()> {
+    let status = Command::new("cargo")
+        .args(["kani", "-Z", "stubbing", "-p", "monitor"])
+        .args(extra)
+        .status()
+        .context("failed to run `cargo kani` (is kani-verifier installed? `cargo install --locked kani-verifier && cargo kani setup`)")?;
+    anyhow::ensure!(status.success(), "cargo kani reported a failing or unverified harness");
+    Ok(())
 }
 
 /// Counts non-blank, non-comment-only lines of Rust source under `path`.

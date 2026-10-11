@@ -17,7 +17,15 @@ use core::ops::Range;
 /// second magic number: the private scratch buffer this module fills must
 /// be exactly large enough to hold anything `abi::decode_request` could
 /// ever accept, and no larger.
+#[cfg(not(kani))]
 pub const MAX_REQ: usize = abi::MAX_REQ;
+/// MODEL BOUND (Kani only): CBMC cannot discharge the pipeline over a
+/// 512-byte scratch object (measured: >10 min even for decode alone), so
+/// the proofs run with a 64-byte scratch. Production (`not(kani)`) is
+/// unchanged; `abi::decode_request`'s own 512 limit is untouched. See
+/// docs/architecture/PROOFS.md.
+#[cfg(kani)]
+pub const MAX_REQ: usize = 64;
 
 /// Bounds-check `[ptr, ptr+len)` against `region`, copy that byte range out
 /// of `shared` into the caller-owned private `scratch` buffer, and only
