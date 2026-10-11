@@ -209,8 +209,10 @@ fn stub_not_copied(_s: &[u8], _p: usize, _l: usize, _r: &Range<usize>) -> bool {
 /// offset `ptr` and `region`:
 ///   (a) rc != Allow  =>  the response is empty (no body bytes, PUBLIC label);
 ///   (b) the sink is invoked only when rc == Allow, or the sink itself
-///       reported failure (then rc == ErrEgress): so every parse failure and
-///       every pre-egress stage denial performs NO egress;
+///       reported failure (then rc == ErrEgress): so the non-Allow outcomes
+///       this model reaches (per the covers: DenyMalformed, DenyNoCap,
+///       DenyTool, DenyArg) perform no egress; DenyFlow/DenyQuota/DenyRevoked
+///       have no cover here;
 ///   (c) rc == Allow  =>  the sink was invoked (Allow is never silent).
 fn check_main_property(one_arg: bool) {
     let (shared, _total) = any_request(one_arg);
