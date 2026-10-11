@@ -89,7 +89,7 @@ extern "C" fn main() -> ! {
     // Phase-2 V2: boot the monitor on the Verilated SoC, then program + LOCK
     // the PMP walls as the first M-mode act and drop to a U-mode prober whose
     // forbidden accesses each fault (proving the walls) while its own region
-    // works — the "unbypassable" evidence. `run_pmp_demo` never returns.
+    // works - the "unbypassable" evidence. `run_pmp_demo` never returns.
     uart::puts(BANNER);
     // V3-2 / Review-Focus 6: the `stackflow` sub-image overflows the M stack into
     // the locked guard page after banner+lock, proving a locked entry faults M.

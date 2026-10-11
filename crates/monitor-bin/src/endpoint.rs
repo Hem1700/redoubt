@@ -1,4 +1,4 @@
-//! Phase-3 W2 — the Endpoint compartment (`cargo xtask verilator -- endpoint`).
+//! Phase-3 W2 - the Endpoint compartment (`cargo xtask verilator -- endpoint`).
 //!
 //! # What the Endpoint is
 //! A U-mode COURIER with NO authority (Ch 6 §6.6). Its whole job is clerical:
@@ -8,7 +8,7 @@
 //! capability and holds no secret: every field is re-derived and every call is
 //! fully mediated by M (`monitor::mediate`, via the V4 `dispatch_mediate`), so a
 //! wholly hostile Endpoint cannot cause an effect policy would deny. A frame
-//! that fails to deframe (COBS / CRC / truncated / ...) is DROPPED and counted —
+//! that fails to deframe (COBS / CRC / truncated / ...) is DROPPED and counted -
 //! it is never relayed, so the request inside it never happened.
 //!
 //! # Mock serial source
@@ -19,7 +19,7 @@
 //!
 //! # Endpoint <-> M ecall ABI (a7 selector; a0..a2 args)
 //!  * `MEDIATE` (V4, unchanged): a0=0, a1=len -> a0=status, a1=resp_len.
-//!  * `EP_DROP`: a0=frame idx, a1=`wire::DropReason as u32` — "I dropped it".
+//!  * `EP_DROP`: a0=frame idx, a1=`wire::DropReason as u32` - "I dropped it".
 //!  * `EP_DONE`: a0=frames seen, a1=frames the Endpoint says it dropped.
 //!
 //! M independently tracks the frame index and the counters, prints one line per
@@ -371,7 +371,7 @@ pub fn run_endpoint_demo() -> ! {
     simtrap::install_trap();
     // Seed the mock serial source BEFORE the PMP lock: entry 3 is locked `R--`
     // and `L=1` extends it to M, so after the lock nobody (M included) can write
-    // SERIAL_IN — the Endpoint's input is immutable once it starts.
+    // SERIAL_IN - the Endpoint's input is immutable once it starts.
     let _ = seed_serial_in();
     pmp::lock_regions();
     simmediate::init_monitor_state();

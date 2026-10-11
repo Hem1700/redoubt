@@ -1,4 +1,4 @@
-//! `cargo xtask synth` — Phase 4 F1: ULX3S (ECP5) synthesis + timing gate.
+//! `cargo xtask synth` - Phase 4 F1: ULX3S (ECP5) synthesis + timing gate.
 //!
 //! Flow: build the FPGA monitor + BROM images (link-fpga.ld, nightly riscv32ima
 //! build-std) -> LiteX elaborates the ULX3S SoC (sim/redoubt_ulx3s.py) -> yosys
@@ -110,7 +110,7 @@ pub fn synth(args: &[String]) -> anyhow::Result<()> {
     anyhow::ensure!(p.venv_python().is_file(), "missing LiteX venv at {}", p.venv_python().display());
     for tool in ["yosys", "nextpnr-ecp5", "ecppack"] {
         anyhow::ensure!(p.oss_bin().join(tool).exists(),
-            "missing {tool} in {} — see sim/README.md", p.oss_bin().display());
+            "missing {tool} in {} - see sim/README.md", p.oss_bin().display());
     }
 
     // --- FPGA monitor + BROM images (link-fpga.ld; same sources as the sim). ---
@@ -160,7 +160,7 @@ pub fn synth(args: &[String]) -> anyhow::Result<()> {
         .stderr(logf)
         .status()
         .context("failed to run the yosys/nextpnr build script")?;
-    anyhow::ensure!(st.success(), "yosys/nextpnr/ecppack failed — see {}", log.display());
+    anyhow::ensure!(st.success(), "yosys/nextpnr/ecppack failed - see {}", log.display());
 
     // --- Report + timing gate. ---
     let text = std::fs::read_to_string(&log)?;
@@ -184,7 +184,7 @@ pub fn synth(args: &[String]) -> anyhow::Result<()> {
     anyhow::ensure!(bit.is_file(), "no bitstream at {}", bit.display());
     anyhow::ensure!(!timing.is_empty(), "no nextpnr timing summary found in {}", log.display());
     anyhow::ensure!(timing.iter().all(|t| t.pass && t.fmax_mhz >= t.target_mhz),
-        "TIMING NOT MET — see report above / {}", log.display());
+        "TIMING NOT MET - see report above / {}", log.display());
     println!("cargo xtask synth: PASS ({device}): bitstream {} ; timing met on every clock", bit.display());
     Ok(())
 }

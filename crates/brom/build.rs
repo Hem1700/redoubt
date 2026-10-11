@@ -6,7 +6,7 @@
 //!   2. BLAKE2s-256 its FULL loaded/executed image and record the measured length,
 //!   3. write a 36-byte file (4-byte LE length + 32-byte digest) and point
 //!      `REDOUBT_H_EXPECTED` at it,
-//!   4. build THIS crate — this script reads the file and emits both consts.
+//!   4. build THIS crate - this script reads the file and emits both consts.
 //!
 //! Both the length and the hash are single-sourced from the built ELF (via
 //! `redoubt_soc.py`), so the BROM can never measure a different range than the

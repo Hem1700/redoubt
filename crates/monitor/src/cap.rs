@@ -183,8 +183,8 @@ impl Sessions {
     /// handles installed at the previous epoch. Caps installed after this
     /// call are written at the session's new epoch and resolve normally.
     ///
-    /// RULING (epoch-wrap bound): `epoch` is a `u16` and cannot widen — it is
-    /// pinned by the 16-byte `Cap` ABI layout — so after 2^16 revocations of
+    /// RULING (epoch-wrap bound): `epoch` is a `u16` and cannot widen - it is
+    /// pinned by the 16-byte `Cap` ABI layout - so after 2^16 revocations of
     /// a single session the epoch wraps around and aliases a value a
     /// still-resident stale cap may hold, and that cap would wrongly resolve
     /// as live again. This is a known, documented bound, not a bug to

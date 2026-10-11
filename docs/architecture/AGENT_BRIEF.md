@@ -1,4 +1,4 @@
-# Redoubt Component Manual — Author Brief (READ FULLY BEFORE WRITING)
+# Redoubt Component Manual - Author Brief (READ FULLY BEFORE WRITING)
 
 You are writing one or two chapters of the Redoubt architecture book. Redoubt is a
 **hardware-rooted reference-monitor OS for AI agents**: a tiny, unbypassable trust anchor on
@@ -12,7 +12,7 @@ authority. The LLM/agent runs on an untrusted HOST; Redoubt owns egress + secret
 - `docs/design/2026-09-22-redoubt-architecture-v1.md`  ← canonical technical facts.
 - `docs/study/*.md` as relevant to your chapter (Apple/Baochip, agent threat model, landscape, fpga path).
 
-## 1. HOUSE STYLE — non-negotiable (classic spec / print)
+## 1. HOUSE STYLE - non-negotiable (classic spec / print)
 OPEN `09-monitor.html` and **copy its entire `<title>`…`<style>` head block VERBATIM** into your
 file (change only the `<title>` text). This gives you: Source Serif 4 on WHITE, justified body
 with hyphenation, RFC masthead, numbered sections, Figure captions, footnotes, dark-mode. Then
@@ -26,10 +26,10 @@ mirror its DOM structure:
 - `<footer>` like the exemplar.
 FORBIDDEN: cream/beige backgrounds, display/editorial serifs, rounded "card" grids, teal-on-dark
 tech-doc styling. If you add an SVG, colour it ONLY with the exemplar's classes (f-s1, f-s2,
-f-none, s-ln, s-acc, s-cur, s-mut, t-acc, t-mut, mk, mk-acc, dash) + currentColor — NEVER
+f-none, s-ln, s-acc, s-cur, s-mut, t-acc, t-mut, mk, mk-acc, dash) + currentColor - NEVER
 `fill="var(--x)"` as an attribute (it doesn't render).
 
-## 2. VOICE — write like a human, teach a beginner
+## 2. VOICE - write like a human, teach a beginner
 - Beginner-accessible: define jargon when it first appears; use plain analogies (the exemplar uses
   an embassy guard, a coat-check tag for a capability, a doorman with a guest list for predicates).
   Ramp gently, then go deep. Layered, not dumbed-down.
@@ -38,16 +38,16 @@ f-none, s-ln, s-acc, s-cur, s-mut, t-acc, t-mut, mk, mk-acc, dash) + currentColo
   ledes. USE: contractions, varied sentence length, direct address, honest asides, real opinions,
   concrete scenarios.
 
-## 3. DEPTH — each chapter is a long textbook chapter (like the Monitor)
+## 3. DEPTH - each chapter is a long textbook chapter (like the Monitor)
 Cover, as applies to your component: purpose/role; how it works internally (mechanisms, data
 structures with field tables, algorithms/pseudocode); at least one worked example; edge cases and
 failure modes; the invariants it maintains; **alternatives considered and rejected, with reasons**;
 open questions; and a Notes/footnotes section. Aim for real substance (the Monitor chapter is ~400
 lines of HTML). Do NOT write a summary.
 
-## 4. CANONICAL FACTS — stay consistent; do not invent contradictions
+## 4. CANONICAL FACTS - stay consistent; do not invent contradictions
 - Trust tiers: **T0** Monitor (M-mode) + BROM + PMP = the TCB; **T1** Warden microkernel (S-mode,
-  scheduling/IPC, liveness only); **T2** compartments — Endpoint (USB framing), net/storage drivers
+  scheduling/IPC, liveness only); **T2** compartments - Endpoint (USB framing), net/storage drivers
   (U-mode); HOST fully untrusted.
 - ISA/HW: RV32IMAC, modes M>S>U. PMP = machine-only regs whitelisting phys ranges for S/U; pmpcfg
   byte [7]L [4:3]A(0 off/1 TOR/2 NA4/3 NAPOT) [2]X [1]W [0]R; uses TOR; needs **Smepmp** (fallback
@@ -100,15 +100,15 @@ Write each chapter to `docs/architecture/components/NN-shortname.html`. Then APP
 a report block to `docs/architecture/LEDGER.md` with exactly this shell form so appends don't clash:
 
     cat >> docs/architecture/LEDGER.md <<'EOF'
-    ### <agent-name> — chapters NN, MM   (<timestamp>)
+    ### <agent-name> - chapters NN, MM   (<timestamp>)
     - files: components/NN-x.html (Llines), components/MM-y.html (Llines)
     - diagrams: <what SVGs you drew>
     - facts used: <the canonical facts you relied on>
-    - assumptions/flags: <anything you invented or were unsure of — OWNER MUST CHECK>
+    - assumptions/flags: <anything you invented or were unsure of - OWNER MUST CHECK>
     - cross-refs: <chapters you referenced>
     - self-check vs brief: style copied verbatim [y/n]; beginner primer [y/n]; alternatives-rejected [y/n]; footnotes [y/n]; depth ok [y/n]
     - notes for the owner: <anything to double-check>
     EOF
 
 Do the work well. The owner (orchestrator) will read your ledger entry, open your file, and judge it
-against this brief — and will rewrite it if it drifts. Make that unnecessary.
+against this brief - and will rewrite it if it drifts. Make that unnecessary.

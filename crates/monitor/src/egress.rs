@@ -11,7 +11,7 @@
 //!   Ruling R7):** a sink dials the exact `scheme`/`host`/`port` from the
 //!   already-parsed, typed `UrlParts` obtained via `predicate::Args::url_parts`.
 //!   There is no URL *string* anywhere in this module to parse, re-parse, or
-//!   split — only structured fields. An `Args` with no `Url`-typed `url` slot
+//!   split - only structured fields. An `Args` with no `Url`-typed `url` slot
 //!   yields `url_parts() == None`, and a sink must fail closed
 //!   (`ReasonCode::ErrInternal`) rather than guess a target.
 //!

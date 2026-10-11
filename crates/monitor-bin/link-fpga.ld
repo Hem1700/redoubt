@@ -1,4 +1,4 @@
-/* Phase-4 F1 — linker script for the ULX3S (ECP5) FPGA image. The on-chip
+/* Phase-4 F1 - linker script for the ULX3S (ECP5) FPGA image. The on-chip
  * monitor map is IDENTICAL to the sim's (one canonical map: sim/redoubt_soc.py
  * -> sim/memory_map.json): MON_CODE/MON_DATA are one 128 KiB EBR block RAM
  * (`mon_ram`, built by sim/redoubt_ulx3s.py) at 0x1000_0000. The monitor is
@@ -21,7 +21,7 @@
  *
  * Phase-2 V2 note on the single region below: the `secure` core is plain-PMP
  * (no Smepmp), so MON_CODE and MON_DATA are BOTH realised as M-only *by
- * omission* — neither gets a PMP entry, so both are denied to U and reached by
+ * omission* - neither gets a PMP entry, so both are denied to U and reached by
  * M by exemption (see crates/monitor-bin/src/pmp.rs). The MON_CODE/MON_DATA
  * split is therefore invisible to the PMP in V2, and the debug `build-std`
  * image's .text exceeds 32 KiB; so we link against the whole 128 KiB mon_ram
@@ -46,7 +46,7 @@ SECTIONS {
 
   /* V3 (measured-boot completeness): the U-mode prober window (UTEXT) is placed
    * at a fixed 8 KiB-aligned address JUST above .rodata/.data, so the whole
-   * EXECUTED/READ image — .text, .rodata, .data and .utext (U executes it) —
+   * EXECUTED/READ image - .text, .rodata, .data and .utext (U executes it) -
    * lies in one measured extent [0x1000_0000, _image_end). .bss
    * (runtime-mutable, not executed) is placed AFTER the UTEXT window, deliberately
    * OUTSIDE the measured range, so the measurement never spans the non-deterministic
@@ -64,11 +64,11 @@ SECTIONS {
   .bss 0x10010800 : { *(.bss*) *(COMMON) } >MON_RAM
   _bss_end = .;
 
-  /* Phase-2 V3 (carry V3-2) — M-stack guard page.
+  /* Phase-2 V3 (carry V3-2) - M-stack guard page.
    *
    * The M stack grows DOWN from _stack_top (0x1001E000). This LOCKED, no-access
    * PMP guard sits below the stack's lowest safe extent so a stack OVERFLOW hits
-   * it (M-mode store fault) before it can corrupt .bss/.data — the first proof a
+   * it (M-mode store fault) before it can corrupt .bss/.data - the first proof a
    * locked entry faults M (pmp::lock_regions programs it, sim_trap_rust HALTs on
    * an M-origin fault). This core's nonstandard NAPOT needs the region base
    * aligned to 4x its size, so a 4 KiB guard must be 16 KiB-aligned: 0x10018000

@@ -20,8 +20,8 @@ Every task's requirements implicitly include this section. Values copied verbati
 - **Monitor runtime discipline (Ch 9 §9.5):** single-threaded, run-to-completion; interrupts masked during a mediation; **no heap on the request path** (the `monitor` crate does not depend on `alloc`); all request-time state is fixed-size.
 - **Bounds (Ch 9, Ch 10):** `MAX_REQ = 512` bytes, `MAX_ARGS = 8`, `MAX_CLAUSES = 64`, `CSPACE_LEN = 32`, `MAX_SESSIONS = 8`.
 - **Determinism (Ch 2, Ch 9):** the verdict is a pure function of (session state, request bytes). No model, classifier, RNG, clock, or heuristic on the decision path.
-- **ABI values (Ch 10) — use exactly:** opcodes `MEDIATE=0x52440001`, `SESSION_OPEN=0x52440010`, `SESSION_REVOKE=0x52440011`, `SESSION_CLOSE=0x52440012`, `ATTEST_READ=0x52440020`. Reason codes `ALLOW=0x00`, `DENY_NO_CAP=0x10`, `DENY_TOOL=0x11`, `DENY_ARG=0x12`, `DENY_FLOW=0x13`, `DENY_MALFORMED=0x14`, `DENY_REVOKED=0x15`, `DENY_QUOTA=0x16`, `ERR_EGRESS=0x20`, `ERR_TIMEOUT=0x21`, `ERR_INTERNAL=0x2F`. Request magic `b"RDBT"` (`0x54424452` LE).
-- **Memory map (Ch 7 §7.1 / Ch 4) — FPGA target:** `BROM 0x0000_0000` (M:RX), `MON_CODE/MON_DATA/SECRETS 0x1000_0000` (M-only), `WARDEN 0x2000_0000` (S), `COMPARTMENTS 0x3000_0000` (U), `SHARED_REQ 0x4000_0000` (M+U), `SDRAM 0x8000_0000`, `EGRESS_MMIO 0xF000_0000` (M-only). (QEMU `virt` uses its own map for Phase 0–1; the FPGA map applies from Phase 2.)
+- **ABI values (Ch 10) - use exactly:** opcodes `MEDIATE=0x52440001`, `SESSION_OPEN=0x52440010`, `SESSION_REVOKE=0x52440011`, `SESSION_CLOSE=0x52440012`, `ATTEST_READ=0x52440020`. Reason codes `ALLOW=0x00`, `DENY_NO_CAP=0x10`, `DENY_TOOL=0x11`, `DENY_ARG=0x12`, `DENY_FLOW=0x13`, `DENY_MALFORMED=0x14`, `DENY_REVOKED=0x15`, `DENY_QUOTA=0x16`, `ERR_EGRESS=0x20`, `ERR_TIMEOUT=0x21`, `ERR_INTERNAL=0x2F`. Request magic `b"RDBT"` (`0x54424452` LE).
+- **Memory map (Ch 7 §7.1 / Ch 4) - FPGA target:** `BROM 0x0000_0000` (M:RX), `MON_CODE/MON_DATA/SECRETS 0x1000_0000` (M-only), `WARDEN 0x2000_0000` (S), `COMPARTMENTS 0x3000_0000` (U), `SHARED_REQ 0x4000_0000` (M+U), `SDRAM 0x8000_0000`, `EGRESS_MMIO 0xF000_0000` (M-only). (QEMU `virt` uses its own map for Phase 0-1; the FPGA map applies from Phase 2.)
 - **DMA rule (Ch 4 §4.7):** no DMA-capable master may reach SECRETS/MON_*/WARDEN. In v1 this is enforced by construction (DMA config registers are M-only; the Monitor pins descriptor ranges). IOPMP/RTL gate is later.
 
 ## Review Focus
@@ -48,13 +48,13 @@ The inputs and failure modes the spec implies that a happy-path test would miss,
 | Phase | Deliverable (working, testable) | Exit criteria |
 |-------|-------------------------------|---------------|
 | **0. Scaffold + boot** | Rust workspace; `cargo xtask qemu` boots an M-mode "hello" in `qemu-system-riscv32 -machine virt`; CI runs it headless. | Banner prints; QEMU exits 0 via the finisher; CI green; `tokei` gate wired. |
-| **1. Monitor decision core** | The full six-stage pipeline (ABI, parser, caps, predicates, flow, audit, secret injection to a mock egress) as host-tested pure logic, then driven behind the QEMU `ecall` path; the containment scenario passes headless. | All Review-Focus items 1–9, 11 have green tests; `demo_attack` → `DENY_ARG`, `demo_flow` → `DENY_FLOW`, `demo_benign` → `ALLOW` (secret injected, absent from response) in QEMU. |
+| **1. Monitor decision core** | The full six-stage pipeline (ABI, parser, caps, predicates, flow, audit, secret injection to a mock egress) as host-tested pure logic, then driven behind the QEMU `ecall` path; the containment scenario passes headless. | All Review-Focus items 1-9, 11 have green tests; `demo_attack` → `DENY_ARG`, `demo_flow` → `DENY_FLOW`, `demo_benign` → `ALLOW` (secret injected, absent from response) in QEMU. |
 | **2. PMP + measured boot (Verilator)** | LiteX SoC (VexRiscv M/S/U + PMP) in Verilator; BROM measured boot (BLAKE2s) + PMP lockdown; Warden drops to U. | Verilator asserts S/U access to SECRETS/EGRESS faults (item 10); stack-guard fault (item 12); a mediation round-trips M↔U on the sim SoC; boot halts on a tampered Monitor image. |
 | **3. Warden, compartments, sessions, wire** | Warden scheduler + rendezvous IPC; Endpoint compartment; COBS/CRC wire; host SDK; session lifecycle + epoch revoke. | Host SDK sends a framed tool call over the sim UART, gets the right verdict; `SESSION_REVOKE` stales live handles (item 8); malformed frames dropped, counted. |
 | **4. FPGA bring-up (ULX3S)** | Synthesize with yosys/nextpnr; flash; run on hardware; ESP32 as mediated network egress; OLED shows DENIED/ALLOWED. | The Phase-1 containment scenario runs on the board driving a real HTTPS GET through the Monitor; exfil attempt denied on hardware; verdict shown on the OLED. |
-| **5. Hardening** | DMA/IOPMP construction rules enforced + tested; encrypted+authenticated ECP5 bitstream; formal-ish model of the pipeline. | DMA masters provably cannot reach trusted regions; bitstream key provisioned; a machine-checked model of stages 1–6 (stretch). |
+| **5. Hardening** | DMA/IOPMP construction rules enforced + tested; encrypted+authenticated ECP5 bitstream; formal-ish model of the pipeline. | DMA masters provably cannot reach trusted regions; bitstream key provisioned; a machine-checked model of stages 1-6 (stretch). |
 
-Phases 2–5 are specified at task granularity below and expanded into their own bite-sized plans (`docs/superpowers/plans/`) when reached, because their interfaces are shaped by Phase 1's concrete types.
+Phases 2-5 are specified at task granularity below and expanded into their own bite-sized plans (`docs/superpowers/plans/`) when reached, because their interfaces are shaped by Phase 1's concrete types.
 
 ---
 
@@ -68,9 +68,9 @@ rust-toolchain.toml             # channel = "stable"; targets = ["riscv32imac-un
 xtask/                          # std bin: qemu run, verilator run, flash, loc-gate
   src/main.rs
 crates/
-  abi/                          # #![no_std] #![forbid(unsafe_code)] — shared types (host + target)
+  abi/                          # #![no_std] #![forbid(unsafe_code)] - shared types (host + target)
     src/lib.rs                  #   ReasonCode, Opcode, TypedArg, Request/Response codecs, Label
-  monitor/                      # #![no_std] — the TCB (≤2500 loc)
+  monitor/                      # #![no_std] - the TCB (≤2500 loc)
     src/lib.rs                  #   pipeline wiring (mediate())
     src/parse.rs                #   request parser (bounds, TLV) [forbid unsafe]
     src/cap.rs                  #   Cap, CapSpace, resolver, derive, revoke [forbid unsafe]
@@ -81,7 +81,7 @@ crates/
     src/audit.rs                #   hash-chained log [forbid unsafe]
     src/arch.rs                 #   ALL unsafe: trap vector, CSR, PMP, mtvec/mepc/mstatus (target only)
     src/reason.rs               #   Status/ReasonCode (re-exported from abi)
-  monitor-bin/                  # #![no_std] #![no_main] — the bootable M-mode image (QEMU/FPGA)
+  monitor-bin/                  # #![no_std] #![no_main] - the bootable M-mode image (QEMU/FPGA)
     src/main.rs                 #   _start, UART, ecall trampoline -> monitor::mediate
     link-qemu.ld / link-fpga.ld
   warden/                       # Phase 3 (S-mode)
@@ -93,11 +93,11 @@ tests/
   qemu/                         # scripts + expected output for headless QEMU runs
 ```
 
-Rationale: pure-logic modules (`parse`, `cap`, `predicate`, `flow`, `audit`) forbid `unsafe` and test on the host with `cargo test` — the fastest loop and where the edge cases live. `arch.rs` quarantines every `unsafe`. `monitor` (the logic library, TCB) is separate from `monitor-bin` (the bootable wrapper) so the TCB line count is measured cleanly.
+Rationale: pure-logic modules (`parse`, `cap`, `predicate`, `flow`, `audit`) forbid `unsafe` and test on the host with `cargo test` - the fastest loop and where the edge cases live. `arch.rs` quarantines every `unsafe`. `monitor` (the logic library, TCB) is separate from `monitor-bin` (the bootable wrapper) so the TCB line count is measured cleanly.
 
 ---
 
-# Phase 0 — Scaffold + boot
+# Phase 0 - Scaffold + boot
 
 ### Task 1: Workspace, toolchain, and the LOC gate
 
@@ -138,10 +138,10 @@ fn loc_gate() -> anyhow::Result<()> {
     Ok(())
 }
 ```
-- [ ] **Step 4: Verify it runs** — Run: `cargo run -p xtask -- loc-gate` → Expected: prints `loc-gate ok: monitor=0 brom=0`.
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "chore: rust workspace, pinned riscv target, TCB loc-gate"`
+- [ ] **Step 4: Verify it runs** - Run: `cargo run -p xtask -- loc-gate` → Expected: prints `loc-gate ok: monitor=0 brom=0`.
+- [ ] **Step 5: Commit** - `git add -A && git commit -m "chore: rust workspace, pinned riscv target, TCB loc-gate"`
 
-### Task 2: The `abi` crate — reason codes, opcodes, labels
+### Task 2: The `abi` crate - reason codes, opcodes, labels
 
 **Files:** Create `crates/abi/src/lib.rs`; Test: inline `#[cfg(test)]`.
 
@@ -160,7 +160,7 @@ fn reason_codes_have_spec_values() {
     assert_eq!(MAGIC, u32::from_le_bytes(*b"RDBT"));
 }
 ```
-- [ ] **Step 2: Run, expect fail** — `cargo test -p abi` → FAIL (types undefined).
+- [ ] **Step 2: Run, expect fail** - `cargo test -p abi` → FAIL (types undefined).
 - [ ] **Step 3: Implement**
 ```rust
 #![no_std]
@@ -179,8 +179,8 @@ impl Label { pub const PUBLIC:Label=Label(0); pub const SECRET:Label=Label(0b01)
   pub const UNTRUSTED:Label=Label(0); pub const TRUSTED:Label=Label(0b10);
   pub fn is_secret(self)->bool{ self.0 & 0b01 != 0 } }
 ```
-- [ ] **Step 4: Run, expect pass** — `cargo test -p abi` → PASS.
-- [ ] **Step 5: Commit** — `git commit -am "feat(abi): reason codes, opcodes, labels, magic"`
+- [ ] **Step 4: Run, expect pass** - `cargo test -p abi` → PASS.
+- [ ] **Step 5: Commit** - `git commit -am "feat(abi): reason codes, opcodes, labels, magic"`
 
 ### Task 3: Bootable M-mode "hello" in QEMU
 
@@ -229,21 +229,21 @@ const FINISHER: *mut u32 = 0x0010_0000 as *mut u32;   // qemu virt sifive_test
 // runs: qemu-system-riscv32 -machine virt -bios <elf> -nographic -no-reboot
 //       -semihosting -serial mon:stdio ; captures stdout; asserts banner + exit 0
 ```
-- [ ] **Step 5: Run, expect pass** — `cargo xtask qemu` → prints banner, exits 0.
-- [ ] **Step 6: Commit** — `git commit -am "feat(boot): M-mode hello on qemu virt via xtask"`
+- [ ] **Step 5: Run, expect pass** - `cargo xtask qemu` → prints banner, exits 0.
+- [ ] **Step 6: Commit** - `git commit -am "feat(boot): M-mode hello on qemu virt via xtask"`
 
 ### Task 4: CI wiring
 
 **Files:** Create `.github/workflows/ci.yml`.
 - [ ] **Step 1:** Job installs Rust + `riscv32imac` target + `qemu-system-misc`, then runs `cargo test --workspace`, `cargo run -p xtask -- qemu`, `cargo run -p xtask -- loc-gate`, `cargo clippy -- -D warnings`, and `cargo geiger` (fail on unsafe outside `arch`).
 - [ ] **Step 2:** Push a branch, confirm the job is green.
-- [ ] **Step 3: Commit** — `git commit -am "ci: build, host tests, qemu boot, loc + unsafe gates"`
+- [ ] **Step 3: Commit** - `git commit -am "ci: build, host tests, qemu boot, loc + unsafe gates"`
 
 ---
 
-# Phase 1 — The Monitor decision core
+# Phase 1 - The Monitor decision core
 
-All logic tasks (6–14) test on the host with `cargo test -p monitor`; no target/QEMU needed until Task 15. Types defined here are the interfaces later phases consume.
+All logic tasks (6-14) test on the host with `cargo test -p monitor`; no target/QEMU needed until Task 15. Types defined here are the interfaces later phases consume.
 
 ### Task 5: Request/TypedArg codec in `abi`
 
@@ -264,16 +264,16 @@ All logic tasks (6–14) test on the host with `cargo test -p monitor`; no targe
 #[test] fn rejects_truncated_tlv()  { let b=truncate(build_url_arg(), 3); assert_eq!(decode_request(&b).unwrap_err(), ReasonCode::DenyMalformed); }
 #[test] fn rejects_len_over_max()   { assert_eq!(decode_request(&[0u8; MAX_REQ+1][..]).unwrap_err(), ReasonCode::DenyMalformed); }
 ```
-- [ ] **Step 2: Run, expect fail** — `cargo test -p abi` → FAIL.
-- [ ] **Step 3: Implement `decode_request`** — validate `len<=MAX_REQ`, magic, `n_args<=MAX_ARGS`; iterate TLVs checking each `off+3+len<=buf.len()`; a URL value decodes into `UrlParts` by splitting the pre-parsed fields (host lowercased, no re-parsing of raw text). Return `DenyMalformed` on any bound/shape failure. No `unsafe`, no `alloc`.
-- [ ] **Step 4: Run, expect pass.** **Step 5: Commit** — `git commit -am "feat(abi): zero-copy request/TypedArg codec with bounds checks"`
+- [ ] **Step 2: Run, expect fail** - `cargo test -p abi` → FAIL.
+- [ ] **Step 3: Implement `decode_request`** - validate `len<=MAX_REQ`, magic, `n_args<=MAX_ARGS`; iterate TLVs checking each `off+3+len<=buf.len()`; a URL value decodes into `UrlParts` by splitting the pre-parsed fields (host lowercased, no re-parsing of raw text). Return `DenyMalformed` on any bound/shape failure. No `unsafe`, no `alloc`.
+- [ ] **Step 4: Run, expect pass.** **Step 5: Commit** - `git commit -am "feat(abi): zero-copy request/TypedArg codec with bounds checks"`
 
 ### Task 6: Parser guard in `monitor` (SHARED_REQ bounds)
 
 **Files:** Create `crates/monitor/src/parse.rs`, `crates/monitor/src/lib.rs`; Test: inline.
 
 **Interfaces:**
-- Consumes: `abi::decode_request`. Produces: `fn parse_into<'a>(shared:&'a [u8], ptr:usize, len:usize, region:Range<usize>) -> Result<abi::RequestView<'a>, ReasonCode>` — proves `[ptr,ptr+len) ⊆ region` before copying `len` bytes into a private fixed `[u8; MAX_REQ]`, then decodes the copy (defeats TOCTOU, Ch 9 §9.7 stage 1).
+- Consumes: `abi::decode_request`. Produces: `fn parse_into<'a>(shared:&'a [u8], ptr:usize, len:usize, region:Range<usize>) -> Result<abi::RequestView<'a>, ReasonCode>` - proves `[ptr,ptr+len) ⊆ region` before copying `len` bytes into a private fixed `[u8; MAX_REQ]`, then decodes the copy (defeats TOCTOU, Ch 9 §9.7 stage 1).
 
 - [ ] **Step 1: Failing tests (Review-Focus 1)**
 ```rust
@@ -284,7 +284,7 @@ All logic tasks (6–14) test on the host with `cargo test -p monitor`; no targe
 #[test] fn valid_request_copies_and_decodes() { assert!(parse_into(&shared, ok_ptr, ok_len, region).is_ok()); }
 ```
 - [ ] **Steps 2-4:** fail, implement (checked-arithmetic bounds, copy to `[u8;MAX_REQ]`, `decode_request`), pass.
-- [ ] **Step 5: Commit** — `git commit -am "feat(monitor): bounds-checked TOCTOU-safe request copy"`
+- [ ] **Step 5: Commit** - `git commit -am "feat(monitor): bounds-checked TOCTOU-safe request copy"`
 
 ### Task 7: Capability space + resolver
 
@@ -303,7 +303,7 @@ All logic tasks (6–14) test on the host with `cargo test -p monitor`; no targe
 #[test] fn size_is_16_bytes()      { assert_eq!(core::mem::size_of::<Cap>(), 16); }
 ```
 - [ ] **Steps 2-4:** fail, implement (bounds check into cspace; `Empty`/oob → `DenyNoCap`; `epoch != s.epoch` → `DenyRevoked`), pass.
-- [ ] **Step 5: Commit** — `git commit -am "feat(monitor): 16-byte Cap, cspace, epoch-checked resolver"`
+- [ ] **Step 5: Commit** - `git commit -am "feat(monitor): 16-byte Cap, cspace, epoch-checked resolver"`
 
 ### Task 8: Tool binding
 
@@ -323,7 +323,7 @@ All logic tasks (6–14) test on the host with `cargo test -p monitor`; no targe
 **Interfaces:**
 - Produces: `enum Op{Eq,InSet,Prefix,Suffix,HostInSet,SchemeEq,Range,LenLe}`; `struct Clause{ field:FieldSel, op:Op, operand:u16 }`; `struct FieldSel(u8)` selecting `url.host|url.scheme|method|path|len`; `fn eval(clauses:&[Clause], args:&Args, pool:&ConstPool) -> Result<(), ReasonCode>` returning `DenyArg` (predicate false) or `DenyMalformed` (field/type mismatch).
 
-- [ ] **Step 1: Failing tests (Review-Focus 2, 4, 5 — the SSRF class)**
+- [ ] **Step 1: Failing tests (Review-Focus 2, 4, 5 - the SSRF class)**
 ```rust
 #[test] fn host_in_set_passes_exact() { assert!(eval(&[host_in(pool_apis)], &args_url("https","api.example.com",443,"/x"), &pool).is_ok()); }
 #[test] fn host_in_set_rejects_other() { assert_eq!(eval(&[host_in(pool_apis)], &args_url("https","evil.tld",443,"/"), &pool).unwrap_err(), ReasonCode::DenyArg); }
@@ -337,7 +337,7 @@ All logic tasks (6–14) test on the host with `cargo test -p monitor`; no targe
 ```
 Note: `%2e`/credential/port-confusion cases are covered because `eval` reads the **typed, host-decoded** `UrlParts.host` (decoded in Task 5), never raw text; add explicit tests that `args_url` built from a raw `https://user@evil.tld@api.example.com` decodes `host="evil.tld"` (or is rejected as malformed by the decoder) and therefore fails `host_in_set`.
 - [ ] **Steps 2-4:** fail, implement the fixed clause loop (≤ MAX_CLAUSES), each op reading its typed field; a field/type mismatch → `DenyMalformed`, a false predicate → `DenyArg`, pass.
-- [ ] **Step 5: Commit** — `git commit -am "feat(monitor): typed predicate engine (host-in-set, scheme, method, prefix)"`
+- [ ] **Step 5: Commit** - `git commit -am "feat(monitor): typed predicate engine (host-in-set, scheme, method, prefix)"`
 
 ### Task 10: Flow engine (IFC)
 
@@ -396,11 +396,11 @@ Note: `%2e`/credential/port-confusion cases are covered because `eval` reads the
 ```
 - [ ] **Steps 2-5:** fail, implement `h_i = BLAKE2s(h_{i-1} || entry)`, pass, commit.
 
-### Task 14: Wire the pipeline — `monitor::mediate`
+### Task 14: Wire the pipeline - `monitor::mediate`
 
 **Files:** Modify `crates/monitor/src/lib.rs`; Test: `tests/host/pipeline.rs`.
 **Interfaces:** Produces `fn mediate(shared:&[u8], ptr:usize, len:usize, region:Range<usize>, sessions:&Sessions, policy:&Policy, sink:&mut dyn EgressSink, audit:&mut Audit) -> (ReasonCode, ResponseView)` running stages 1..6 in order and appending one audit entry.
-- [ ] **Step 1: Failing tests — the full ALLOW/DENY matrix + the three demo scenarios**
+- [ ] **Step 1: Failing tests - the full ALLOW/DENY matrix + the three demo scenarios**
 ```rust
 #[test] fn demo_benign_allows_and_injects() {
   let (rc, resp) = mediate(&sh, p, l, region, &sessions, &policy, &mut sink, &mut audit);
@@ -413,54 +413,54 @@ Note: `%2e`/credential/port-confusion cases are covered because `eval` reads the
 #[test] fn ordering_stage2_before_stage4() { /* forged handle to allowed args still DENY_NO_CAP */ }
 ```
 - [ ] **Steps 2-4:** fail, implement the six-stage sequence exactly per Ch 9 §9.7, pass.
-- [ ] **Step 5: Commit** — `git commit -am "feat(monitor): six-stage mediate() + containment scenario tests"`
+- [ ] **Step 5: Commit** - `git commit -am "feat(monitor): six-stage mediate() + containment scenario tests"`
 
-### Task 15: M-mode trap trampoline — drive `mediate` from an `ecall` in QEMU
+### Task 15: M-mode trap trampoline - drive `mediate` from an `ecall` in QEMU
 
 **Files:** Create `crates/monitor/src/arch.rs` (the only `unsafe` module), `crates/monitor-bin/src/main.rs` (trap vector + SHARED_REQ), `tests/qemu/mediate.rs`.
 **Interfaces:** Consumes `monitor::mediate`. Produces the `mtvec` handler: on `ecall` (mcause 8/9) with `a7==MEDIATE`, read `a0=ptr,a1=len`, call `mediate`, return `a0=status,a1=resp_len`; all other `a7` → `DENY_MALFORMED`.
-- [ ] **Step 1: Failing QEMU test (Review-Focus 7)** — a U/S stub issues `ecall MEDIATE` on a crafted SHARED_REQ; harness asserts the returned status matches the host `mediate` result for the same bytes; a second scenario fires a timer interrupt mid-handler and asserts the verdict and return path are intact (interrupts masked in-handler).
+- [ ] **Step 1: Failing QEMU test (Review-Focus 7)** - a U/S stub issues `ecall MEDIATE` on a crafted SHARED_REQ; harness asserts the returned status matches the host `mediate` result for the same bytes; a second scenario fires a timer interrupt mid-handler and asserts the verdict and return path are intact (interrupts masked in-handler).
 - [ ] **Step 2: Run, expect fail.**
-- [ ] **Step 3: Implement `arch.rs`** — set `mtvec`; on entry switch to the M stack via `mscratch`, save `a0..a7`+`ra`+`mepc`+`mstatus`, keep `MIE` clear, dispatch on `a7`, restore, `mret`. Align the M stack to 16 bytes; place a guard word (real PMP guard is Phase 2). Wire SHARED_REQ as a static `[u8;MAX_REQ]`.
-- [ ] **Step 4: Run, expect pass** — `cargo xtask qemu -- mediate` green; the three demo scenarios reproduce the host verdicts in QEMU.
-- [ ] **Step 5: Commit** — `git commit -am "feat(monitor): M-mode ecall trampoline; containment demo runs in QEMU"`
+- [ ] **Step 3: Implement `arch.rs`** - set `mtvec`; on entry switch to the M stack via `mscratch`, save `a0..a7`+`ra`+`mepc`+`mstatus`, keep `MIE` clear, dispatch on `a7`, restore, `mret`. Align the M stack to 16 bytes; place a guard word (real PMP guard is Phase 2). Wire SHARED_REQ as a static `[u8;MAX_REQ]`.
+- [ ] **Step 4: Run, expect pass** - `cargo xtask qemu -- mediate` green; the three demo scenarios reproduce the host verdicts in QEMU.
+- [ ] **Step 5: Commit** - `git commit -am "feat(monitor): M-mode ecall trampoline; containment demo runs in QEMU"`
 
-**Phase 1 exit:** `cargo test --workspace` green; `cargo xtask qemu -- mediate` reproduces `demo_benign=ALLOW` (secret injected, absent from response), `demo_attack=DENY_ARG`, `demo_flow=DENY_FLOW`; Review-Focus 1–9 and 11 have passing tests; `loc-gate` under budget.
+**Phase 1 exit:** `cargo test --workspace` green; `cargo xtask qemu -- mediate` reproduces `demo_benign=ALLOW` (secret injected, absent from response), `demo_attack=DENY_ARG`, `demo_flow=DENY_FLOW`; Review-Focus 1-9 and 11 have passing tests; `loc-gate` under budget.
 
 ---
 
-# Phase 2 — PMP + measured boot (Verilator)  *(task outline; own bite-sized plan at execution)*
+# Phase 2 - PMP + measured boot (Verilator)  *(task outline; own bite-sized plan at execution)*
 
-- **Task V1 — LiteX SoC generator.** `sim/redoubt_soc.py`: VexRiscv variant with `CsrPlugin`(M/S/U), `PmpPlugin`(≥8 entries), MulDiv, caches; regions per the FPGA memory map; `EGRESS_MMIO` as a CSR-backed mock. **Produces:** a Verilator model + a memory image loader. **Exit:** SoC boots the Phase-1 monitor image and prints the banner in Verilator.
-- **Task V2 — PMP lockdown + the fault assertion (Review-Focus 10).** BROM programs `pmpaddr*/pmpcfg*` (TOR; Smepmp or `L=1`) for the 7 regions and locks them before dropping to S. **Test (Verilator):** an S- and a U-mode access to `SECRETS` and to `EGRESS_MMIO` each raise `mcause` 5/7; an access to its own region succeeds. **Exit:** assertion green in CI (`cargo xtask verilator -- pmp`).
-- **Task V3 — Measured boot + stack guard (Review-Focus 12).** BROM computes `BLAKE2s(MON_CODE)` vs a baked `H_expected`, halts on mismatch; a PMP no-access sub-region sits below the M stack. **Test:** a tampered image halts pre-Warden; a forced stack overflow faults at the guard, not into `MON_DATA`.
-- **Task V4 — Warden skeleton (S) + real egress MMIO.** Minimal S-mode entry that `mret`s to a U stub and relays its `ecall` to M; `EgressSink` implemented against the CSR-mock. **Exit:** a mediation round-trips U→S→M→(mock egress)→U on the sim SoC; `demo_*` verdicts reproduce at RTL level.
+- **Task V1 - LiteX SoC generator.** `sim/redoubt_soc.py`: VexRiscv variant with `CsrPlugin`(M/S/U), `PmpPlugin`(≥8 entries), MulDiv, caches; regions per the FPGA memory map; `EGRESS_MMIO` as a CSR-backed mock. **Produces:** a Verilator model + a memory image loader. **Exit:** SoC boots the Phase-1 monitor image and prints the banner in Verilator.
+- **Task V2 - PMP lockdown + the fault assertion (Review-Focus 10).** BROM programs `pmpaddr*/pmpcfg*` (TOR; Smepmp or `L=1`) for the 7 regions and locks them before dropping to S. **Test (Verilator):** an S- and a U-mode access to `SECRETS` and to `EGRESS_MMIO` each raise `mcause` 5/7; an access to its own region succeeds. **Exit:** assertion green in CI (`cargo xtask verilator -- pmp`).
+- **Task V3 - Measured boot + stack guard (Review-Focus 12).** BROM computes `BLAKE2s(MON_CODE)` vs a baked `H_expected`, halts on mismatch; a PMP no-access sub-region sits below the M stack. **Test:** a tampered image halts pre-Warden; a forced stack overflow faults at the guard, not into `MON_DATA`.
+- **Task V4 - Warden skeleton (S) + real egress MMIO.** Minimal S-mode entry that `mret`s to a U stub and relays its `ecall` to M; `EgressSink` implemented against the CSR-mock. **Exit:** a mediation round-trips U→S→M→(mock egress)→U on the sim SoC; `demo_*` verdicts reproduce at RTL level.
 
-# Phase 3 — Warden, compartments, sessions, wire  *(task outline)*
+# Phase 3 - Warden, compartments, sessions, wire  *(task outline)*
 
 - **W1 Warden scheduler + rendezvous IPC** (round-robin, timer preempt, bounded copy-by-value; no shared writable pages). **W2 Endpoint compartment** (COBS deframe + CRC32; forward typed requests; framing-only). **W3 Wire codec + host SDK** (`host-sdk`: build Request, COBS/CRC frame; `tests/host` round-trips against the decoder; malformed-frame tests: bad CRC, bad COBS, unknown `ver`, oversize → dropped + counted). **W4 Session lifecycle** (`SESSION_OPEN/REVOKE/CLOSE`, state machine Created→Provisioned→Active→Draining→Destroyed, quotas → `DENY_QUOTA`; Review-Focus 8 hardware-path test). **W5 Policy manifest compiler** (`monitor/src/policy.rs` + a host tool: parse the EBNF manifest → `Cap`+`predicate_table`+`flow_table`+`ConstPool`; a golden test compiles the Ch 8 example to the exact tables Task 14 consumes). **Exit:** host SDK drives a real tool call over the sim UART and gets the correct verdict; revoke stales live handles.
 
-# Phase 4 — FPGA bring-up (ULX3S)  *(task outline)*
+# Phase 4 - FPGA bring-up (ULX3S)  *(task outline)*
 
 - **F1** synth/place/route with yosys + nextpnr-ecp5 (`link-fpga.ld`, FPGA memory map); fit + timing report. **F2** flash via `openFPGALoader`; UART banner on hardware. **F3** ESP32 as M-owned network egress (M-only link; the honest caveat from Ch 12); `EgressSink` performs a real HTTPS GET with injected header. **F4** OLED shows ALLOWED/DENIED + reason. **F5** DMA-by-construction check: SD/net DMA config registers proven M-only (Review-Focus, Ch 4 §4.7). **Exit:** the containment demo runs on the board; exfil denied; verdict on the OLED.
 
-# Phase 5 — Hardening  *(task outline)*
+# Phase 5 - Hardening  *(task outline)*
 
-- **H1** IOPMP or the RTL mediation gate on the egress bus; test a rogue master faults. **H2** ECP5 AES-256 encrypted+authenticated bitstream with an OTP-fused key. **H3** a machine-checked model of stages 1–6 (stretch: Kani/Prusti on the `monitor` logic).
+- **H1** IOPMP or the RTL mediation gate on the egress bus; test a rogue master faults. **H2** ECP5 AES-256 encrypted+authenticated bitstream with an OTP-fused key. **H3** a machine-checked model of stages 1-6 (stretch: Kani/Prusti on the `monitor` logic).
 
 ---
 
 ## Self-review
 
-**1. Spec coverage.** Ch 6 wire → Task 5/W3; Ch 7 caps → Task 7/11; Ch 8 policy → W5; Ch 9 monitor pipeline/trap/secrets/audit → Tasks 6–15; Ch 10 IFC → Task 10; Ch 3/4 PMP+SoC+DMA → V1–V4, F5; Ch 5 boot → V3; Ch 11 Warden/compartments/sessions → W1–W4; Ch 12 egress/secrets/TRNG → Task 12 (mock), F3 (real), and note: **TRNG hardware + 800-90B health tests land in Phase 4 (F-series) with a host deterministic-seed stub for sim** — added here so it isn't dropped; Ch 13 assurance obligations → the Review-Focus tests + V2/V3. No spec section is unmapped.
+**1. Spec coverage.** Ch 6 wire → Task 5/W3; Ch 7 caps → Task 7/11; Ch 8 policy → W5; Ch 9 monitor pipeline/trap/secrets/audit → Tasks 6-15; Ch 10 IFC → Task 10; Ch 3/4 PMP+SoC+DMA → V1-V4, F5; Ch 5 boot → V3; Ch 11 Warden/compartments/sessions → W1-W4; Ch 12 egress/secrets/TRNG → Task 12 (mock), F3 (real), and note: **TRNG hardware + 800-90B health tests land in Phase 4 (F-series) with a host deterministic-seed stub for sim** - added here so it isn't dropped; Ch 13 assurance obligations → the Review-Focus tests + V2/V3. No spec section is unmapped.
 
-**2. Placeholder scan.** No "TBD/handle edge cases/similar to Task N". Phases 2–5 are explicitly task-outlines to be expanded into their own bite-sized plans, not hidden work; Phases 0–1 carry real code and commands.
+**2. Placeholder scan.** No "TBD/handle edge cases/similar to Task N". Phases 2-5 are explicitly task-outlines to be expanded into their own bite-sized plans, not hidden work; Phases 0-1 carry real code and commands.
 
-**3. Type consistency.** `ReasonCode`/`Opcode`/`Label`/`MAGIC` (Task 2) used verbatim in 5–15; `Cap` fields (Task 7) match Ch 12 usage and Task 14; `RequestView`/`UrlParts` (Task 5) consumed by Task 6/9; `EgressSink`/`Response` (Task 12) consumed by Task 14/15/V4; `mediate(...)` signature (Task 14) consumed by Task 15.
+**3. Type consistency.** `ReasonCode`/`Opcode`/`Label`/`MAGIC` (Task 2) used verbatim in 5-15; `Cap` fields (Task 7) match Ch 12 usage and Task 14; `RequestView`/`UrlParts` (Task 5) consumed by Task 6/9; `EgressSink`/`Response` (Task 12) consumed by Task 14/15/V4; `mediate(...)` signature (Task 14) consumed by Task 15.
 
-**4. Review Focus.** Items 1–9 and 11 are pinned to Phase-1 tasks with concrete tests; 10 and 12 to Verilator tasks V2/V3; 8 also re-tested on the hardware path in W4. The section is complete, not skipped.
+**4. Review Focus.** Items 1-9 and 11 are pinned to Phase-1 tasks with concrete tests; 10 and 12 to Verilator tasks V2/V3; 8 also re-tested on the hardware path in W4. The section is complete, not skipped.
 
 ## Notes for the executor
-- Fastest loop: Tasks 5–14 are pure `cargo test -p monitor`/`-p abi` on the dev machine, no QEMU. Only 3, 4, 15 need QEMU.
+- Fastest loop: Tasks 5-14 are pure `cargo test -p monitor`/`-p abi` on the dev machine, no QEMU. Only 3, 4, 15 need QEMU.
 - macOS setup: `rustup target add riscv32imac-unknown-none-elf`; `brew install qemu verilator`; `oss-cad-suite` for yosys/nextpnr-ecp5; `openFPGALoader` for Phase 4.
 - Keep every `unsafe` in an `arch.rs`; the `cargo geiger` gate enforces it.

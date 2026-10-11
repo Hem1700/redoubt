@@ -1,4 +1,4 @@
-# Redoubt Phase 5 — Hardening Implementation Plan
+# Redoubt Phase 5 - Hardening Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -16,8 +16,8 @@
 
 Like Phase 2's G-items, the two buildable tasks each hinge on one feasibility question. Close them in each task's Step 1 before the dependent work.
 
-- **G5-A — the egress gate needs an origin signal (H1).** A bus-level gate can only admit "monitor-authorized" egress transactions if it can tell them from a compartment's. Determine how: (a) does the VexRiscv-`secure` core expose the current *privilege mode* (M vs U) on the bus/a side-channel the gate can read, so the gate opens the EGRESS_MMIO window only while the CPU is in M-mode? or (b) a monitor-written capability token/arm register (in the M-only region) that the gate checks per transaction? Option (a) is cleaner if the privilege signal is reachable; (b) is a fallback that works regardless. The spike decides which, by inspecting what the LiteX/VexRiscv bus exposes. This is the make-or-break for H1.
-- **G5-B — Kani on the `no_std` monitor (H3).** Confirm `cargo kani` installs and runs on the `monitor` crate (it is `no_std` + `#![forbid(unsafe_code)]`, which suits Kani/CBMC). Determine which inputs can be made bounded-nondeterministic (`kani::any()`): a `RequestView` over a bounded byte buffer, a small `Policy`/`Sessions` fixture, a bounded cspace. The first proof target is the §13.2 chain: **a non-ALLOW verdict drives no egress and returns no secret.** If full `mediate` is too large for CBMC to discharge in reasonable time, prove the per-stage properties and the composition separately (documented).
+- **G5-A - the egress gate needs an origin signal (H1).** A bus-level gate can only admit "monitor-authorized" egress transactions if it can tell them from a compartment's. Determine how: (a) does the VexRiscv-`secure` core expose the current *privilege mode* (M vs U) on the bus/a side-channel the gate can read, so the gate opens the EGRESS_MMIO window only while the CPU is in M-mode? or (b) a monitor-written capability token/arm register (in the M-only region) that the gate checks per transaction? Option (a) is cleaner if the privilege signal is reachable; (b) is a fallback that works regardless. The spike decides which, by inspecting what the LiteX/VexRiscv bus exposes. This is the make-or-break for H1.
+- **G5-B - Kani on the `no_std` monitor (H3).** Confirm `cargo kani` installs and runs on the `monitor` crate (it is `no_std` + `#![forbid(unsafe_code)]`, which suits Kani/CBMC). Determine which inputs can be made bounded-nondeterministic (`kani::any()`): a `RequestView` over a bounded byte buffer, a small `Policy`/`Sessions` fixture, a bounded cspace. The first proof target is the §13.2 chain: **a non-ALLOW verdict drives no egress and returns no secret.** If full `mediate` is too large for CBMC to discharge in reasonable time, prove the per-stage properties and the composition separately (documented).
 
 ---
 
@@ -39,13 +39,13 @@ Like Phase 2's G-items, the two buildable tasks each hinge on one feasibility qu
 
 ---
 
-# Task H1 — Custom RTL egress mediation gate (Verilator)
+# Task H1 - Custom RTL egress mediation gate (Verilator)
 
 **Files:** Add the gate to `sim/redoubt_soc.py` (a Migen/LiteX module on the EGRESS_MMIO bus path); a U-mode prober in the sim image (reuse the Phase-2 `pmp`/W2 Endpoint U-stub shape); `xtask` `egress-gate` scenario. Test: the gate scenario.
 
 **Interfaces:** Produces an egress-bus gate that admits only monitor-originated (M-mode / armed) transactions to `EGRESS_MMIO 0xF000_0000`; a compartment transaction is blocked (bus error / dropped + a counter). Consumes the Phase-2/3 SoC + the privilege/origin signal from G5-A.
 
-- [ ] **Step 1 (spike, closes G5-A):** determine the origin signal — inspect whether the VexRiscv-`secure` core / the LiteX bus exposes the CPU privilege mode to a peripheral; pick option (a) M-mode-gated window or (b) monitor-armed token. Prototype the smallest gate that compiles into the SoC and elaborates in Verilator.
+- [ ] **Step 1 (spike, closes G5-A):** determine the origin signal - inspect whether the VexRiscv-`secure` core / the LiteX bus exposes the CPU privilege mode to a peripheral; pick option (a) M-mode-gated window or (b) monitor-armed token. Prototype the smallest gate that compiles into the SoC and elaborates in Verilator.
 - [ ] **Step 2 (failing test):** `xtask verilator -- egress-gate`: a U-mode compartment attempts to write/read EGRESS_MMIO → assert it is blocked (fault or a dropped-and-counted transaction, no egress effect); a monitor (M) egress to the same window succeeds. Run: expect FAIL (no gate yet).
 - [ ] **Step 3:** implement the gate (Migen) on the egress path; wire the origin signal; the monitor's existing egress sink still works through it.
 - [ ] **Step 4 (Review-Focus 1,2):** the U access is blocked at the gate; a compartment cannot forge the open condition; the Phase-2 F2 gap is closed for the CPU-MMIO path. Keep the other sim scenarios green. Commit.
@@ -54,7 +54,7 @@ Like Phase 2's G-items, the two buildable tasks each hinge on one feasibility qu
 
 ---
 
-# Task H3 — Machine-checked model of the mediation chain (Kani)
+# Task H3 - Machine-checked model of the mediation chain (Kani)
 
 **Files:** A `crates/monitor/proofs/` module or `#[cfg(kani)]` harnesses in the `monitor` crate; an `xtask kani` (or documented `cargo kani`) runner; a short `docs/` note on what is checked and under what bounds. Test: the Kani proofs discharge.
 
@@ -69,7 +69,7 @@ Like Phase 2's G-items, the two buildable tasks each hinge on one feasibility qu
 
 ---
 
-# Task H2 (DEFERRED, board-gated) — authenticated/encrypted bitstream
+# Task H2 (DEFERRED, board-gated) - authenticated/encrypted bitstream
 
 Not implemented in this phase: it needs the physical ECP5's OTP fuses to verify. **When the board is in hand** (after Phase 4 F2): generate an AES-256 encrypted + authenticated bitstream (`ecppack`/the ECP5 flow), fuse the key into OTP, and confirm the device boots only the authentic bitstream, closing the root-of-trust gap beneath measured boot (Ch 13 §13.6). Recorded here so it is not dropped.
 

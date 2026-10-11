@@ -6,7 +6,7 @@
 ## Topology (what the thesis forces)
 The LLM/agent brain runs on the **host** (untrusted, may be hijacked). Redoubt on the FPGA
 is the **hardware-rooted reference monitor** the agent's effects must pass through. The
-agent has **no direct authority** — it issues *structured tool-call requests* to Redoubt,
+agent has **no direct authority** - it issues *structured tool-call requests* to Redoubt,
 which holds the real capabilities/secrets and **owns the egress**, then performs or denies.
 
 ```
@@ -21,7 +21,7 @@ which holds the real capabilities/secrets and **owns the egress**, then performs
 Effectively: **an HSM + firewall for agent tool calls.**
 
 ## Board: ULX3S (Lattice ECP5 LFE5U-85F, ~$135)
-Chosen for: biggest FPGA in budget (85K LUT — comfortable for VexRiscv + LiteX + monitor),
+Chosen for: biggest FPGA in budget (85K LUT - comfortable for VexRiscv + LiteX + monitor),
 **fully open toolchain** (yosys / nextpnr / prjtrellis), lowest friction, most demo-ready.
 
 | Requirement | ULX3S resource |
@@ -29,7 +29,7 @@ Chosen for: biggest FPGA in budget (85K LUT — comfortable for VexRiscv + LiteX
 | FPGA logic | ECP5 **85F** (85K LUT) |
 | DRAM (OS + policy state) | **32 MB SDRAM** (MT48LC32M16) |
 | Host link (agent → Redoubt) | USB (FT231X: USB-serial + JTAG) |
-| Controlled network egress | **ESP32** (wifi), driven by the FPGA — agent has no direct path |
+| Controlled network egress | **ESP32** (wifi), driven by the FPGA - agent has no direct path |
 | Controlled storage egress | **microSD** |
 | NV store (policy/secrets/keys, boot) | **QSPI flash** (IS25LP128F) + microSD |
 | Entropy (TRNG) | ring-oscillator TRNG in FPGA fabric (LiteX) |
@@ -50,12 +50,12 @@ blocking.
   - **Measured boot**: boot ROM measures the monitor image before handing control up.
 - **Why this is "hardware-rooted enough" for v1:** PMP is hardware-enforced and only
   M-mode-configurable, so the monitor sits below the S-mode OS and the agent-facing stack
-  and is unbypassable by them — matching the Keystone/Dorami M-mode-SM pattern.
+  and is unbypassable by them - matching the Keystone/Dorami M-mode-SM pattern.
 
 ## v2 (the distinctive silicon, later): custom RTL mediation gate
 A custom **LiteX RTL peripheral** on the egress bus (network/storage/secret engines) that
 enforces capabilities **in hardware**, so not even compromised M-mode software can bypass
-it. This is Redoubt's novel silicon contribution and the "build a chip" milestone — scoped
+it. This is Redoubt's novel silicon contribution and the "build a chip" milestone - scoped
 to one elegant primitive (Baochip lesson). Deferred until v1 works.
 
 ## Software/SoC stack (all open)

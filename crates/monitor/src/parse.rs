@@ -59,7 +59,7 @@ pub const MAX_REQ: usize = 64;
 /// `shared`'s actual length cannot panic.
 ///
 /// Only after all of the above succeeds does this function copy `len`
-/// bytes into `scratch` and hand the copy — never `shared` — to
+/// bytes into `scratch` and hand the copy - never `shared` - to
 /// `abi::decode_request`.
 pub fn parse_into<'a>(
     shared: &[u8],

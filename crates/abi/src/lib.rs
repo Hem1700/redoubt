@@ -213,7 +213,7 @@ fn parse_tlv(buf: &[u8]) -> Result<(TypedArg<'_>, usize), ReasonCode> {
 
 /// Decode a URL TLV's value into `UrlParts`. The wire format carries the
 /// URL fields pre-split by the sender (scheme byte, then length-prefixed
-/// host, then port, then length-prefixed path) — this function does not
+/// host, then port, then length-prefixed path) - this function does not
 /// parse a raw URL string, it only splits/validates the already-separated
 /// fields, so there is no ambiguity for a raw-text URL parser to get wrong.
 ///
@@ -224,7 +224,7 @@ fn parse_tlv(buf: &[u8]) -> Result<(TypedArg<'_>, usize), ReasonCode> {
 /// true in-place lower-casing is not possible without violating either the
 /// zero-copy contract or `#![forbid(unsafe_code)]`. Instead this decoder
 /// enforces "host is lower-case" as an output invariant by rejecting any
-/// host containing an uppercase ASCII letter as `DenyMalformed` — so every
+/// host containing an uppercase ASCII letter as `DenyMalformed` - so every
 /// `UrlParts.host` that successfully decodes is guaranteed already
 /// lower-case, without ever mutating or reinterpreting the bytes.
 fn parse_url(value: &[u8]) -> Result<UrlParts<'_>, ReasonCode> {

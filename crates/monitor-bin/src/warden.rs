@@ -1,16 +1,16 @@
-//! Phase-3 W1 — the minimal Warden + cooperative scheduler
+//! Phase-3 W1 - the minimal Warden + cooperative scheduler
 //! (`cargo xtask verilator -- warden`).
 //!
 //! # What the Warden is (and is NOT)
 //! A tiny M-mode SCHEDULER for the one live compartment this core supports. It
 //! demonstrates liveness-without-trust on the M+U / PMP realisation of Redoubt,
 //! NOT a full Ch-11 preemptive multi-driver Warden (that needs S-mode + an MMU
-//! this `secure` core does not have — an explicit, documented deferral).
+//! this `secure` core does not have - an explicit, documented deferral).
 //!
 //! Three things are shown, with the W2 Endpoint courier as the live compartment:
 //!   (a) the Warden SCHEDULES the Endpoint and a framed benign request
 //!       round-trips (SERIAL_IN -> wire::deframe -> `ecall MEDIATE` -> M) to
-//!       ALLOW — parity with the host/QEMU/`endpoint` demos;
+//!       ALLOW - parity with the host/QEMU/`endpoint` demos;
 //!   (b) COOPERATIVE slice-budget termination: RUN voluntarily `W_YIELD`s and
 //!       the Warden terminates it once its per-yield budget is spent (never
 //!       resumes it); the device stays responsive (a post-terminate request
@@ -26,8 +26,8 @@
 //!       injected secret never appears in U-visible memory; the Phase-2 PMP
 //!       walls are unchanged.
 //!
-//! # Scheduler design (describable in a few sentences — R3-D)
-//! POLICY (M-mode, this file): a fixed two-entry run table — the Endpoint (EP)
+//! # Scheduler design (describable in a few sentences - R3-D)
+//! POLICY (M-mode, this file): a fixed two-entry run table - the Endpoint (EP)
 //! and a deliberately-runaway compartment (RUN). Round-robin over the runnable
 //! entries; each entry has a per-yield BUDGET counted in `W_YIELD` crossings.
 //! EP runs to completion (`W_DONE`); RUN yields repeatedly and never completes,
@@ -114,7 +114,7 @@ unsafe fn ecall(n: u32, a0: u32, a1: u32) -> (u32, u32) {
     (r0, r1)
 }
 
-/// Compartment EP — the W2 Endpoint courier (no authority): deframe each seeded
+/// Compartment EP - the W2 Endpoint courier (no authority): deframe each seeded
 /// SERIAL_IN frame and relay the recovered request to M via `ecall MEDIATE`,
 /// then signal `W_DONE`. Linked into the U-executable window.
 #[no_mangle]
@@ -150,7 +150,7 @@ pub extern "C" fn _warden_ep_entry() -> ! {
     loop {}
 }
 
-/// Compartment RUN — a deliberate runaway: burn a bounded chunk of real CPU
+/// Compartment RUN - a deliberate runaway: burn a bounded chunk of real CPU
 /// time, then yield, forever. It never signals `W_DONE`, so the Warden's slice
 /// budget is what bounds it. It holds no capability and makes no `MEDIATE` call,
 /// so it can drive no effect.
@@ -182,7 +182,7 @@ static mut STARTED: [bool; N_COMPT] = [false; N_COMPT];
 static mut DONE: [bool; N_COMPT] = [false; N_COMPT];
 static mut BUDGET: [u32; N_COMPT] = BUDGET0;
 static mut CUR: usize = EP;
-/// How many frames EP has relayed (0 = benign, 1 = attack) — M's own index.
+/// How many frames EP has relayed (0 = benign, 1 = attack) - M's own index.
 static mut RELAYS: u32 = 0;
 static mut FAILED: bool = false;
 
@@ -264,7 +264,7 @@ fn seed_serial_in() {
 }
 
 /// Does the relayed request (now in SHARED_REQ[0..len]) match the canonical
-/// fixture for `idx`? (Parity oracle — the very bytes the host/QEMU demos use.)
+/// fixture for `idx`? (Parity oracle - the very bytes the host/QEMU demos use.)
 fn relay_matches(idx: u32, len: usize) -> bool {
     let want = case_request(if idx == 1 { CASE_ATTACK } else { CASE_BENIGN });
     if want.len != len {

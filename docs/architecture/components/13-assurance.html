@@ -115,8 +115,11 @@ alongside the assurance argument. First, the core we build on implements machine
 v1 runs a two-tier subset of the privilege model, with the Monitor in M and the Warden and compartments
 in U; the three-tier design holds as the target. Second, on that core uncached device access bypasses
 PMP, so the egress region is contained by Monitor mediation rather than by a hardware memory wall.
-Closing the second gap is the roadmap item below: a bus-level firewall, RISC-V IOPMP or the hardware
-mediation gate. Both facts are drawn out in section 3.9 and recorded next to the simulator in
+Closing the second gap is the roadmap item below. A custom RTL egress gate now exists and is
+demonstrated in the Verilator simulation (it blocks user-mode egress at the bus by reading the core's
+privilege through a patched netlist), but that proves the mechanism in simulation only; it is not a real
+hardware boundary, and a hardware boundary still needs the core to export its privilege or a true
+IOPMP. Both facts are drawn out in section 3.9 and recorded next to the simulator in
 <code>sim/README</code>.</p>
 </div>
 
@@ -317,8 +320,9 @@ cannot alias into an M-only region. Checked against the memory map at build time
 SP 800-90B health tests (Chapter 12), never a cycle counter or a software PRNG. Simulation has no real
 entropy, so the test build uses a clearly-marked deterministic seed that is compiled out of any
 hardware image.</li>
-<li><b>DMA masters stay out of the trusted regions</b> (Chapter 4), until IOPMP or the RTL gate turns
-that construction rule into a hardware boundary.</li>
+<li><b>DMA masters stay out of the trusted regions</b> (Chapter 4), until a real hardware boundary turns
+that construction rule into an enforced one. The RTL gate of §13.6 shows the mechanism in simulation; it
+is not that boundary.</li>
 </ul>
 
 <h2><span class="n">13.5</span>Performance and resource budget</h2>
@@ -329,9 +333,9 @@ estimates because they have not yet been taken on hardware.</p>
 <table>
 <thead><tr><th>Resource</th><th>Draft estimate</th><th>Notes</th></tr></thead>
 <tbody>
-<tr><td>FPGA logic (LUTs)</td><td>~25–40k of 84k</td><td>VexRiscv RV32IMAC + PMP + optional Sv32, LiteX SoC, peripherals. Comfortable headroom on the ECP5-85F.</td></tr>
+<tr><td>FPGA logic (LUTs)</td><td>~25-40k of 84k</td><td>VexRiscv RV32IMAC + PMP + optional Sv32, LiteX SoC, peripherals. Comfortable headroom on the ECP5-85F.</td></tr>
 <tr><td>Block RAM</td><td>a modest fraction</td><td>Monitor code/data, session tables, audit ring, TRNG. SDRAM (32 MB) holds Warden + compartments off-chip.</td></tr>
-<tr><td>Decision latency (steps 1–5)</td><td>single-digit µs</td><td>Bounded loop, <code>O(args &times; clauses)</code> with args &le; 8, clauses &le; 64; no allocation. Dominated by table lookups.</td></tr>
+<tr><td>Decision latency (steps 1-5)</td><td>single-digit µs</td><td>Bounded loop, <code>O(args &times; clauses)</code> with args &le; 8, clauses &le; 64; no allocation. Dominated by table lookups.</td></tr>
 <tr><td>End-to-end tool call</td><td>dominated by egress</td><td>The check is negligible beside the ESP32 network round-trip or SD I/O; the wait is against a timer (Ch. 9, §9.5).</td></tr>
 <tr><td>Clock</td><td>~50 MHz class</td><td>Typical for a VexRiscv LiteX build on ECP5; final figure depends on place-and-route.</td></tr>
 </tbody>
@@ -355,8 +359,12 @@ closed component the Monitor does not fully own (Chapter 12). v2 moves to a boar
 the Monitor drives directly (ECPIX-5 / Colorlight class), removing the ESP32 from the trusted path.</p>
 <h4>A formal model</h4>
 <p>The mediation argument in §13.2 is a sketch. The design was kept small and loop-free specifically so a
-machine-checked model of the decision pipeline and the PMP invariants is feasible. The aim is to turn the
-sketch into a proof of the security property against a model of the hardware.</p>
+machine-checked model of the decision pipeline is feasible, and a first one now exists: a Kani model of
+the mediation chain, checked by bounded model checking (see <code>docs/architecture/PROOFS.md</code>).
+It establishes that a non-ALLOW verdict performs no egress and returns an empty response, and that
+capability revocation holds, within stated bounds. Bounded model checking is strictly weaker than a proof
+of full functional correctness, and Redoubt does not claim to be formally verified. What remains is the
+PMP invariants and a proof against a model of the hardware.</p>
 <h4>Remote attestation</h4>
 <p>v1 measures the Monitor at boot and exposes an audit hash-chain head via <code>ATTEST_READ</code><sup><a href="#n5">5</a></sup>
 (Chapters 5 and 9). v2 extends this to a proper remote attestation: an outside verifier can challenge the
@@ -369,9 +377,14 @@ starts from silicon rather than from an assumed-good configuration.</p>
 
 <p>Two items were added after external review sharpened them.</p>
 <ul>
-<li><b>A bus-level protection unit.</b> PMP guards the CPU, not other masters (Chapter 4). A later
-version adds either RISC-V IOPMP or the custom RTL mediation gate on the egress bus, so a DMA-capable
-master is constrained in hardware and the v1 "by construction" rule becomes an enforced boundary.</li>
+<li><b>A bus-level protection unit.</b> PMP guards the CPU, not other masters (Chapter 4). A custom
+RTL egress gate has since been built and shown in the Verilator simulation: a user-mode access to the
+egress window is blocked at the bus (loads fault, stores are dropped and counted) while Monitor egress
+passes. It keys on the CPU privilege, tapped from VexRiscv through a documented netlist patch. This
+proves the mechanism in simulation only. It is not a real hardware boundary and not an off-the-shelf
+RISC-V IOPMP. A later version still needs either a core that exports its privilege or a true IOPMP, so a
+DMA-capable master is constrained in hardware and the v1 "by construction" rule becomes an enforced
+boundary.</li>
 <li><b>A physical root-of-trust ladder.</b> v1 has none: the bitstream and firmware load from external
 flash in the clear, and a physical attacker can tap or rewrite them. A hardened build can use the
 ECP5's AES-256 encrypted-and-authenticated bitstream with a key in on-chip OTP fuses, which defeats
@@ -401,19 +414,19 @@ to the board, tapping or rewriting the SPI flash, reading the bitstream back, or
 timing side channels, v1 offers nothing. Those are out of scope (Chapter 2). Redoubt is a
 remote-software containment device; it complements a secure element, it does not replace one.</li>
 <li><b>PMP isolation is CPU-only in v1.</b> A DMA-capable bus master is kept out of the trusted regions
-by construction, not by an enforced hardware boundary, until IOPMP or the RTL gate lands (Chapters 4
-and 13.6).</li>
+by construction, not by an enforced hardware boundary, until a real hardware boundary lands (Chapters 4
+and 13.6); the RTL gate is a simulation demonstration only.</li>
 <li><b>The core's PMP and trap logic is trusted, not proven.</b> VexRiscv is not a formally verified
 core. That its PMP checks and its CSR and trap machinery are correct is a TCB assumption, checked
-behaviorally by the Verilator assertion (13.4) and strengthened later by a verified core or the RTL
-gate.</li>
+behaviorally by the Verilator assertion (13.4) and strengthened later by a verified core or a
+hardware egress boundary.</li>
 </ul>
 
 <h2><span class="n">13.8</span>Open questions</h2>
 <p>The loose ends that bear on assurance specifically:</p>
 <ul>
-<li>Which properties a first formal model should target, the mediation chain of §13.2 is the obvious
-candidate, but the PMP-lock invariant and the attenuation-only capability rule are also within reach.</li>
+<li>Which properties to model after the first Kani model of the mediation chain: the PMP-lock invariant and
+the attenuation-only capability rule are within reach.</li>
 <li>How to attest the ESP32's presence in the path honestly until wired egress lands: should the audit log
 record that egress went through the closed module?</li>
 <li>Whether the containment suite's "empty egress trace" oracle is strong enough, or whether a hardware

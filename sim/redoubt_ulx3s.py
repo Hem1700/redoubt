@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 #
-# Redoubt Phase 4 (F1) — the SAME SoC as sim/redoubt_soc.py, re-targeted from the
+# Redoubt Phase 4 (F1) - the SAME SoC as sim/redoubt_soc.py, re-targeted from the
 # Verilator sim platform to the real ULX3S (Lattice ECP5) board.
 #
 # One source of truth: this file imports the region map (MEMORY_MAP), CSR

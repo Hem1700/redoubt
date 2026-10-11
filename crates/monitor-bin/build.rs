@@ -3,7 +3,7 @@
 //! Rust const module to `$OUT_DIR/memory_map_gen.rs`, which `pmp.rs` includes.
 //!
 //! Doing this in `build.rs` means region bases/sizes are NEVER hand-copied
-//! into the PMP code: a drifted address is impossible — regenerate the JSON
+//! into the PMP code: a drifted address is impossible - regenerate the JSON
 //! (`redoubt_soc.py --emit-memory-map`) and the consts follow on the next
 //! build. The parser is a tiny purpose-built scanner (no serde dependency, so
 //! the host build stays dependency-free); the JSON is machine-generated with a

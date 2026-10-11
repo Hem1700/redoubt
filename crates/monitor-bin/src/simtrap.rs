@@ -1,10 +1,10 @@
-//! Phase-2 V2 — the M→U privilege drop, the baked-in U-mode prober, and the
+//! Phase-2 V2 - the M→U privilege drop, the baked-in U-mode prober, and the
 //! M-mode PMP fault handler for the `cargo xtask verilator -- pmp` scenario.
 //!
 //! This is the fault-injection evidence that the PMP walls programmed by
 //! `pmp::lock_regions()` are unbypassable: a U-mode stub performs forbidden
 //! loads at the secrets, the monitor's own code/data, the Warden region, an
-//! undescribed gap, and a region boundary — each must fault — and one control
+//! undescribed gap, and a region boundary - each must fault - and one control
 //! load at its OWN region (SHARED_REQ) must succeed. (Egress MMIO is in the
 //! uncached IO window and is not PMP-deniable on this core; see the probe-list
 //! note below and pmp.rs fact 1b.)
@@ -33,7 +33,7 @@ use crate::uart;
 // uncached IO window (addr[31]=1), and this core's DataCache bypasses the PMP
 // permission check for uncached accesses (`bypassCache = isIoAccess`; the
 // bypass `accessError` ignores `badPermissions`). So U's access to the egress
-// MMIO is not PMP-deniable on this core — egress containment is by monitor
+// MMIO is not PMP-deniable on this core - egress containment is by monitor
 // mediation (Phase-1 `mediate` demo), not PMP. See pmp.rs (fact 1b) and the V2
 // report. PMP walls only the CACHED TCB memory below 0x8000_0000, exercised
 // below.
@@ -248,14 +248,14 @@ fn print_m_fault(cause: u32, addr: u32) {
 extern "C" fn sim_trap_rust(frame: *mut u32) {
     let cause = read_mcause();
 
-    // Ignore any interrupt (high bit) — none are armed in this scenario.
+    // Ignore any interrupt (high bit) - none are armed in this scenario.
     if cause & (1u32 << 31) != 0 {
         return;
     }
 
     // Carry V3-1 (fail closed): before treating an access fault as the U-mode
     // prober's, check whether it came from M-mode. If it did (a monitor bug or
-    // the M-stack guard), print a self-fault line and HALT — resuming M past its
+    // the M-stack guard), print a self-fault line and HALT - resuming M past its
     // own fault would be a fail-OPEN bug. Only U-mode faults resume.
     if matches!(cause, 1 | 5 | 7) && trapped_from_machine(frame) {
         print_m_fault(cause, read_mtval());
@@ -278,7 +278,7 @@ extern "C" fn sim_trap_rust(frame: *mut u32) {
                 *frame.add(FR_MEPC) = frame.add(FR_MEPC).read().wrapping_add(4);
             }
         }
-        // U-mode instruction access fault — not expected from this prober (it
+        // U-mode instruction access fault - not expected from this prober (it
         // never fetches from a forbidden region). Print, then fail closed.
         1 => {
             print_fault(cause, read_mtval());
@@ -471,7 +471,7 @@ pub(crate) unsafe fn restore_ctx(frame: *mut u32, slot: *const u32) {
 }
 
 /// Install a FRESH U context into the live frame: entry pc, own stack, MPP=U,
-/// every GPR zeroed — the same register hygiene `drop_to_user` gives the first
+/// every GPR zeroed - the same register hygiene `drop_to_user` gives the first
 /// compartment (no inheritance of M or another compartment's register state).
 #[cfg(feature = "warden")]
 pub(crate) unsafe fn install_user_ctx(frame: *mut u32, entry: u32, user_sp: u32) {
@@ -543,7 +543,7 @@ fn overflow_recurse(depth: u32) -> u32 {
 
 /// Entry point for the `--stack-overflow` measure sub-scenario (sim image built
 /// with the `stackflow` feature). Locks the PMP (incl. the guard) then overflows
-/// the M stack; control never returns here — it lands in `sim_trap_rust` at the
+/// the M stack; control never returns here - it lands in `sim_trap_rust` at the
 /// guard and HALTs.
 #[cfg(feature = "stackflow")]
 pub fn run_stack_overflow_demo() -> ! {

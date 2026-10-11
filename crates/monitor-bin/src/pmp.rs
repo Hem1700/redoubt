@@ -1,4 +1,4 @@
-//! Phase-2 V2 — PMP lockdown for the LiteX/VexRiscv-`secure` sim SoC.
+//! Phase-2 V2 - PMP lockdown for the LiteX/VexRiscv-`secure` sim SoC.
 //!
 //! `lock_regions()` is the monitor's first M-mode security act: it programs
 //! and LOCKS the physical-memory-protection entries so that lower-privilege
@@ -11,23 +11,23 @@
 //!
 //! 1. **NAPOT-only, with a nonstandard size encoding.** Every `dGuard`/`iGuard`
 //!    hit term is hardwired to `pmpcfg[4:3] == 2'b11` (NAPOT); TOR (`2'b01`) and
-//!    NA4 (`2'b10`) never match. The `PmpSetter` slices asymmetrically —
-//!    `base = pmpaddr[29:5]` but `mask = ~ones[30:6]` — so a *standard* NAPOT
+//!    NA4 (`2'b10`) never match. The `PmpSetter` slices asymmetrically -
+//!    `base = pmpaddr[29:5]` but `mask = ~ones[30:6]` - so a *standard* NAPOT
 //!    `pmpaddr` encodes a region **one quarter** the intended size (empirically:
 //!    a standard 4 KiB `pmpaddr` matched only 1 KiB). The verified encoding is
-//!    `pmpaddr = (base>>2) | ((size>>1) - 1)`, and — because the size field is
-//!    effectively 4x — each region's base must be aligned to **4x its size**.
+//!    `pmpaddr = (base>>2) | ((size>>1) - 1)`, and - because the size field is
+//!    effectively 4x - each region's base must be aligned to **4x its size**.
 //!    Granularity is 128 B. See `napot()`.
 //!
 //! 1b. **Uncached MMIO bypasses PMP.** `stageB_bypassCache = isIoAccess`
 //!    (`addr[31]`), and on the bypass path the DataCache's `accessError` ignores
 //!    `badPermissions` (the PMP permission result). So any access to the IO
-//!    window `0x8000_0000..=0xFFFF_FFFF` — which includes EGRESS_MMIO at
-//!    `0xF000_0000` (MMIO must be uncached, so it MUST live there) — is NOT
+//!    window `0x8000_0000..=0xFFFF_FFFF` - which includes EGRESS_MMIO at
+//!    `0xF000_0000` (MMIO must be uncached, so it MUST live there) - is NOT
 //!    PMP-enforceable. Egress isolation on this core is therefore by monitor
 //!    mediation (the compartment holds no egress capability; the Phase-1
 //!    `mediate` demo proves it), not by PMP. PMP walls only the CACHED TCB
-//!    memory (secrets, monitor code/data, Warden — all below `0x8000_0000`).
+//!    memory (secrets, monitor code/data, Warden - all below `0x8000_0000`).
 //!    This is a documented V2 reduction; V3/V4 inherit it.
 //!    (Phase-5 H1: the sim SoC now ALSO gates the CPU D-bus path into EGRESS_MMIO
 //!    with the custom RTL `EgressGate` (sim/redoubt_soc.py); PMP itself is unchanged.)
@@ -35,14 +35,14 @@
 //! 2. **M + U only, no Supervisor.** `misa` advertises no `S` bit and there are
 //!    no `sstatus`/`sepc`/`stvec`/`medeleg` CSRs; all traps target M
 //!    (`exceptionTargetPrivilege == 2'b11`). The prober therefore runs in
-//!    U-mode (the untrusted compartment) — the strongest, least-privileged wall
+//!    U-mode (the untrusted compartment) - the strongest, least-privileged wall
 //!    test. The map's S-owned WARDEN grant and its S/U split belong to V4.
 //!
 //! 3. **Plain PMP, no Smepmp/ePMP.** A matching entry's `R/W/X` apply to *every*
 //!    mode; `L=1` only additionally extends the entry to M. There is no
 //!    "M-only" permissioned entry: a locked `R-X` MON_CODE rule would grant U
 //!    read+execute of the monitor's code. The correct plain-PMP realization of
-//!    an M-only region is therefore **omission** — an *undescribed* address is
+//!    an M-only region is therefore **omission** - an *undescribed* address is
 //!    denied to U by default (`allowRead = privilege==M`) and reached by M by
 //!    exemption. Verified: with no entry matching, the hardware returns
 //!    `allow = (CsrPlugin_privilege == 2'b11)`.
@@ -51,9 +51,9 @@
 //!   * MON_CODE, MON_DATA, SECRETS, EGRESS_MMIO, WARDEN, BROM, COMPT_0 are all
 //!     **undescribed** → U-denied, M-exempt. These are the walls, by omission.
 //!   * The only DESCRIBED entries are the U-reachable windows:
-//!       - entry 0: SHARED_REQ, NAPOT, `RW-`, `L=1` — U's mailbox (own region),
+//!       - entry 0: SHARED_REQ, NAPOT, `RW-`, `L=1` - U's mailbox (own region),
 //!         and the target of the lock-immutability check.
-//!       - entry 1: UTEXT, NAPOT, `R-X`, `L=1` — a 2 KiB executable window
+//!       - entry 1: UTEXT, NAPOT, `R-X`, `L=1` - a 2 KiB executable window
 //!         (linker-placed just after `.data`, 8 KiB-aligned to satisfy the 4x
 //!         NAPOT rule; the base lives only in link-sim.ld, read via the
 //!         `_uprobe_entry` symbol) that hosts the baked-in U prober so U has
@@ -71,7 +71,7 @@
 #![allow(dead_code)]
 
 // Single source of truth (ruling P2-2): region bases/sizes come from
-// sim/memory_map.json via build.rs — never hand-copied.
+// sim/memory_map.json via build.rs - never hand-copied.
 include!(concat!(env!("OUT_DIR"), "/memory_map_gen.rs"));
 
 // --- pmpcfg byte fields ----------------------------------------------------
@@ -81,20 +81,20 @@ const CFG_X: u32 = 1 << 2;
 const CFG_A_NAPOT: u32 = 0b11 << 3;
 const CFG_L: u32 = 1 << 7;
 
-/// entry 0 — SHARED_REQ: NAPOT, RW-, locked.
+/// entry 0 - SHARED_REQ: NAPOT, RW-, locked.
 const CFG0_SHARED_REQ: u32 = CFG_L | CFG_A_NAPOT | CFG_R | CFG_W; // 0x9b
-/// entry 1 — UTEXT: NAPOT, R-X, locked.
+/// entry 1 - UTEXT: NAPOT, R-X, locked.
 const CFG1_UTEXT: u32 = CFG_L | CFG_A_NAPOT | CFG_R | CFG_X; // 0x9d
-/// entry 2 — M-stack guard: NAPOT, NO R/W/X, locked (carry V3-2). Because L=1
+/// entry 2 - M-stack guard: NAPOT, NO R/W/X, locked (carry V3-2). Because L=1
 /// extends the entry to M and it grants nothing, a matching access faults in
-/// M-mode too — the guard page below the M stack that catches an overflow.
+/// M-mode too - the guard page below the M stack that catches an overflow.
 const CFG2_STACK_GUARD: u32 = CFG_L | CFG_A_NAPOT; // 0x88
 
 /// The full `pmpcfg0` word: byte0 = entry0, byte1 = entry1, byte2 = entry2
 /// (stack guard), byte3 = OFF.
 const PMPCFG0_BASE: u32 = CFG0_SHARED_REQ | (CFG1_UTEXT << 8) | (CFG2_STACK_GUARD << 16);
 
-/// Phase-3 W2 — entry 3: SERIAL_IN, NAPOT, R--, locked. Only the `endpoint`
+/// Phase-3 W2 - entry 3: SERIAL_IN, NAPOT, R--, locked. Only the `endpoint`
 /// image grants it (the Endpoint compartment's mock serial source); every other
 /// image keeps byte3 = OFF, so the Phase-2 walls are unchanged.
 #[cfg(any(feature = "endpoint", feature = "warden"))]
@@ -125,7 +125,7 @@ pub const UTEXT_SIZE: u32 = 0x1000; // 4 KiB
 
 extern "C" {
     /// Start of the `.utext` section (linker-placed, `UTEXT_SIZE`-aligned).
-    /// This is the single source for the U-code window base — the address
+    /// This is the single source for the U-code window base - the address
     /// lives only in `link-sim.ld`; Rust reads the symbol.
     static _uprobe_entry: u8;
     /// Base of the M-stack guard page (linker-placed, 4x-`STACK_GUARD_SIZE`
@@ -176,7 +176,7 @@ pub fn lock_regions() {
     let utext = napot(utext_base(), UTEXT_SIZE);
     let guard = napot(stack_guard_base(), STACK_GUARD_SIZE);
     unsafe {
-        // Addresses first, then cfg — once cfg locks an entry, further writes
+        // Addresses first, then cfg - once cfg locks an entry, further writes
         // to its addr/cfg are ignored by hardware.
         csrw!("pmpaddr0", shared);
         csrw!("pmpaddr1", utext);

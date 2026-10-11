@@ -133,14 +133,14 @@ Canonical, defined once in `redoubt_soc.py` and emitted to `memory_map.json`:
 
 | Region | Range | M | S | U |
 |--------|-------|---|---|---|
-| BROM        | `0x0000_0000`–`0x0000_2000` | R-X |, |, |
-| MON_CODE    | `0x1000_0000`–`0x1000_8000` | R-X |, |, |
-| MON_DATA    | `0x1000_8000`–`0x1002_0000` | RW- |, |, |
-| SECRETS     | `0x1002_0000`–`0x1002_4000` | RW- |, |, |
-| WARDEN      | `0x2000_0000`–`0x2010_0000` | RWX | RWX |, |
-| COMPT_0     | `0x3000_0000`–`0x3010_0000` |, |, | RW- (SDRAM-backed, V4) |
-| SHARED_REQ  | `0x4000_0000`–`0x4000_1000` | RW- |, | RW- |
-| EGRESS_MMIO | `0xF000_0000`–`0xF001_0000` | RW- |, |, (= LiteX CSR window; UART lives here). **Caveat: CPU MMIO bypasses PMP on this core, the "S/U denied" here is the *intended* policy, NOT a hardware wall; U can reach these registers. Egress is contained by monitor mediation, not PMP. See the Hardware findings note above.** |
+| BROM        | `0x0000_0000`-`0x0000_2000` | R-X |, |, |
+| MON_CODE    | `0x1000_0000`-`0x1000_8000` | R-X |, |, |
+| MON_DATA    | `0x1000_8000`-`0x1002_0000` | RW- |, |, |
+| SECRETS     | `0x1002_0000`-`0x1002_4000` | RW- |, |, |
+| WARDEN      | `0x2000_0000`-`0x2010_0000` | RWX | RWX |, |
+| COMPT_0     | `0x3000_0000`-`0x3010_0000` |, |, | RW- (SDRAM-backed, V4) |
+| SHARED_REQ  | `0x4000_0000`-`0x4000_1000` | RW- |, | RW- |
+| EGRESS_MMIO | `0xF000_0000`-`0xF001_0000` | RW- |, |, (= LiteX CSR window; UART lives here). **Caveat: CPU MMIO bypasses PMP on this core, the "S/U denied" here is the *intended* policy, NOT a hardware wall; U can reach these registers. Egress is contained by monitor mediation, not PMP. See the Hardware findings note above.** |
 
 Reset vector for V1 is **MON_CODE** (`0x1000_0000`); the measured-boot BROM at
 `0x0` arrives in V3.

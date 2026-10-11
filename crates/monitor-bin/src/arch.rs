@@ -15,7 +15,7 @@
 //! # Single-threaded soundness of the mutable statics
 //! There is exactly one hart and the trap handler runs to completion with
 //! machine interrupts masked (the hardware clears `mstatus.MIE` on trap
-//! entry and we never set it inside the handler — Review-Focus 7). No two
+//! entry and we never set it inside the handler - Review-Focus 7). No two
 //! flows ever touch `SHARED_REQ`, `RESP_BUF`, `SESSIONS`, `SINK`, or
 //! `AUDIT` concurrently, and the handler is not re-entrant, so the
 //! `&mut`/`&` references we form from these statics inside the handler are
@@ -85,7 +85,7 @@ fn trap_stack_top() -> usize {
 }
 
 // ---------------------------------------------------------------------------
-// CLINT (QEMU `virt`) — machine timer, used only by Scenario B.
+// CLINT (QEMU `virt`) - machine timer, used only by Scenario B.
 // ---------------------------------------------------------------------------
 const MTIMECMP_LO: *mut u32 = 0x0200_4000 as *mut u32;
 const MTIMECMP_HI: *mut u32 = 0x0200_4004 as *mut u32;
@@ -173,7 +173,7 @@ impl EgressSink for ImageSink {
         self.record(parts.host);
         self.record(parts.path);
         if let Some(s) = secret {
-            self.record(s); // outbound only — never in the returned body
+            self.record(s); // outbound only - never in the returned body
         }
         Ok(Response::with_body(ReasonCode::Allow, abi::Label::UNTRUSTED, RESPONSE_BODY))
     }
@@ -216,7 +216,7 @@ pub fn init() {
 //
 // Interrupt masking (Review-Focus 7): a trap ENTRY clears `mstatus.MIE` in
 // hardware (saving the old value in MPIE). We never set MIE inside the
-// handler, so machine interrupts stay masked for the entire window — a
+// handler, so machine interrupts stay masked for the entire window - a
 // timer that becomes pending mid-handler cannot preempt us and corrupt the
 // frame or the verdict. `mret` restores MIE from MPIE on the way out.
 //
@@ -347,13 +347,13 @@ extern "C" fn trap_rust(frame: *mut u32) {
 
     // Exception. Only an environment call from U(8)/S(9)/M(11) is a legitimate
     // trap into this trampoline. ANY other exception cause (illegal
-    // instruction, access fault — the latter arrives once Phase-2 adds PMP) is
+    // instruction, access fault - the latter arrives once Phase-2 adds PMP) is
     // an unexpected fault inside the M-mode TCB: it is unrecoverable, so we
     // FAIL CLOSED. Silently treating it as a DENY_MALFORMED "ecall" and
     // resuming at mepc+4 would be a fail-open recovery (resuming mid-fault into
     // an unknown state), contrary to the project's fail-closed principle. We
     // instead signal failure on the sifive_test finisher (0x3333, mirroring the
-    // main.rs panic-handler convention) and halt forever — never advancing mepc,
+    // main.rs panic-handler convention) and halt forever - never advancing mepc,
     // never returning.
     if !matches!(cause, 8 | 9 | 11) {
         unsafe {
@@ -425,7 +425,7 @@ fn dispatch_mediate(ptr: usize, len: usize) -> (u8, usize) {
 /// The brief PREFERS dropping to S-mode so the `ecall` crosses the real
 /// privilege boundary (mcause 9). On QEMU `virt` (riscv32) with the 16 PMP
 /// entries the machine implements but NONE configured, an S/U-mode access
-/// fails closed — so dropping to S-mode without first programming PMP faults
+/// fails closed - so dropping to S-mode without first programming PMP faults
 /// on the S stub's very first fetch. PMP is explicitly Phase-2 (V3) work and
 /// out of scope here. Per the brief's escape hatch we therefore take the
 /// documented M-mode fallback: an M-mode `ecall` (mcause 11), which the
@@ -476,7 +476,7 @@ fn arm_timer_and_enable() {
         // Enable machine timer interrupt (mie.MTIE, bit 7) and the global
         // machine-interrupt enable (mstatus.MIE, bit 3). With both set, the
         // pending timer will fire the instant `mret` restores MIE=1 after
-        // the mediate ecall handler returns — NOT during it.
+        // the mediate ecall handler returns - NOT during it.
         core::arch::asm!("csrs mie, {0}", in(reg) 1usize << 7, options(nomem, nostack));
         core::arch::asm!("csrs mstatus, {0}", in(reg) 1usize << 3, options(nomem, nostack));
     }

@@ -170,7 +170,7 @@ and precisely which piece of code may touch the secrets.</p>
   <g font-size="9">
     <rect x="240" y="62" width="106" height="36" class="f-s1 s-ln"/><text x="293" y="84" text-anchor="middle">1 · parser</text>
     <rect x="240" y="108" width="106" height="36" class="f-s1 s-ln"/><text x="293" y="130" text-anchor="middle">2 · resolver</text>
-    <rect x="240" y="154" width="106" height="36" class="f-s1 s-ln"/><text x="293" y="176" text-anchor="middle">3–4 · predicates</text>
+    <rect x="240" y="154" width="106" height="36" class="f-s1 s-ln"/><text x="293" y="176" text-anchor="middle">3-4 · predicates</text>
     <rect x="240" y="200" width="106" height="36" class="f-s1 s-ln"/><text x="293" y="222" text-anchor="middle">5 · flow</text>
     <rect x="240" y="246" width="106" height="46" class="f-s1 s-acc" stroke-width="1.5"/><text x="293" y="265" text-anchor="middle" class="t-acc">6 · do it +</text><text x="293" y="279" text-anchor="middle" class="t-acc">inject secret</text>
   </g>
@@ -210,7 +210,7 @@ were the request read in place, a fast attacker could alter it <em>after</em> th
 <dt>2 · resolver</dt><dd>Turns the coat-check tag (a number the host supplied) into an actual
 capability, or refuses. It also confirms the tag has not gone stale, the subject of the Sessions
 chapter, which is how an agent's permissions are cancelled instantly.</dd>
-<dt>3–4 · predicate engine</dt><dd>The doorman with the guest list. The capability states, "you may
+<dt>3-4 · predicate engine</dt><dd>The doorman with the guest list. The capability states, "you may
 call <code>http.request</code>, but only to these hosts, only over HTTPS, only with GET." This engine
 checks the request's arguments against those conditions. It is a plain loop over a short list, no
 regular expressions, no scripting, nothing that can run indefinitely.</dd>

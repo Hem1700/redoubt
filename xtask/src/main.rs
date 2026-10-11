@@ -186,7 +186,7 @@ fn loc_gate() -> anyhow::Result<()> {
 const BOOT_BANNER: &str = "redoubt: monitor online";
 const QEMU_TIMEOUT: Duration = Duration::from_secs(15);
 
-/// The exact UART lines the `mediate` scenario must emit — the three
+/// The exact UART lines the `mediate` scenario must emit - the three
 /// containment demo verdicts, proof the injected secret went outbound but
 /// not into the response, and the interrupt-masking (Review-Focus 7) frame
 /// check. Asserted by `cargo xtask qemu -- mediate`.
@@ -429,7 +429,7 @@ const PMP_EXPECTED_LINES: &[&str] = &[
     "PMP-DONE",
 ];
 
-/// Lines that, if seen, mean a wall failed open or a control read went wrong —
+/// Lines that, if seen, mean a wall failed open or a control read went wrong -
 /// the scenario must fail if any appears.
 const PMP_FORBIDDEN_LINES: &[&str] = &[
     "PMP-IMMUTABLE=FAIL",
@@ -505,7 +505,7 @@ const SIM_WARDEN_EXPECTED_LINES: &[&str] = &[
     "WARDEN-DONE",
 ];
 
-/// Any of these means liveness-without-trust (or the harness) failed — fail
+/// Any of these means liveness-without-trust (or the harness) failed - fail
 /// closed. A DENY turned into an ALLOW, a secret leak, an M-mode fault, or a
 /// compromised scheduler effect would each break the whole point of the task.
 const SIM_WARDEN_FORBIDDEN_LINES: &[&str] = &[
@@ -548,7 +548,7 @@ const EGRESS_GATE_FORBIDDEN_LINES: &[&str] = &[
     "~", // U's byte pushed through the UART data register must never appear
 ];
 
-/// Any of these means containment (or the harness) failed — fail closed.
+/// Any of these means containment (or the harness) failed - fail closed.
 const SIM_MEDIATE_FORBIDDEN_LINES: &[&str] = &[
     "MEDIATE-FAIL",
     "outbound-MISSING",
@@ -579,19 +579,19 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
 
     // Preflight: the locally-provisioned toolchain must be present.
     anyhow::ensure!(p.venv_python().is_file(),
-        "missing LiteX venv Python at {} — see sim/README.md", p.venv_python().display());
+        "missing LiteX venv Python at {} - see sim/README.md", p.venv_python().display());
     anyhow::ensure!(p.verilator_root().is_dir(),
-        "missing Verilator at {} — see sim/README.md", p.verilator_root().display());
+        "missing Verilator at {} - see sim/README.md", p.verilator_root().display());
     anyhow::ensure!(p.simdeps_lib().is_dir(),
-        "missing arm64 json-c/libevent at {} — build them per sim/README.md", p.simdeps_lib().display());
+        "missing arm64 json-c/libevent at {} - build them per sim/README.md", p.simdeps_lib().display());
 
     // --- Step 1: build the SIM monitor image (rv32ima, compressed-free). ---
     // nightly + build-std/core for the tier-3 riscv32ima target; link-sim.ld
     // via per-image rustflags (ruling P2-1); its own target dir so the QEMU
     // (imac) artifact is never touched.
     // (Ruling P2-3: nightly pinned inside `nightly_build` so the compressed-free
-    // guarantee — stable ignores `-C target-feature=-c`; the `secure` core has no
-    // C decoder — can't drift.) The `mediate` image is built `--release` in its
+    // guarantee - stable ignores `-C target-feature=-c`; the `secure` core has no
+    // C decoder - can't drift.) The `mediate` image is built `--release` in its
     // own target dir: the debug `monitor::mediate` pipeline + BLAKE2 is ~220 KiB,
     // far past the 128 KiB mon_ram; release fits with ample headroom.
     println!("cargo xtask verilator: building sim monitor image (riscv32ima, build-std)...");
@@ -814,13 +814,13 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
         for bad in SIM_WARDEN_FORBIDDEN_LINES {
             anyhow::ensure!(
                 !stdout.contains(bad),
-                "warden: observed failure marker {bad:?} — liveness-without-trust \
+                "warden: observed failure marker {bad:?} - liveness-without-trust \
                  did not hold (fail closed).\nUART:\n{stdout}"
             );
         }
         anyhow::ensure!(
             saw_done,
-            "warden: monitor did not reach `WARDEN-DONE` within {:?} — the \
+            "warden: monitor did not reach `WARDEN-DONE` within {:?} - the \
              scheduler / preempt path stalled; UART so far:\n{stdout}",
             VERILATOR_RUN_TIMEOUT
         );
@@ -840,7 +840,7 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
              DENY_ARG; no-escalation is structural (by-construction: M decides \
              and performs/withholds the effect before the scheduler sees a \
              status), with sink-calls=2 and secret=absent confirming the effect \
-             is unchanged — all {} lines observed)",
+             is unchanged - all {} lines observed)",
             SIM_WARDEN_EXPECTED_LINES.len()
         );
         return Ok(());
@@ -878,7 +878,7 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
             "\ncargo xtask verilator -- endpoint: PASS (U-mode Endpoint deframes SERIAL_IN on RTL: \
              valid benign frame -> ALLOW; CRC-corrupt / COBS-invalid / truncated frames dropped \
              (dropped=3) and never mediated; garbage inner -> DENY_MALFORMED and wrong-host \
-             attack -> DENY_ARG — the Endpoint holds no authority; all {} lines observed)",
+             attack -> DENY_ARG - the Endpoint holds no authority; all {} lines observed)",
             SIM_ENDPOINT_EXPECTED_LINES.len()
         );
         return Ok(());
@@ -888,13 +888,13 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
         for bad in SIM_MEDIATE_FORBIDDEN_LINES {
             anyhow::ensure!(
                 !stdout.contains(bad),
-                "mediate: observed failure marker {bad:?} — containment did not hold \
+                "mediate: observed failure marker {bad:?} - containment did not hold \
                  (fail closed).\nUART:\n{stdout}"
             );
         }
         anyhow::ensure!(
             saw_done,
-            "mediate: monitor did not reach `MEDIATE-DONE` within {:?} — the U \
+            "mediate: monitor did not reach `MEDIATE-DONE` within {:?} - the U \
              compartment / mediate path stalled; UART so far:\n{stdout}",
             VERILATOR_RUN_TIMEOUT
         );
@@ -907,7 +907,7 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
         println!(
             "\ncargo xtask verilator -- mediate: PASS (U-compartment -> M `mediate` on RTL: \
              benign=ALLOW with the secret in the EGRESS_MMIO record and absent from U-visible \
-             memory; wrong-host=DENY_ARG and secret-to-public=DENY_FLOW never drove the sink — \
+             memory; wrong-host=DENY_ARG and secret-to-public=DENY_FLOW never drove the sink - \
              all {} lines observed)",
             SIM_MEDIATE_EXPECTED_LINES.len()
         );
@@ -930,28 +930,28 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
     // --- pmp scenario assertions (fail closed) ---------------------------
     anyhow::ensure!(
         saw_done,
-        "pmp: monitor did not reach `PMP-DONE` within {:?} — the prober or a \
+        "pmp: monitor did not reach `PMP-DONE` within {:?} - the prober or a \
          PMP fault path stalled; UART so far:\n{stdout}",
         VERILATOR_RUN_TIMEOUT
     );
     for bad in PMP_FORBIDDEN_LINES {
         anyhow::ensure!(
             !stdout.contains(bad),
-            "pmp: observed failure marker {bad:?} — a PMP wall did not hold as \
+            "pmp: observed failure marker {bad:?} - a PMP wall did not hold as \
              expected (fail closed).\nUART:\n{stdout}"
         );
     }
     for line in PMP_EXPECTED_LINES {
         anyhow::ensure!(
             stdout.contains(line),
-            "pmp: missing expected UART line {line:?} — the corresponding PMP \
+            "pmp: missing expected UART line {line:?} - the corresponding PMP \
              assertion did not hold.\nUART:\n{stdout}"
         );
     }
     println!(
         "\ncargo xtask verilator -- pmp: PASS (PMP locked + immutable; every \
          forbidden U-mode access faulted, own region worked, undescribed gap + \
-         boundary denied — all {} lines observed)",
+         boundary denied - all {} lines observed)",
         PMP_EXPECTED_LINES.len()
     );
     Ok(())
@@ -1111,17 +1111,17 @@ fn verilator_measure() -> anyhow::Result<()> {
     // Preflight: the locally-provisioned toolchain must be present.
     anyhow::ensure!(
         p.venv_python().is_file(),
-        "missing LiteX venv Python at {} — see sim/README.md",
+        "missing LiteX venv Python at {} - see sim/README.md",
         p.venv_python().display()
     );
     anyhow::ensure!(
         p.verilator_root().is_dir(),
-        "missing Verilator at {} — see sim/README.md",
+        "missing Verilator at {} - see sim/README.md",
         p.verilator_root().display()
     );
     anyhow::ensure!(
         p.simdeps_lib().is_dir(),
-        "missing arm64 json-c/libevent at {} — see sim/README.md",
+        "missing arm64 json-c/libevent at {} - see sim/README.md",
         p.simdeps_lib().display()
     );
 
@@ -1203,7 +1203,7 @@ fn verilator_measure() -> anyhow::Result<()> {
     println!("measure[1/3] good boot: PASS (BROM-MEASURE-OK + banner)");
 
     // --- Sub-test 2: tamper -> BROM halts before the monitor. ----------------
-    // Flip a byte at 0x9000 — in the `.text` tail that the OLD fixed-0x8000
+    // Flip a byte at 0x9000 - in the `.text` tail that the OLD fixed-0x8000
     // measurement did NOT cover. That this now halts proves the measurement
     // spans the full executed image (the round-1 review finding).
     println!("\nmeasure[2/3] tamper: flip one .text byte at 0x9000 (past the old 0x8000)...");
@@ -1217,7 +1217,7 @@ fn verilator_measure() -> anyhow::Result<()> {
     anyhow::ensure!(saw2 && out2.contains("BROM-TAMPER-HALT"),
         "measure tamper: BROM did not print its tamper-halt line\nUART:\n{out2}");
     anyhow::ensure!(!out2.contains(BOOT_BANNER),
-        "measure tamper: the monitor banner appeared — the BROM failed OPEN past a tampered image\nUART:\n{out2}");
+        "measure tamper: the monitor banner appeared - the BROM failed OPEN past a tampered image\nUART:\n{out2}");
     anyhow::ensure!(!out2.contains("BROM-MEASURE-OK"),
         "measure tamper: BROM reported a good measurement on a tampered image\nUART:\n{out2}");
     println!("measure[2/3] tamper: PASS (BROM-TAMPER-HALT, no monitor banner)");
@@ -1234,7 +1234,7 @@ fn verilator_measure() -> anyhow::Result<()> {
     let (out3, saw3) = run_vsim(&p, &["M-HALT"])?;
     print!("{out3}");
     anyhow::ensure!(out3.contains(BOOT_BANNER),
-        "measure stack-overflow: banner absent — BROM did not measure+jump the stackflow image\nUART:\n{out3}");
+        "measure stack-overflow: banner absent - BROM did not measure+jump the stackflow image\nUART:\n{out3}");
     anyhow::ensure!(out3.contains("STACK-GUARD-ARMED"),
         "measure stack-overflow: guard was never armed\nUART:\n{out3}");
     anyhow::ensure!(saw3 && out3.contains("M-FAULT mcause=7"),
@@ -1242,7 +1242,7 @@ fn verilator_measure() -> anyhow::Result<()> {
     anyhow::ensure!(out3.contains("addr=0x10018"),
         "measure stack-overflow: the fault did not land in the guard page (0x10018xxx)\nUART:\n{out3}");
     anyhow::ensure!(!out3.contains("PMP-DONE"),
-        "measure stack-overflow: control resumed past the M fault (PMP-DONE seen) — fail OPEN\nUART:\n{out3}");
+        "measure stack-overflow: control resumed past the M fault (PMP-DONE seen) - fail OPEN\nUART:\n{out3}");
     println!("measure[3/3] stack overflow: PASS (banner + M-FAULT at guard, no resume)");
 
     println!(

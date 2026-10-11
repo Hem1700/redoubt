@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 #
-# Redoubt Phase 2 — simulated RISC-V SoC generator (VexRiscv + PMP, Verilator).
+# Redoubt Phase 2 - simulated RISC-V SoC generator (VexRiscv + PMP, Verilator).
 #
 # This is the FIRST task of Phase 2 (V1): stand up a LiteX/Verilator SoC built
 # around the prebuilt VexRiscv "secure" core (rv32ima + PMP: 16 regions, TOR)
@@ -43,14 +43,14 @@ from litex.soc.integration.soc_core import SoCCore
 from litex.soc.integration.builder import Builder
 
 # ---------------------------------------------------------------------------
-# Canonical memory map — Ch 3 §3.5 (ruling P2-2: THE single source of truth).
+# Canonical memory map - Ch 3 §3.5 (ruling P2-2: THE single source of truth).
 #
 # Each entry: base, size, and the per-privilege permission string the hardware
 # PMP will later enforce (M / S / U). "---" means no access from that mode.
 # `backing` tells the generator how this region is realised in the sim SoC:
 #   "ram"     : a writable+executable RAM slave (real block RAM in Verilator)
 #   "rom"     : a read/exec RAM slave preloaded with the monitor image
-#   "csr"     : the LiteX CSR/MMIO window (the UART lives here) — EGRESS_MMIO
+#   "csr"     : the LiteX CSR/MMIO window (the UART lives here) - EGRESS_MMIO
 #   "declare" : address-space reservation only (no backing store yet)
 #   "sdram"   : backed by external SDRAM at `sdram_base` (arrives in a later task)
 #
@@ -87,8 +87,8 @@ RESET_ADDRESS = 0x1000_0000
 # The measured-boot BROM (V3) hashes the monitor's FULL loaded/executed image:
 # from MON_CODE base through the end of the last loaded-with-content section
 # (.utext, after the link-sim.ld relayout), i.e. .text + .rodata + .data + .utext.
-# The length is derived from the built ELF (`monitor_image_len`) — the SINGLE
-# source — used for the hash here AND baked into the BROM (see `emit_h_expected`),
+# The length is derived from the built ELF (`monitor_image_len`) - the SINGLE
+# source - used for the hash here AND baked into the BROM (see `emit_h_expected`),
 # so the two never drift and every executed byte is covered.
 
 # CSR / EGRESS_MMIO window base. LiteX's default CSR base coincides with the
@@ -100,7 +100,7 @@ CSR_BASE       = 0xF000_0000
 UART_RXTX      = 0xF000_1800   # write a byte here to transmit
 UART_TXFULL    = 0xF000_1804   # reads nonzero while the TX FIFO is full
 
-# Phase-2 V4 — EGRESS MOCK inside the EGRESS_MMIO CSR window. A stand-in for the
+# Phase-2 V4 - EGRESS MOCK inside the EGRESS_MMIO CSR window. A stand-in for the
 # egress hardware: M-driven record buffer (EGRESS_WORDS 32-bit words), a
 # record-length register and a perform-call counter. The monitor's
 # `EgressMmioSink` writes the outbound bytes + injected secret here, and the
@@ -429,8 +429,8 @@ class RedoubtSimSoC(SoCCore):
 
         # -- Canonical regions -------------------------------------------------
         # MON_CODE + MON_DATA are backed by a single, size-aligned RAM spanning
-        # both (0x1000_0000 .. 0x1002_0000, 128 KiB) so the monitor ELF — .text
-        # in MON_CODE, .data/.bss/stack in MON_DATA — loads and runs directly.
+        # both (0x1000_0000 .. 0x1002_0000, 128 KiB) so the monitor ELF - .text
+        # in MON_CODE, .data/.bss/stack in MON_DATA - loads and runs directly.
         # The two logical regions remain distinct in memory_map.json for the V2
         # PMP split. A wishbone slave's origin must be aligned to its (power-of-
         # two-rounded) size, which a standalone 96 KiB MON_DATA at 0x1000_8000
@@ -465,7 +465,7 @@ class RedoubtSimSoC(SoCCore):
 
         # EGRESS_MMIO is the CSR window (already created at CSR_BASE); the UART
         # CSRs live inside it. V4 adds the egress record mock (LAST, so the
-        # earlier CSR pages — incl. the UART — keep their addresses).
+        # earlier CSR pages - incl. the UART - keep their addresses).
         # Pin its CSR page explicitly (LiteX otherwise allocates alphabetically,
         # which would shift the UART): page 4 = 0xF000_2000.
         self.csr.add("egress", n=(EGRESS_PAGE - CSR_BASE) // 0x800)
@@ -578,7 +578,7 @@ def monitor_image_len(mon_elf):
 
 def mon_ram_bytes(mon_elf, tamper_offset=None):
     """The exact MON RAM image the sim loads, with an optional single-byte
-    tamper (XOR 0xFF at `tamper_offset`) applied AFTER measurement — models an
+    tamper (XOR 0xFF at `tamper_offset`) applied AFTER measurement - models an
     image whose loaded bytes no longer match the baked H_EXPECTED."""
     base, size = _mon_ram_extent()
     image = load_elf_image_bytes(mon_elf, base, size)
@@ -626,7 +626,7 @@ def _write_init(path, words):
 def emit_init(output_dir, mon_elf, brom_elf=None, tamper_offset=None):
     """Rewrite ONLY the $readmemh .init files a Verilated Vsim reads at startup
     (sim_mon_ram.init, and sim_brom.init if a brom image is given). This swaps
-    the measured-boot scenario's memory contents WITHOUT re-Verilating — the SoC
+    the measured-boot scenario's memory contents WITHOUT re-Verilating - the SoC
     structure (regions, reset vector) is identical across the three sub-tests."""
     gateware = os.path.join(output_dir, "gateware")
     mon_words = _words_from_bytes(mon_ram_bytes(mon_elf, tamper_offset))
@@ -640,7 +640,7 @@ def emit_init(output_dir, mon_elf, brom_elf=None, tamper_offset=None):
 # ---------------------------------------------------------------------------
 # Generate: emit the SoC Verilog (monitor image baked into MON RAM) plus the
 # Verilator build script + sim_config.js into <output_dir>/gateware. This does
-# NOT compile — `cargo xtask verilator` runs the generated build_sim.sh (and
+# NOT compile - `cargo xtask verilator` runs the generated build_sim.sh (and
 # then Vsim) itself, as a native process, so it can stream the UART and kill
 # after the banner. Keeping the compile out of this (x86_64 Rosetta) Python is
 # also what lets the native (arm64) toolchain do the Verilate cleanly; see
