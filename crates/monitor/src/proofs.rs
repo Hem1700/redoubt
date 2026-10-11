@@ -102,7 +102,9 @@ impl egress::EgressSink for RecordingSink {
 
 /// Bound on the shared-memory buffer (bytes).
 const SHARED_N: usize = 48;
-const HOST: usize = 5; // len("ex.io") = len of the fixture's allowlisted host: fixed host LENGTH, symbolic host BYTES (a short host keeps the CBMC slice-iterator loops small)
+// Host length is fixed at len("ex.io") (the fixture's allowlisted host); host
+// BYTES are symbolic. A short host keeps CBMC's slice-iterator loops small.
+const HOST: usize = 5;
 const HDR: usize = 16;
 const TLV_VAL: usize = 1 + 2 + HOST + 2 + 2 + 2; // scheme, host_len, host, port, path_len, path(2)
 const TLV: usize = 3 + TLV_VAL;
@@ -174,11 +176,7 @@ fn any_request(one_arg: bool) -> ([u8; SHARED_N], usize) {
 /// the rc / sink / response behaviour under test.
 fn stub_append(_a: &mut Audit, _e: Entry) {}
 
-/// Stub for `request_bytes_were_copied`: this helper ONLY selects whether
-/// the audit `req_hash` is Blake2s(request bytes) or the zero hash (see its
-/// doc comment: "never influences the actual admission decision"). Forcing
-/// `false` skips the Blake2s call, which is intractable for CBMC over
-/// symbolic bytes. rc / sink / response are unaffected.
+/// Stub for `predicate::eval` (stage 4), an assume-guarantee abstraction.
 fn stub_eval(
     _c: &[predicate::Clause],
     _a: &predicate::Args,
@@ -197,6 +195,11 @@ fn stub_eval(
     }
 }
 
+/// Stub for `request_bytes_were_copied`: this helper ONLY selects whether
+/// the audit `req_hash` is Blake2s(request bytes) or the zero hash (see its
+/// doc comment: "never influences the actual admission decision"). Forcing
+/// `false` skips the Blake2s call, which is intractable for CBMC over
+/// symbolic bytes. rc / sink / response are unaffected.
 fn stub_not_copied(_s: &[u8], _p: usize, _l: usize, _r: &Range<usize>) -> bool {
     false
 }

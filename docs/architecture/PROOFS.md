@@ -39,8 +39,12 @@ warning-free.
 - (a) `rc != Allow` implies the returned `ResponseView` is empty (zero body
   bytes, `Label::PUBLIC`): no secret can be in a non-Allow response;
 - (b) the sink is invoked only if `rc == Allow`, or the sink itself reported
-  failure (then `rc == ErrEgress`): every parse failure and every pre-egress
-  stage denial performs no egress;
+  failure (then `rc == ErrEgress`): in this model, no denial outcome performs
+  egress. The denial codes actually exercised (reachable, per the covers
+  below) are DenyMalformed, DenyNoCap, DenyTool and DenyArg (the last via the
+  stubbed predicate stage); DenyFlow, DenyQuota and DenyRevoked have no
+  cover, and the fixtures (unlimited quota, one Active session) make quota and
+  non-Active-state denials unreachable;
 - (c) `rc == Allow` implies the sink was invoked.
 
 Vacuity guards (`kani::cover!`): Allow, DenyMalformed, DenyNoCap, DenyTool,
@@ -50,7 +54,7 @@ cover properties satisfied).
 ## Bounds and assumptions (exactly what is NOT free)
 
 CBMC could not discharge `mediate` over fully symbolic request bytes within
-hours (measured: more than 10 minutes for `abi::decode_request` alone), so the
+reasonable time (measured: more than 10 minutes for `abi::decode_request` alone), so the
 model is bounded as follows. A proof here says nothing outside these bounds.
 
 1. **Structured request.** The wire layout is fixed per harness (header 16 | one
@@ -85,13 +89,15 @@ model is bounded as follows. A proof here says nothing outside these bounds.
      after every stage returned Ok). The predicate's own semantics (host
      matching, case folding, ranges) are covered by its unit tests in
      `predicate.rs`, not by Kani. The stage-3 `check_tool`, stage-5
-     `flow_check`, stage-2 session/cap/quota logic, `bridge_args`,
+     `flow_check`, stage-2 session/cap/quota logic (the fixtures never exercise a quota
+     denial), `bridge_args`,
      `bridge_labels` and the real decoder all run unstubbed.
 5. **Sink model.** The recording sink either succeeds with a fixed non-secret
    body or fails with `ErrEgress` (nondeterministic). The inject-only
    guarantee (secret never in a returned body) is the sink contract in
-   `egress.rs`; the proof shows that nothing in `mediate` copies the secret
-   into the response on any path other than the sink's returned body.
+   `egress.rs`. The mock ignores its `secret` argument, so NO harness checks
+   secret bytes on an Allow response. The only secret-related result proved is
+   that a non-Allow outcome has an empty response and no sink call.
 6. **Unwind bounds.** Harnesses use `#[kani::unwind(8)]` (40 for the tiny
    `resolve` ones). Kani's unwinding assertions are enabled and pass, so the
    bound is checked, not assumed.
@@ -102,4 +108,8 @@ Full functional correctness of any stage; the predicate engine; the audit
 chain and its hashing; multi-arg or other-shaped requests; policy and quota
 variation; concurrency and the shared-memory TOCTOU window (the copy-before-
 decode design is argued in `parse.rs`, not checked here); the VexRiscv RTL;
-rustc/LLVM; the Warden and board bring-up.
+rustc/LLVM; the Warden and board bring-up. Size-dependent behavior at the
+PRODUCTION sizes (`MAX_REQ` = 512, `RESP_BODY_MAX` = 512) is also NOT checked
+(the `scratch[..len]` indexing, the `from_sink` copy/truncation at 16 vs 512,
+`len` values in 65..512, and size-dependent panics/overflows), because the
+proofs run at the reduced 64/16 bounds.
