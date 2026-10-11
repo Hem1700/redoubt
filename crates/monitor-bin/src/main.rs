@@ -37,6 +37,9 @@ mod simmediate;
 // Phase-3 W2: the Endpoint compartment (U-mode courier) + its M-side harness.
 #[cfg(feature = "endpoint")]
 mod endpoint;
+// Phase-5 H1: the egress mediation gate scenario (U prober vs. the RTL gate).
+#[cfg(feature = "egressgate")]
+mod egressgate;
 // Phase-3 W1: the minimal Warden + cooperative scheduler.
 #[cfg(feature = "warden")]
 mod warden;
@@ -116,7 +119,12 @@ extern "C" fn main() -> ! {
     {
         warden::run_warden_demo();
     }
-    #[cfg(not(any(feature = "stackflow", feature = "mediate")))]
+    // Phase-5 H1: the `egressgate` sub-image probes EGRESS_MMIO from U.
+    #[cfg(all(feature = "egressgate", not(feature = "stackflow"), not(feature = "mediate")))]
+    {
+        egressgate::run_egress_gate_demo();
+    }
+    #[cfg(not(any(feature = "stackflow", feature = "mediate", feature = "egressgate")))]
     {
         simtrap::run_pmp_demo();
     }

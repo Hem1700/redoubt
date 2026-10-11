@@ -270,6 +270,9 @@ extern "C" fn sim_trap_rust(frame: *mut u32) {
         // the deterministic line and RESUME the prober past the faulting load
         // (all instructions are 4 bytes; the `secure` core has no C decoder).
         5 | 7 => {
+            #[cfg(feature = "egressgate")]
+            crate::egressgate::print_fault(cause, read_mtval());
+            #[cfg(not(feature = "egressgate"))]
             print_fault(cause, read_mtval());
             unsafe {
                 *frame.add(FR_MEPC) = frame.add(FR_MEPC).read().wrapping_add(4);
@@ -305,6 +308,11 @@ extern "C" fn sim_trap_rust(frame: *mut u32) {
                     // relay, W_YIELD, W_DONE). The Warden fully owns `mepc` on
                     // every selector it handles (resume / context switch /
                     // preempt), so we must NOT auto-advance here.
+                    // Phase-5 H1: the egress-gate prober's done ecall.
+                    #[cfg(feature = "egressgate")]
+                    if crate::egressgate::handle_ecall(frame, a7) {
+                        return;
+                    }
                     #[cfg(feature = "warden")]
                     if crate::warden::handle_ecall(frame, a7) {
                         return;
@@ -347,6 +355,7 @@ extern "C" fn sim_trap_rust(frame: *mut u32) {
 // `.utext` window so U has an executable region distinct from the rest of
 // MON_CODE. Each forbidden load faults (handler prints + skips it); the
 // own-region load succeeds and its value is handed to M via `ecall`.
+#[cfg(not(feature = "egressgate"))]
 core::arch::global_asm!(
     ".section .utext,\"ax\",@progbits",
     ".globl _uprobe_entry",

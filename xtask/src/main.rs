@@ -41,7 +41,7 @@ fn main() -> anyhow::Result<()> {
         }
         Some(other) => anyhow::bail!("unknown xtask command: {other}"),
         None => anyhow::bail!(
-            "usage: cargo xtask <loc-gate|kani [-- --harness NAME]|synth [-- --device 85F|45F]|qemu [-- mediate]|verilator -- <boot|pmp|measure|mediate|endpoint|warden>>"
+            "usage: cargo xtask <loc-gate|kani [-- --harness NAME]|synth [-- --device 85F|45F]|qemu [-- mediate]|verilator -- <boot|pmp|measure|mediate|endpoint|warden|egress-gate>>"
         ),
     }
 }
@@ -515,6 +515,36 @@ const SIM_WARDEN_FORBIDDEN_LINES: &[&str] = &[
     "PMP-FAIL",
 ];
 
+/// UART lines the Verilated `egress-gate` scenario (Phase-5 H1) must observe. The
+/// U prober (no PMP grant to egress; EGRESS_MMIO is PMP-bypassing uncached IO)
+/// attacks the egress window; the custom RTL gate (patched-netlist privilege tap)
+/// must stop it at the bus. Closes the Phase-2 gap documented at `PMP_EXPECTED_LINES`.
+///
+/// `EGRESS-GATE-FAULT` x2 = U loads of the egress record and of the gate's own
+/// audit counter faulted (mcause 5; the gate returns ERR on blocked reads);
+/// `U-WRITE=DROPPED` = U's store to the egress record (and its UART store, via the
+/// forbidden `~` check) had no effect (this core cannot fault an uncached store);
+/// `BLOCKED=4` = the gate counted exactly the four U transactions;
+/// `EGRESS-M=OK` = the monitor's own egress write + readback passes the gate.
+const EGRESS_GATE_EXPECTED_LINES: &[&str] = &[
+    "EGRESS-GATE-ARMED",
+    "EGRESS-GATE-FAULT mcause=5 addr=0xf0002000", // U load of egress_rec00
+    "EGRESS-GATE-FAULT mcause=5 addr=0xf0002800", // U load of the gate audit counter
+    "EGRESS-GATE-U-WRITE=DROPPED",
+    "EGRESS-GATE-BLOCKED=4",
+    "EGRESS-M=OK",
+    "EGRESS-GATE-DONE",
+];
+
+const EGRESS_GATE_FORBIDDEN_LINES: &[&str] = &[
+    "EGRESS-GATE-FAIL",
+    "EGRESS-GATE-U-WRITE=LEAK",
+    "EGRESS-M=BAD",
+    "PMP-FAIL",
+    "M-FAULT",
+    "~", // U's byte pushed through the UART data register must never appear
+];
+
 /// Any of these means containment (or the harness) failed — fail closed.
 const SIM_MEDIATE_FORBIDDEN_LINES: &[&str] = &[
     "MEDIATE-FAIL",
@@ -526,17 +556,18 @@ const SIM_MEDIATE_FORBIDDEN_LINES: &[&str] = &[
 ];
 
 fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
-    let (pmp, mediate, endpoint, warden) = match scenario {
-        Some("boot") => (false, false, false, false),
-        Some("pmp") => (true, false, false, false),
-        Some("mediate") => (false, true, false, false),
-        Some("endpoint") => (false, false, true, false),
-        Some("warden") => (false, false, false, true),
+    let (pmp, mediate, endpoint, warden, egress) = match scenario {
+        Some("boot") => (false, false, false, false, false),
+        Some("pmp") => (true, false, false, false, false),
+        Some("mediate") => (false, true, false, false, false),
+        Some("endpoint") => (false, false, true, false, false),
+        Some("warden") => (false, false, false, true, false),
+        Some("egress-gate") => (false, false, false, false, true),
         None => anyhow::bail!(
-            "usage: cargo xtask verilator -- <boot|pmp|measure|mediate|endpoint|warden>"
+            "usage: cargo xtask verilator -- <boot|pmp|measure|mediate|endpoint|warden|egress-gate>"
         ),
         Some(other) => anyhow::bail!(
-            "unknown verilator scenario: {other} (expected `boot`, `pmp`, `measure`, `mediate`, `endpoint` or `warden`)"
+            "unknown verilator scenario: {other} (expected `boot`, `pmp`, `measure`, `mediate`, `endpoint`, `warden` or `egress-gate`)"
         ),
     };
 
@@ -575,6 +606,8 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
     } else if mediate {
         let dir = p.repo.join("target/sim-mediate");
         (dir.join("riscv32ima-unknown-none-elf/release/monitor-bin"), "mediate", true, dir)
+    } else if egress {
+        (p.sim_elf(), "egressgate", false, p.sim_target_dir())
     } else {
         (p.sim_elf(), "sim", false, p.sim_target_dir())
     };
@@ -653,7 +686,9 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
 
     // Wait for the scenario's terminal sentinel (boot: the banner; pmp: the
     // prober's final `PMP-DONE`), then kill. The sim never self-terminates.
-    let done_marker = if warden {
+    let done_marker = if egress {
+        "EGRESS-GATE-DONE"
+    } else if warden {
         "WARDEN-DONE"
     } else if endpoint {
         "ENDPOINT-DONE"
@@ -672,7 +707,8 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
             .lock()
             .map(|s| s.contains(done_marker) || (mediate && s.contains("MEDIATE-FAIL"))
                     || (endpoint && s.contains("ENDPOINT-FAIL"))
-                    || (warden && s.contains("WARDEN-FAIL")))
+                    || (warden && s.contains("WARDEN-FAIL"))
+                    || (egress && s.contains("EGRESS-GATE-FAIL")))
             .unwrap_or(false)
         {
             saw_done = true;
@@ -704,6 +740,38 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
         "Verilated SoC did not print the boot banner {BOOT_BANNER:?} within {:?}",
         VERILATOR_RUN_TIMEOUT
     );
+
+    if egress {
+        for bad in EGRESS_GATE_FORBIDDEN_LINES {
+            anyhow::ensure!(
+                !stdout.contains(bad),
+                "egress-gate: observed failure marker {bad:?} — the gate did not hold \
+                 (fail closed).\nUART:\n{stdout}"
+            );
+        }
+        anyhow::ensure!(
+            saw_done,
+            "egress-gate: monitor did not reach `EGRESS-GATE-DONE` within {:?}; \
+             UART so far:\n{stdout}",
+            VERILATOR_RUN_TIMEOUT
+        );
+        for line in EGRESS_GATE_EXPECTED_LINES {
+            anyhow::ensure!(
+                stdout.lines().any(|l| l == *line),
+                "egress-gate: missing expected UART line {line:?}.\nUART:\n{stdout}"
+            );
+        }
+        println!(
+            "\ncargo xtask verilator -- egress-gate: PASS (custom RTL egress gate: a U-mode \
+             load from the egress window faulted at the bus (mcause 5), U stores to the egress \
+             record and the UART data register were swallowed with no effect, U could not read \
+             the gate's audit counter, and the gate counted exactly 4 blocked transactions; the \
+             monitor's (M) egress write+readback still passed — all {} lines observed. Custom \
+             RTL gate on a patched-netlist privilege tap, not an off-the-shelf IOPMP)",
+            EGRESS_GATE_EXPECTED_LINES.len()
+        );
+        return Ok(());
+    }
 
     if warden {
         for bad in SIM_WARDEN_FORBIDDEN_LINES {
