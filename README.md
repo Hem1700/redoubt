@@ -13,10 +13,11 @@ The whole point is a trust base small enough for one person to read. The monitor
 1,000 lines of `no_std` Rust, `#![forbid(unsafe_code)]`, with the single unsafe module being
 the boot/trap assembly on the bare-metal side.
 
-## Status: phases 1 to 3 built, in simulation, open source
+## Status: phases 1 to 5 built (board-free), in simulation, open source
 
-This is no longer a design doc. The monitor runs. Three phases are built, each reviewed and
-merged, and the whole thing is public and CI-green:
+This is no longer a design doc. The monitor runs. Five phases are built, each reviewed and
+merged, and the whole thing is public and CI-green. Everything to date runs without a physical
+board; the parts that genuinely need the FPGA in hand are called out as such below.
 
 - **Phase 1 (software monitor):** the six-stage decision pipeline (`mediate`) with
   capabilities, typed-argument predicates, an information-flow lattice, inject-only secrets,
@@ -30,9 +31,20 @@ merged, and the whole thing is public and CI-green:
   policy *manifest compiler* (policy is now audited text, not a hand-built table), a full
   session lifecycle with quotas and O(1) revocation, a U-mode Endpoint compartment proven to
   hold no authority, and a minimal cooperative Warden demonstrating liveness without trust.
+- **Phase 4 (FPGA fit, board-free part):** a ULX3S (ECP5) SoC target and `cargo xtask synth`
+  run the real yosys + nextpnr-ecp5 + ecppack flow behind a timing gate. The design fits the
+  85F with headroom and meets timing. Flashing to real silicon and the on-board bring-up wait
+  on the board.
+- **Phase 5 (hardening, board-free part):** a Kani *machine-checked* model of the mediation
+  chain (bounded model checking: a non-`ALLOW` verdict performs no egress and returns no secret,
+  plus capability revocation; see [`docs/architecture/PROOFS.md`](docs/architecture/PROOFS.md)),
+  and a custom RTL egress gate in the Verilator sim that blocks a user-mode egress access at the
+  bus. Both are honest about their limits: the proof is bounded, not full verification (Redoubt
+  does not claim to be "formally verified"), and the gate proves the mechanism in simulation,
+  not a real hardware boundary.
 
-Next is Phase 4 (bring-up on a real ULX3S FPGA board) and Phase 5 (bus-level hardening). See
-the roadmap below.
+What remains is board-gated: the on-board FPGA bring-up (Phase 4) and an authenticated
+bitstream (Phase 5). See the roadmap below.
 
 ## The problem, and the white space
 
@@ -121,19 +133,26 @@ point). These are in the code, the manual's implementation-status notes, and `si
   which contradicts the "PMP, not virtual memory" choice.
 - **CPU uncached-MMIO access bypasses PMP on this core,** so PMP does not fence user mode out
   of the egress registers. Egress containment rests on monitor *mediation* (the capability
-  model), not on a memory wall. A bus-level wall (RISC-V IOPMP or an RTL gate) is Phase 5.
+  model), not on a memory wall. Phase 5 adds a custom RTL gate in the Verilator sim that blocks
+  a user-mode egress access at the bus (the CPU data-bus path), closing this in simulation; a
+  real hardware boundary still needs a RISC-V IOPMP or a core that exports its privilege.
 - **This SoC has no usable asynchronous timer** reachable from a user spin under Verilator, so
   the Warden is a cooperative, slice-budget scheduler; preempting a never-yielding loop is
   deferred.
-- PMP guards the CPU's own loads and stores, not a DMA master. That is the same Phase-5 gap.
+- PMP guards the CPU's own loads and stores, not a DMA master. The sim egress gate covers the
+  CPU data-bus path; a DMA-capable master still needs the hardware boundary above.
 
 ## Roadmap
 
-- **Phase 4: FPGA bring-up (ULX3S).** Synthesis and place-and-route with yosys + nextpnr-ecp5,
-  flash to real silicon, real network egress over an M-owned ESP32 link, an OLED showing the
-  verdict, and a proof that SD/network DMA is M-only. *Gated on acquiring the board.*
-- **Phase 5: hardening.** A bus-level egress gate (IOPMP) so a compartment truly cannot reach
-  egress, an authenticated bitstream, and a machine-checked model of the six stages.
+- **Phase 4: FPGA bring-up (ULX3S).** Done, board-free: the ULX3S SoC target plus `cargo xtask
+  synth` (yosys + nextpnr-ecp5 + ecppack with a timing gate); the design fits the 85F and meets
+  timing. Still gated on the board: flashing to real silicon, real network egress over an
+  M-owned ESP32 link, an OLED showing the verdict, and a proof that SD/network DMA is M-only.
+- **Phase 5: hardening.** Done, board-free: a custom RTL egress gate in the Verilator sim (a
+  compartment's egress access faults at the bus) and a Kani machine-checked model of the
+  mediation chain. Still gated on the board: an authenticated, OTP-keyed bitstream. Further
+  board-free work: widen the machine-checked model (the PMP-lock invariant, the attenuation-only
+  capability rule) and a real hardware egress boundary (IOPMP or a privilege-exporting core).
 
 ## Repository layout
 
