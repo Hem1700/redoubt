@@ -3,7 +3,7 @@
 //! Rust const module to `$OUT_DIR/memory_map_gen.rs`, which `pmp.rs` includes.
 //!
 //! Doing this in `build.rs` means region bases/sizes are NEVER hand-copied
-//! into the PMP code: a drifted address is impossible — regenerate the JSON
+//! into the PMP code: a drifted address is impossible - regenerate the JSON
 //! (`redoubt_soc.py --emit-memory-map`) and the consts follow on the next
 //! build. The parser is a tiny purpose-built scanner (no serde dependency, so
 //! the host build stays dependency-free); the JSON is machine-generated with a
@@ -71,6 +71,11 @@ fn main() {
     let egress_words = num_after(csr_seg, "\"egress_words\"").expect("csr.egress_words");
     let egress_len = num_after(csr_seg, "\"egress_len\"").expect("csr.egress_len");
     let egress_calls = num_after(csr_seg, "\"egress_calls\"").expect("csr.egress_calls");
+    let egress_gate_blocked =
+        num_after(csr_seg, "\"egress_gate_blocked\"").expect("csr.egress_gate_blocked");
+    out.push_str(&format!(
+        "pub const EGRESS_GATE_BLOCKED: u32 = 0x{egress_gate_blocked:08x};\n"
+    ));
     out.push_str(&format!("pub const EGRESS_REC: u32 = 0x{egress_rec:08x};\n"));
     out.push_str(&format!("pub const EGRESS_WORDS: u32 = {egress_words};\n"));
     out.push_str(&format!("pub const EGRESS_LEN: u32 = 0x{egress_len:08x};\n"));

@@ -7,3 +7,8 @@ license.workspace = true
 [dependencies]
 abi = { path = "../abi" }
 blake2 = { version = "0.10", default-features = false }
+
+# `cfg(kani)` is set only by `cargo kani` (the machine-checked proofs in
+# `src/proofs.rs`); declare it so normal builds/clippy do not warn.
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }

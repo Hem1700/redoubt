@@ -8,7 +8,7 @@
 //! entire history, even entries the ring has since overwritten.
 //!
 //! Fully deterministic: no clock, no RNG, no global state. `no_std`, no
-//! `alloc` — the ring is a fixed inline array and the chain step serializes
+//! `alloc` - the ring is a fixed inline array and the chain step serializes
 //! each entry into a local `[u8; 41]` buffer.
 #![forbid(unsafe_code)]
 

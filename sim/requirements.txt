@@ -1,4 +1,4 @@
-# Redoubt Phase 2 sim toolchain — pinned Python packages (LiteX + friends).
+# Redoubt Phase 2 sim toolchain - pinned Python packages (LiteX + friends).
 #
 # Provision into a Python 3.10 venv at sim/.venv (gitignored). Python 3.10 is
 # REQUIRED: 3.11 breaks migen's clock-domain naming. See sim/README.md.

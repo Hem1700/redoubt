@@ -4,7 +4,7 @@
 //! arguments and the capability in hand, decide whether the flow into the
 //! tool's sink is permitted, and compute the label attached to the tool's
 //! result. This is a pure function: no I/O, no allocation, no clock, no
-//! RNG. It never reads or moves any secret payload — `FlowRule::inject`
+//! RNG. It never reads or moves any secret payload - `FlowRule::inject`
 //! only names a `secret_ref` for the egress stage (a later task) to
 //! consume; this stage passes it through untouched.
 //!
@@ -15,7 +15,7 @@
 //!   flow into a secret context; secret data may not flow to a public
 //!   sink without clearance. This is the load-bearing check here.
 //! - bit1 (integrity): `UNTRUSTED (0) ⊑ TRUSTED (1)`. This module does not
-//!   compute a join over input integrity — the result's integrity is
+//!   compute a join over input integrity - the result's integrity is
 //!   policy-supplied via `FlowRule::result_label` (e.g. a network fetch's
 //!   rule sets it to `UNTRUSTED` because the fetched bytes are unverified
 //!   regardless of the caller's own trust level).
@@ -26,7 +26,7 @@
 //! carrying a `SECRET`-labeled argument. A capability holding
 //! `RIGHT_DECLASSIFY` is cleared to push secret data to that sink anyway
 //! (e.g. a capability scoped to a specific, audited egress path). Without
-//! that right, the flow is denied with `ReasonCode::DenyFlow` — fail
+//! that right, the flow is denied with `ReasonCode::DenyFlow` - fail
 //! closed.
 
 #![forbid(unsafe_code)]

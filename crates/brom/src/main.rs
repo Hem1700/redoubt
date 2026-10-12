@@ -1,4 +1,4 @@
-//! Redoubt Phase-2 V3 — the measured-boot ROM (BROM).
+//! Redoubt Phase-2 V3 - the measured-boot ROM (BROM).
 //!
 //! The smallest trust element in the system. On the LiteX/VexRiscv-secure sim
 //! SoC the CPU resets to `0x0000_0000` (this image). Before a single monitor
@@ -8,7 +8,7 @@
 //!      (`[0x1000_0000, 0x1000_0000 + HASH_LEN)`),
 //!   2. compares the digest to the baked-in `H_EXPECTED` (constant-time),
 //!   3. **match**  → jumps to the monitor entry at `0x1000_0000`,
-//!      **mismatch** → prints `BROM-TAMPER-HALT` and spins in `wfi` FOREVER —
+//!      **mismatch** → prints `BROM-TAMPER-HALT` and spins in `wfi` FOREVER -
 //!      it never falls through and never reaches the monitor.
 //!
 //! `no_std` / `no_main`. All `unsafe` (reset asm, MMIO, the raw MON_CODE view,
@@ -20,10 +20,10 @@
 
 use blake2::{Blake2s256, Digest};
 
-// HASH_LEN + H_EXPECTED: [u8; 32] — baked by build.rs from $REDOUBT_H_EXPECTED
+// HASH_LEN + H_EXPECTED: [u8; 32] - baked by build.rs from $REDOUBT_H_EXPECTED
 // (the measured length + BLAKE2s-256 of the monitor image built first; see the
 // xtask `measure` flow). Both are single-sourced from the built monitor ELF, so
-// the BROM measures EXACTLY the range that was hashed — the full executed image.
+// the BROM measures EXACTLY the range that was hashed - the full executed image.
 include!(concat!(env!("OUT_DIR"), "/h_expected_gen.rs"));
 
 /// Monitor code window base (canonical map MON_CODE) and its entry point.
@@ -89,7 +89,7 @@ extern "C" fn brom_main() -> ! {
 
     // SAFETY: [MON_CODE_BASE, +HASH_LEN) is a live, readable span of the monitor
     // RAM (the full executed image; HASH_LEN is baked from the built ELF and lies
-    // within the 128 KiB mon_ram, and at reset — before any PMP — M may read it).
+    // within the 128 KiB mon_ram, and at reset - before any PMP - M may read it).
     // We form a read-only view and never write through it. Bounded: exactly
     // HASH_LEN bytes.
     let code = unsafe { core::slice::from_raw_parts(MON_CODE_BASE as *const u8, HASH_LEN) };
@@ -106,7 +106,7 @@ extern "C" fn brom_main() -> ! {
         }
     } else {
         // Tamper: the loaded monitor does not match the baked measurement.
-        // Fail closed — announce and halt before the monitor can run.
+        // Fail closed - announce and halt before the monitor can run.
         puts("BROM-TAMPER-HALT\n");
         halt();
     }

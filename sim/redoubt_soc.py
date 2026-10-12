@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 #
-# Redoubt Phase 2 — simulated RISC-V SoC generator (VexRiscv + PMP, Verilator).
+# Redoubt Phase 2 - simulated RISC-V SoC generator (VexRiscv + PMP, Verilator).
 #
 # This is the FIRST task of Phase 2 (V1): stand up a LiteX/Verilator SoC built
 # around the prebuilt VexRiscv "secure" core (rv32ima + PMP: 16 regions, TOR)
@@ -38,19 +38,19 @@ from litex.build.sim.config import SimConfig
 
 from litex.gen import LiteXModule
 from litex.soc.integration.soc import SoCRegion
-from litex.soc.interconnect.csr import CSRStorage
+from litex.soc.interconnect.csr import CSRStorage, CSRStatus
 from litex.soc.integration.soc_core import SoCCore
 from litex.soc.integration.builder import Builder
 
 # ---------------------------------------------------------------------------
-# Canonical memory map — Ch 3 §3.5 (ruling P2-2: THE single source of truth).
+# Canonical memory map - Ch 3 §3.5 (ruling P2-2: THE single source of truth).
 #
 # Each entry: base, size, and the per-privilege permission string the hardware
 # PMP will later enforce (M / S / U). "---" means no access from that mode.
 # `backing` tells the generator how this region is realised in the sim SoC:
 #   "ram"     : a writable+executable RAM slave (real block RAM in Verilator)
 #   "rom"     : a read/exec RAM slave preloaded with the monitor image
-#   "csr"     : the LiteX CSR/MMIO window (the UART lives here) — EGRESS_MMIO
+#   "csr"     : the LiteX CSR/MMIO window (the UART lives here) - EGRESS_MMIO
 #   "declare" : address-space reservation only (no backing store yet)
 #   "sdram"   : backed by external SDRAM at `sdram_base` (arrives in a later task)
 #
@@ -87,8 +87,8 @@ RESET_ADDRESS = 0x1000_0000
 # The measured-boot BROM (V3) hashes the monitor's FULL loaded/executed image:
 # from MON_CODE base through the end of the last loaded-with-content section
 # (.utext, after the link-sim.ld relayout), i.e. .text + .rodata + .data + .utext.
-# The length is derived from the built ELF (`monitor_image_len`) — the SINGLE
-# source — used for the hash here AND baked into the BROM (see `emit_h_expected`),
+# The length is derived from the built ELF (`monitor_image_len`) - the SINGLE
+# source - used for the hash here AND baked into the BROM (see `emit_h_expected`),
 # so the two never drift and every executed byte is covered.
 
 # CSR / EGRESS_MMIO window base. LiteX's default CSR base coincides with the
@@ -100,7 +100,7 @@ CSR_BASE       = 0xF000_0000
 UART_RXTX      = 0xF000_1800   # write a byte here to transmit
 UART_TXFULL    = 0xF000_1804   # reads nonzero while the TX FIFO is full
 
-# Phase-2 V4 — EGRESS MOCK inside the EGRESS_MMIO CSR window. A stand-in for the
+# Phase-2 V4 - EGRESS MOCK inside the EGRESS_MMIO CSR window. A stand-in for the
 # egress hardware: M-driven record buffer (EGRESS_WORDS 32-bit words), a
 # record-length register and a perform-call counter. The monitor's
 # `EgressMmioSink` writes the outbound bytes + injected secret here, and the
@@ -109,12 +109,20 @@ UART_TXFULL    = 0xF000_1804   # reads nonzero while the TX FIFO is full
 # alphabetical CSR ordering == numeric order; `generate_sim` asserts the emitted
 # csr.csv addresses equal these constants (fail closed on drift).
 # NOTE (F2): the CPU's MMIO accesses bypass PMP on this core, so this window is
-# NOT hardware-walled from U; egress isolation here is by monitor mediation.
+# NOT hardware-walled from U by PMP; egress isolation here is by monitor mediation.
+# (Phase-5 H1: the CPU D-bus path into this window IS now gated by `EgressGate`, below.)
 EGRESS_PAGE    = 0xF000_2000   # 5th CSR page (ctrl, identifier_mem, timer0, uart, egress)
 EGRESS_WORDS   = 32
 EGRESS_REC     = EGRESS_PAGE                     # egress_rec00 .. egress_rec31 (rw)
 EGRESS_CALLS   = EGRESS_PAGE + 4 * EGRESS_WORDS  # egress_reccnt (rw)
 EGRESS_LEN     = EGRESS_CALLS + 4                # egress_reclen (rw)
+
+# Phase-5 H1 -- custom RTL egress mediation gate (see `EgressGate` below). Its
+# blocked-transaction counter is a read-only CSR on the 6th CSR page, added LAST
+# so no earlier CSR (UART, egress mock) moves. Readable by M only: a U read of
+# it hits the gate itself and faults.
+EGRESS_GATE_PAGE    = 0xF000_2800
+EGRESS_GATE_BLOCKED = EGRESS_GATE_PAGE            # egressgate_blocked (ro)
 
 SYS_CLK_FREQ = int(1e6)
 
@@ -152,6 +160,7 @@ def memory_map_dict(reset_address=RESET_ADDRESS):
             "egress_words": EGRESS_WORDS,
             "egress_len": EGRESS_LEN,
             "egress_calls": EGRESS_CALLS,
+            "egress_gate_blocked": EGRESS_GATE_BLOCKED,
         },
         "regions": regions,
     }
@@ -197,11 +206,211 @@ class EgressMock(LiteXModule):
         self.reclen = CSRStorage(32, name="reclen")
 
 
+# ---------------------------------------------------------------------------
+# Phase-5 H1 -- custom RTL egress mediation gate.
+#
+# THE GAP: EGRESS_MMIO (0xF000_0000..) is uncached IO and this VexRiscv-secure
+# core bypasses PMP for uncached accesses, so PMP cannot keep U out of egress.
+# THE FIX: a bus-level gate between the CPU data bus and the interconnect that
+# refuses any EGRESS_MMIO transaction made while the CPU is not in Machine mode.
+#
+# ORIGIN SIGNAL. M and U are the SAME bus master (single-master SoC); they
+# differ only by CPU privilege. The prebuilt VexRiscv_Secure.v does not export
+# privilege, so we apply a DOCUMENTED NETLIST PATCH (`patch_vexriscv_privtap`)
+# at SoC-build time to a COPY of the netlist (the pythondata original is never
+# modified). It adds output `dBusIsUser` = "the CPU was in U-mode (privilege ==
+# 2'b00) when this D-bus command was issued" AND makes exactly one edit to
+# existing logic: `dBus_rsp_payload_error` (tied to 1'b0) is driven from a new
+# registered copy of `dBusWishbone_ERR` (`dBusWishbone_ERR_regNext`). No core
+# decision logic changes; behaviour is unchanged whenever ERR is low, which is
+# always the case for M (the gate never raises ERR for M).
+#   * Tapped signal: `dataCache_1_io_cpu_writeBack_isUser` (== `CsrPlugin_privilege
+#     == 2'b00`), the D-cache writeBack-stage isUser. The uncached store/load
+#     command (`dataCache_1_io_mem_cmd_*`) is generated from that same writeBack
+#     stage, so the tag is stage-aligned with the command.
+#   * TIMING. The command then travels a two-stage register pipe (cmd_rData ->
+#     s2mPipe_rData) before reaching dBusWishbone_*. Tapping live privilege at
+#     the bus would be racy (a U store immediately followed by `ecall` would see
+#     privilege flip to M while its command is still in flight). So the patch
+#     carries an isUser bit THROUGH THE SAME TWO REGISTER STAGES with the same
+#     enables as the command payload; `dBusIsUser` therefore always describes
+#     the exact transaction presented on dBusWishbone_* in that cycle.
+#
+# BLOCKING SEMANTICS (this core has no store-fault bus path -- see below):
+#   * Blocked WRITE : swallowed. The gate acks the cycle itself, never forwards
+#     it (no egress effect), and bumps the `egressgate_blocked` counter. The
+#     core's DataCache ignores bus errors on uncached STORES (accessError is
+#     only raised for loads), so a store cannot be made to trap via the bus.
+#   * Blocked READ  : the gate returns 0 data + ERR. The second patch below wires
+#     `dBusWishbone_ERR` (registered, aligned with the response) into the
+#     DataCache's `io_mem_rsp_payload_error` (the original tied it to 1'b0), so
+#     the CPU takes a LOAD ACCESS FAULT (mcause 5) -- same trap the PMP walls give.
+#   * Monitor (M) accesses are forwarded untouched.
+# SCOPE: the whole EGRESS_MMIO window (egress mock + UART + CSR file); U has no
+# business there. U's only I/O is the monitor, via `ecall`.
+#
+# HONEST CAVEAT: this is a CUSTOM RTL gate (not an off-the-shelf RISC-V IOPMP)
+# and it taps an INTERNAL core signal of a netlist we patch in simulation. On
+# real hardware the core must export its privilege (regenerate VexRiscv with the
+# tap as a real port) or a true IOPMP / bus-master-ID mechanism must be used. It
+# covers the CPU's own data-bus MMIO path only (the I-bus is not gated; other
+# bus masters, e.g. DMA, do not exist on this SoC).
+# ---------------------------------------------------------------------------
+class EgressGate(LiteXModule):
+    """Wishbone gate: `inner` is the core-facing bus (core = master); `outer`
+    is the master bus that goes on to the interconnect. `is_user` is the patched
+    VexRiscv `dBusIsUser` output (valid whenever inner.cyc & inner.stb)."""
+    def __init__(self, inner, outer, is_user, win_base, win_size, enabled=True):
+        # `enabled=False` is the NEGATIVE-CONTROL build (`--egress-gate-off`):
+        # the gate never blocks, so the egress-gate-negctl scenario can show the
+        # egress-gate test genuinely catches a leak. NEVER use outside that scenario.
+        assert win_size & (win_size - 1) == 0 and win_base % win_size == 0
+        shift = win_size.bit_length() - 1            # byte-address bits below the window
+        # inner.adr is a WORD address (byte address >> 2).
+        hit = Signal()
+        self.comb += hit.eq(inner.adr[shift - 2:] == (win_base >> shift))
+
+        blocked = Signal()
+        self.blocked = blocked
+        if enabled:
+            self.comb += blocked.eq(inner.cyc & inner.stb & hit & is_user)
+        else:
+            self.comb += blocked.eq(0)
+
+        self.comb += [
+            outer.adr.eq(inner.adr),
+            outer.dat_w.eq(inner.dat_w),
+            outer.sel.eq(inner.sel),
+            outer.we.eq(inner.we),
+            outer.cti.eq(inner.cti),
+            outer.bte.eq(inner.bte),
+            outer.cyc.eq(inner.cyc & ~blocked),
+            outer.stb.eq(inner.stb & ~blocked),
+            If(blocked,
+                inner.dat_r.eq(0),
+                inner.ack.eq(1),                       # consume the cycle, no effect
+                inner.err.eq(~inner.we),               # loads fault; stores are dropped
+            ).Else(
+                inner.dat_r.eq(outer.dat_r),
+                inner.ack.eq(outer.ack),
+                inner.err.eq(0),   # interconnect errors deliberately NOT forwarded
+            ),
+        ]
+
+        # Audit counter (M-readable): one count per blocked transaction. The gate
+        # acks combinationally, so a blocked command lives exactly one cycle.
+        self.count = CSRStatus(32, name="blocked")
+        cnt = Signal(32)
+        self.sync += If(blocked, cnt.eq(cnt + 1))
+        self.comb += self.count.status.eq(cnt)
+
+
+def _must_replace(text, old, new, count=1):
+    n = text.count(old)
+    if n != count:
+        raise SystemExit(
+            f"redoubt_soc: netlist patch anchor drifted ({n} != {count} matches) for:\n{old}")
+    return text.replace(old, new)
+
+
+def patch_vexriscv_privtap(text):
+    """Return VexRiscv_Secure.v with (1) a `dBusIsUser` output that carries the
+    D-cache writeBack isUser through the dBus command pipe, and (2) the DataCache
+    response error tied to `dBusWishbone_ERR` instead of 1'b0. Every anchor is
+    asserted so a changed upstream netlist fails the build instead of silently
+    producing an ungated core."""
+    # Top-module port (first `input clk, input reset` is VexRiscv's own).
+    # Unique anchor: the top module's last output, then clk/reset.
+    port_old = ("  output     [1:0]    dBusWishbone_BTE,\n"
+                "  input               clk,\n  input               reset\n);")
+    text = _must_replace(text, port_old,
+        "  output     [1:0]    dBusWishbone_BTE,\n  output              dBusIsUser,\n"
+        "  input               clk,\n  input               reset\n);")
+
+    # Declarations.
+    text = _must_replace(text,
+        "  reg                 dataCache_1_io_mem_cmd_s2mPipe_rData_last;\n",
+        "  reg                 dataCache_1_io_mem_cmd_s2mPipe_rData_last;\n"
+        "  reg                 dataCache_1_io_mem_cmd_rData_isUser;\n"
+        "  reg                 dataCache_1_io_mem_cmd_s2mPipe_rData_isUser;\n"
+        "  reg                 dBusWishbone_ERR_regNext;\n")
+
+    # Output = isUser of the command currently in the last pipe register (the
+    # one dBusWishbone_* is driven from).
+    text = _must_replace(text,
+        "  assign dBus_cmd_payload_last = dataCache_1_io_mem_cmd_s2mPipe_m2sPipe_payload_last;\n",
+        "  assign dBus_cmd_payload_last = dataCache_1_io_mem_cmd_s2mPipe_m2sPipe_payload_last;\n"
+        "  assign dBusIsUser = dataCache_1_io_mem_cmd_s2mPipe_rData_isUser;\n")
+
+    # Stage-1 register: same enable as the command payload's first stage.
+    text = _must_replace(text,
+        "      dataCache_1_io_mem_cmd_rData_last <= dataCache_1_io_mem_cmd_payload_last;\n",
+        "      dataCache_1_io_mem_cmd_rData_last <= dataCache_1_io_mem_cmd_payload_last;\n"
+        "      dataCache_1_io_mem_cmd_rData_isUser <= dataCache_1_io_cpu_writeBack_isUser;\n")
+    # Stage-2 register: same mux (skid register vs. live) + enable as the payload.
+    text = _must_replace(text,
+        "      dataCache_1_io_mem_cmd_s2mPipe_rData_last <= dataCache_1_io_mem_cmd_s2mPipe_payload_last;\n",
+        "      dataCache_1_io_mem_cmd_s2mPipe_rData_last <= dataCache_1_io_mem_cmd_s2mPipe_payload_last;\n"
+        "      dataCache_1_io_mem_cmd_s2mPipe_rData_isUser <= (dataCache_1_io_mem_cmd_rValid ? "
+        "dataCache_1_io_mem_cmd_rData_isUser : dataCache_1_io_cpu_writeBack_isUser);\n")
+
+    # Bus error -> DataCache response error (loads trap; stores cannot).
+    text = _must_replace(text,
+        "  assign dBus_rsp_payload_error = 1'b0;\n",
+        "  assign dBus_rsp_payload_error = dBusWishbone_ERR_regNext;\n")
+    text = _must_replace(text,
+        "    dBusWishbone_DAT_MISO_regNext <= dBusWishbone_DAT_MISO;\n",
+        "    dBusWishbone_DAT_MISO_regNext <= dBusWishbone_DAT_MISO;\n"
+        "    dBusWishbone_ERR_regNext <= dBusWishbone_ERR;\n")
+    return text
+
+
+def install_egress_gate(soc, output_dir, enabled=True):
+    """Patch a copy of the VexRiscv netlist, point the build at it, and splice
+    the EgressGate between the core's D-bus and the SoC bus master."""
+    from litex.soc.cores.cpu.vexriscv import core as vcore
+    from litex.soc.interconnect import wishbone
+    import pythondata_cpu_vexriscv
+
+    src = os.path.join(pythondata_cpu_vexriscv.data_location,
+                       vcore.CPU_VARIANTS["secure"] + ".v")
+    with open(src) as f:
+        patched = patch_vexriscv_privtap(f.read())
+    os.makedirs(output_dir, exist_ok=True)
+    dst = os.path.abspath(os.path.join(output_dir, "VexRiscv_Secure_privtap.v"))
+    with open(dst, "w") as f:
+        f.write(patched)
+    soc.cpu.use_external_variant(dst)
+
+    # Re-home the core's D-bus pins onto an inner bus; cpu.dbus (already
+    # registered as the SoC bus master) becomes the gate's OUTER side.
+    inner = wishbone.Interface(data_width=32, address_width=32, addressing="word")
+    outer = soc.cpu.dbus
+    cp = soc.cpu.cpu_params
+    for k, sig in (("ADR", inner.adr), ("DAT_MOSI", inner.dat_w), ("SEL", inner.sel),
+                   ("CYC", inner.cyc), ("STB", inner.stb), ("WE", inner.we),
+                   ("CTI", inner.cti), ("BTE", inner.bte)):
+        assert f"o_dBusWishbone_{k}" in cp
+        cp[f"o_dBusWishbone_{k}"] = sig
+    for k, sig in (("DAT_MISO", inner.dat_r), ("ACK", inner.ack), ("ERR", inner.err)):
+        assert f"i_dBusWishbone_{k}" in cp
+        cp[f"i_dBusWishbone_{k}"] = sig
+    is_user = Signal()
+    cp["o_dBusIsUser"] = is_user
+
+    eg = RedoubtSimSoC.region("EGRESS_MMIO")
+    soc.csr.add("egressgate", n=(EGRESS_GATE_PAGE - CSR_BASE) // 0x800)
+    soc.add_module(name="egressgate",
+                   module=EgressGate(inner, outer, is_user, eg["base"], eg["size"], enabled=enabled))
+    print(f"redoubt_soc: egress gate installed (netlist patch -> {dst})")
+
+
 class RedoubtSimSoC(SoCCore):
     # Place the CSR/MMIO window at the canonical EGRESS_MMIO base.
     mem_map = {**SoCCore.mem_map, "csr": CSR_BASE}
 
-    def __init__(self, image_words=None, brom_words=None, reset_address=RESET_ADDRESS):
+    def __init__(self, image_words=None, brom_words=None, reset_address=RESET_ADDRESS,
+                 output_dir="sim/build", egress_gate=True):
         platform = Platform()
         self.crg = CRG(platform.request("sys_clk"))
 
@@ -220,8 +429,8 @@ class RedoubtSimSoC(SoCCore):
 
         # -- Canonical regions -------------------------------------------------
         # MON_CODE + MON_DATA are backed by a single, size-aligned RAM spanning
-        # both (0x1000_0000 .. 0x1002_0000, 128 KiB) so the monitor ELF — .text
-        # in MON_CODE, .data/.bss/stack in MON_DATA — loads and runs directly.
+        # both (0x1000_0000 .. 0x1002_0000, 128 KiB) so the monitor ELF - .text
+        # in MON_CODE, .data/.bss/stack in MON_DATA - loads and runs directly.
         # The two logical regions remain distinct in memory_map.json for the V2
         # PMP split. A wishbone slave's origin must be aligned to its (power-of-
         # two-rounded) size, which a standalone 96 KiB MON_DATA at 0x1000_8000
@@ -256,11 +465,14 @@ class RedoubtSimSoC(SoCCore):
 
         # EGRESS_MMIO is the CSR window (already created at CSR_BASE); the UART
         # CSRs live inside it. V4 adds the egress record mock (LAST, so the
-        # earlier CSR pages — incl. the UART — keep their addresses).
+        # earlier CSR pages - incl. the UART - keep their addresses).
         # Pin its CSR page explicitly (LiteX otherwise allocates alphabetically,
         # which would shift the UART): page 4 = 0xF000_2000.
         self.csr.add("egress", n=(EGRESS_PAGE - CSR_BASE) // 0x800)
         self.add_module(name="egress", module=EgressMock())
+
+        # Phase-5 H1: the egress mediation gate (netlist patch + Migen gate).
+        install_egress_gate(self, output_dir, enabled=egress_gate)
 
         # -- Reset vector ------------------------------------------------------
         self.cpu.set_reset_address(reset_address)
@@ -366,7 +578,7 @@ def monitor_image_len(mon_elf):
 
 def mon_ram_bytes(mon_elf, tamper_offset=None):
     """The exact MON RAM image the sim loads, with an optional single-byte
-    tamper (XOR 0xFF at `tamper_offset`) applied AFTER measurement — models an
+    tamper (XOR 0xFF at `tamper_offset`) applied AFTER measurement - models an
     image whose loaded bytes no longer match the baked H_EXPECTED."""
     base, size = _mon_ram_extent()
     image = load_elf_image_bytes(mon_elf, base, size)
@@ -414,7 +626,7 @@ def _write_init(path, words):
 def emit_init(output_dir, mon_elf, brom_elf=None, tamper_offset=None):
     """Rewrite ONLY the $readmemh .init files a Verilated Vsim reads at startup
     (sim_mon_ram.init, and sim_brom.init if a brom image is given). This swaps
-    the measured-boot scenario's memory contents WITHOUT re-Verilating — the SoC
+    the measured-boot scenario's memory contents WITHOUT re-Verilating - the SoC
     structure (regions, reset vector) is identical across the three sub-tests."""
     gateware = os.path.join(output_dir, "gateware")
     mon_words = _words_from_bytes(mon_ram_bytes(mon_elf, tamper_offset))
@@ -428,7 +640,7 @@ def emit_init(output_dir, mon_elf, brom_elf=None, tamper_offset=None):
 # ---------------------------------------------------------------------------
 # Generate: emit the SoC Verilog (monitor image baked into MON RAM) plus the
 # Verilator build script + sim_config.js into <output_dir>/gateware. This does
-# NOT compile — `cargo xtask verilator` runs the generated build_sim.sh (and
+# NOT compile - `cargo xtask verilator` runs the generated build_sim.sh (and
 # then Vsim) itself, as a native process, so it can stream the UART and kill
 # after the banner. Keeping the compile out of this (x86_64 Rosetta) Python is
 # also what lets the native (arm64) toolchain do the Verilate cleanly; see
@@ -436,7 +648,7 @@ def emit_init(output_dir, mon_elf, brom_elf=None, tamper_offset=None):
 # built (there is no RISC-V GCC), we load our own image.
 # ---------------------------------------------------------------------------
 def generate_sim(image_path, output_dir, threads=1, brom_path=None,
-                 reset_address=RESET_ADDRESS):
+                 reset_address=RESET_ADDRESS, egress_gate=True):
     if image_path is None:
         raise SystemExit("generate requires --image <monitor ELF>")
 
@@ -448,7 +660,8 @@ def generate_sim(image_path, output_dir, threads=1, brom_path=None,
         brom_words = _words_from_bytes(brom_ram_bytes(brom_path))
 
     soc = RedoubtSimSoC(image_words=image_words, brom_words=brom_words,
-                        reset_address=reset_address)
+                        reset_address=reset_address, output_dir=output_dir,
+                        egress_gate=egress_gate)
 
     sim_config = SimConfig()
     sim_config.add_clocker("sys_clk", freq_hz=SYS_CLK_FREQ)
@@ -494,6 +707,14 @@ def _check_egress_csrs(csv_path):
     want["egress_reclen"] = EGRESS_LEN
     if seen != want:
         raise SystemExit(f"egress CSR layout drift: got {seen}, expected {want}")
+    gate = {}
+    with open(csv_path) as f:
+        for line in f:
+            parts = line.strip().split(",")
+            if len(parts) > 2 and parts[0] == "csr_register" and parts[1].startswith("egressgate_"):
+                gate[parts[1]] = int(parts[2], 0)
+    if gate != {"egressgate_blocked": EGRESS_GATE_BLOCKED}:
+        raise SystemExit(f"egress gate CSR layout drift: got {gate}")
 
 
 def main():
@@ -514,6 +735,9 @@ def main():
                     help="override the CPU reset vector (e.g. 0 for BROM); default MON_CODE")
     ap.add_argument("--emit-h-expected", metavar="PATH",
                     help="write BLAKE2s-256 of the monitor's measured MON_CODE bytes (32 raw bytes) and exit")
+    ap.add_argument("--egress-gate-off", action="store_true",
+                    help="NEGATIVE CONTROL ONLY: build with the egress gate bypassed "
+                         "(drives `cargo xtask verilator -- egress-gate-negctl`)")
     ap.add_argument("--emit-init", action="store_true",
                     help="rewrite ONLY the .init files (mon_ram + brom) for a scenario, no re-Verilate")
     ap.add_argument("--tamper-offset", metavar="N", type=lambda s: int(s, 0), default=None,
@@ -543,7 +767,8 @@ def main():
 
     if args.generate:
         generate_sim(args.image, args.output_dir, threads=args.threads,
-                     brom_path=args.brom_image, reset_address=reset)
+                     brom_path=args.brom_image, reset_address=reset,
+                     egress_gate=not args.egress_gate_off)
         return
 
     if not args.emit_memory_map:

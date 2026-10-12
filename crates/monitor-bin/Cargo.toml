@@ -34,6 +34,11 @@ endpoint = ["mediate", "dep:wire"]
 # the V4 mediate path + wire-in-U-window (its own link script), like `endpoint`.
 warden = ["mediate", "dep:wire"]
 
+# Phase-5 H1: the custom RTL egress mediation gate scenario
+# (`cargo xtask verilator -- egress-gate`): a U prober's EGRESS_MMIO accesses are
+# blocked at the bus while M egress still works. Implies `sim`.
+egressgate = ["sim"]
+
 # monitor-bin is a #![no_std] #![no_main] bare-metal image for the QEMU
 # `virt` machine. It is not host-buildable; see the workspace Cargo.toml
 # `default-members` and `cargo xtask qemu`.

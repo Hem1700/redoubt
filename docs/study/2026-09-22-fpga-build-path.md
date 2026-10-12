@@ -2,7 +2,7 @@
 
 - **Date:** 2026-09-22
 - **Goal (clarified):** a *fun*, open-source, security-flavored OS that boots on a real
-  FPGA soft-core. Not a research flag — a real, hackable, enjoyable build. Findings only.
+  FPGA soft-core. Not a research flag - a real, hackable, enjoyable build. Findings only.
 
 ## Existence proof: Precursor / Betrusted
 [Precursor](https://betrusted.io/) is an open-hardware security device that runs **Xous**
@@ -25,17 +25,17 @@ Refs: [ULX3S+LiteX](https://gojimmypi.github.io/risc-v-on-ulx3s-with-litex/),
 [Linux on ULX3S](https://blog.bomorgan.io/hobbies/hardware/fpgas/litex-riscv-ecp5-ulx3s/)
 
 ## What this de-risks
-- Hardware bring-up (DRAM, clocking, peripherals) is solved by LiteX — we don't hand-write it.
-- A CPU that runs a real OS (with MMU) already exists (VexRiscv) — we don't design a core to start.
-- The whole toolchain is open and free — matches the open-source requirement end to end.
+- Hardware bring-up (DRAM, clocking, peripherals) is solved by LiteX - we don't hand-write it.
+- A CPU that runs a real OS (with MMU) already exists (VexRiscv) - we don't design a core to start.
+- The whole toolchain is open and free - matches the open-source requirement end to end.
 
 ## The genuine fun-decisions (to discuss, not concluded)
 1. **OS approach:** fork/port **Xous** (real security OS on the FPGA fast, then hack
    security features in) vs. **write our own minimal Rust microkernel** on LiteX (more
    "I built an OS from nothing," slower to feel real). Hybrid: get *something* booting on
    the FPGA first to de-risk, then choose.
-2. **The "security fun" hook** — what makes it a *security* OS that's fun to show:
-   candidates to explore — capability isolation you can *attack* live; visible
+2. **The "security fun" hook** - what makes it a *security* OS that's fun to show:
+   candidates to explore - capability isolation you can *attack* live; visible
    compromise-containment (LEDs/screen say "attack contained"); a hardware RNG you can
    watch; secure boot you try to bypass; glitch/tamper detection (Baochip-style);
    an on-device "CTF target" you exploit and then watch the OS defend.

@@ -3,7 +3,7 @@
 //! This is the check where most attacks die (the SSRF / host-confusion
 //! class): it decides whether a request's already-decoded `TypedArg`s
 //! satisfy a compiled policy's clauses. It never re-parses raw bytes and
-//! never coerces between argument types — every clause reads exactly one
+//! never coerces between argument types - every clause reads exactly one
 //! structured field (`abi::ArgVal`) and either that field is present with
 //! the expected shape, or the whole evaluation fails closed.
 //!
@@ -21,17 +21,17 @@
 //! # Host matching reads only the structured field
 //!
 //! `HostInSet` (and every other op) reads `UrlParts.host` as decoded by
-//! `abi::decode_request` — never raw URL text. A `%2e`-style trick, an
+//! `abi::decode_request` - never raw URL text. A `%2e`-style trick, an
 //! embedded-credential host (`user@evil.tld@api.example.com`), or a
 //! port-confusion string only matters here in terms of *what ends up in
 //! the structured `host` field*; whatever that value is, it is compared
-//! verbatim (case-folded — see below) against the allowlist, with no
+//! verbatim (case-folded - see below) against the allowlist, with no
 //! separate re-parse of anything resembling a URL. See the
 //! `smuggled_credential_host_denies` / `port_confusion_host_denies` tests.
 //!
 //! `HostInSet` matching is case-insensitive (ASCII lower-fold on
 //! comparison) as defense in depth, even though `abi::decode_request`
-//! already rejects any host containing an uppercase ASCII letter — belt
+//! already rejects any host containing an uppercase ASCII letter - belt
 //! and suspenders, per the brief.
 #![forbid(unsafe_code)]
 
@@ -39,7 +39,7 @@ use abi::{ArgVal, ReasonCode, Scheme};
 
 /// Fixed upper bound on the number of clauses `eval` will ever process for
 /// one policy. `eval` rejects (fails closed, `DenyMalformed`) any clause
-/// slice longer than this rather than silently evaluating only a prefix —
+/// slice longer than this rather than silently evaluating only a prefix -
 /// silently truncating would mean a clause past the cutoff (which might
 /// have denied) is never consulted, which is exactly the kind of
 /// fail-open bug this engine exists to prevent.
@@ -53,7 +53,7 @@ pub const MAX_POOL: usize = 64;
 // ---------------------------------------------------------------------------
 // Compiled-policy types (Ruling R2): Op, Clause, FieldSel, ConstPool. The
 // manifest compiler that fills these from a tool's declared schema is
-// Phase 3 — this module only defines the shapes and evaluates them.
+// Phase 3 - this module only defines the shapes and evaluates them.
 // ---------------------------------------------------------------------------
 
 /// Which comparison a `Clause` performs.
@@ -69,7 +69,7 @@ pub enum Op {
     /// Byte-string suffix match against a single pooled string.
     Suffix = 3,
     /// Membership in a pooled set of byte strings, case-insensitive
-    /// (ASCII fold) — the dedicated, defense-in-depth host matcher.
+    /// (ASCII fold) - the dedicated, defense-in-depth host matcher.
     HostInSet = 4,
     /// Exact match of `UrlParts.scheme` against a pooled `Scheme`.
     SchemeEq = 5,
@@ -104,7 +104,7 @@ pub struct Clause {
 }
 
 /// One interned constant. `operand` in a `Clause` always indexes a
-/// `ConstPool` uniformly, regardless of `Op` — including `SchemeEq`, whose
+/// `ConstPool` uniformly, regardless of `Op` - including `SchemeEq`, whose
 /// two possible values are still looked up via `PoolEntry::Scheme` rather
 /// than being packed directly into `operand`, so every clause's operand
 /// means the same thing.
@@ -137,7 +137,7 @@ impl<'a> ConstPool<'a> {
 
     /// Set `pool[index]`. Out-of-range indices are silently ignored: this
     /// is a policy-construction-time builder, not part of the per-request
-    /// decision path, so there is nothing to fail closed against here —
+    /// decision path, so there is nothing to fail closed against here -
     /// an index a real policy never uses simply stays absent, and any
     /// clause that (incorrectly) references it will get `DenyMalformed`
     /// from `eval` at evaluation time.
@@ -204,7 +204,7 @@ impl<'a> Default for ConstPool<'a> {
 //
 // Building a real `Args` from a decoded `RequestView` (binding a specific
 // tool's declared argument schema onto these named fields) is the manifest
-// compiler's / `mediate()`'s job (Phase 3 / Task 14) — out of scope here.
+// compiler's / `mediate()`'s job (Phase 3 / Task 14) - out of scope here.
 // This module only defines the shape and lets callers (today: tests only)
 // construct one directly via the `with_*` builders, which is why the
 // fields themselves stay private.
@@ -259,7 +259,7 @@ impl<'a> Args<'a> {
 
     /// Resolve a `FieldSel` to the `ArgVal` occupying that slot, or
     /// `DenyMalformed` if the slot is absent. Callers still must check
-    /// the returned `ArgVal`'s variant matches what their `Op` expects —
+    /// the returned `ArgVal`'s variant matches what their `Op` expects -
     /// this only proves the slot is *populated*, not well-typed for the
     /// caller's purpose.
     fn slot(&self, field: FieldSel) -> Result<ArgVal<'a>, ReasonCode> {
@@ -442,7 +442,7 @@ mod tests {
     }
 
     /// An `Args` whose "url" slot is populated with a `BYTES` arg instead
-    /// of a `URL` arg — models a tool call where the argument at the
+    /// of a `URL` arg - models a tool call where the argument at the
     /// position a policy expects to be a URL is, in fact, some other
     /// typed arg (the type-confusion case `eval` must catch).
     fn args_bytes(b: &'static [u8]) -> Args<'static> {
@@ -539,7 +539,7 @@ mod tests {
         // Models a sender-supplied URL like
         // `https://user@evil.tld@api.example.com/...`. Whatever the
         // decoder places in the structured `host` field is exactly what
-        // `eval` checks — no separate re-parse of any credential-looking
+        // `eval` checks - no separate re-parse of any credential-looking
         // prefix happens here, so a smuggled allowlisted host in the
         // userinfo/path never becomes the matched host: only the actual
         // decoded `host` (here, the attacker's own host) is compared.
@@ -550,7 +550,7 @@ mod tests {
 
     #[test]
     fn port_confusion_host_denies() {
-        // Models a sender-supplied URL like `api.example.com:80@evil` —
+        // Models a sender-supplied URL like `api.example.com:80@evil` -
         // if that whole string ends up in the structured `host` field
         // (rather than being split into host/port by the decoder), it is
         // still just bytes compared verbatim against the allowlist: it is

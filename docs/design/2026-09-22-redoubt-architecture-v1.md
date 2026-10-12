@@ -1,4 +1,4 @@
-# Redoubt — Architecture Specification (v1, detailed)
+# Redoubt - Architecture Specification (v1, detailed)
 
 - **Date:** 2026-09-22 · **Status:** detailed draft for review · **Target:** ULX3S (ECP5-85F), RV32
 - **Conventions:** XLEN = 32 (VexRiscv is 32-bit). Bit ranges are `[hi:lo]`, inclusive.
@@ -24,11 +24,11 @@ lineage/prior art is cited so each choice is checkable against the source.
 > This holds for *arbitrary* behavior of `HOST`, `ENDPOINT`, and even a compromised
 > `WARDEN`.
 
-This is the classical **reference-monitor** guarantee — *complete mediation,
-tamper-proof, verifiable* [1] — instantiated for the new mediated operation (a typed
+This is the classical **reference-monitor** guarantee - *complete mediation,
+tamper-proof, verifiable* [1] - instantiated for the new mediated operation (a typed
 tool call) and the new adversary (a hijackable agent) [2][3]. It is enforced *structurally*
 (the effect is impossible without a Monitor `ecall`, because EGRESS MMIO is in an
-M-only PMP region — §3), not by trusting any software above T0. This mirrors the
+M-only PMP region - §3), not by trusting any software above T0. This mirrors the
 Keystone/Sanctorum M-mode security-monitor pattern [4][5] and Apple's "trust anchor more
 privileged than the kernel" (SPTM) idea [6].
 
@@ -42,15 +42,15 @@ literature's central finding [2][3][7]. We never adjudicate "intent."
 ## 2. Threat model
 
 ### 2.1 Adversary capabilities (assumed present)
-- **A1 Full agent hijack** — arbitrary prompt/goal injection [8]; the agent issues any
+- **A1 Full agent hijack** - arbitrary prompt/goal injection [8]; the agent issues any
   `(tool_id, args)` in any order.
-- **A2 Malicious tools** — host-side tool code and MCP servers are untrusted (tool
+- **A2 Malicious tools** - host-side tool code and MCP servers are untrusted (tool
   poisoning) [8].
-- **A3 Host compromise** — arbitrary code on the host, including the USB driver.
-- **A4 T2 compromise** — the ENDPOINT and egress *drivers* may be fully controlled.
-- **A5 (stretch) T1 compromise** — WARDEN may be subverted; the property must still hold.
+- **A3 Host compromise** - arbitrary code on the host, including the USB driver.
+- **A4 T2 compromise** - the ENDPOINT and egress *drivers* may be fully controlled.
+- **A5 (stretch) T1 compromise** - WARDEN may be subverted; the property must still hold.
 
-### 2.2 Explicitly out of scope (v1) — stated, not hidden
+### 2.2 Explicitly out of scope (v1) - stated, not hidden
 Microarchitectural/timing side channels [9]; physical/fault-injection attacks [10];
 FPGA-bitstream authenticity (v2 RoT); ESP32 firmware integrity (it is in the egress path,
 §9.1); agent availability/self-DoS; host-side poisoning of the agent's *own* memory;
@@ -62,7 +62,7 @@ multi-agent collusion.
 | **T0** | **MONITOR** + measured-boot ROM + PMP config | M | **yes** | the security property, secrets, egress |
 | T1 | **WARDEN** microkernel | S | no | liveness/scheduling only |
 | T2 | ENDPOINT, egress drivers | U | no | nothing security-relevant |
-| — | HOST (LLM/agent/tools) | — | no | nothing |
+| - | HOST (LLM/agent/tools) | - | no | nothing |
 
 ---
 
@@ -96,13 +96,13 @@ config fields and each `pmpaddr{0..63}` holds `address[33:2]` [11][12].
 **Region → PMP entry table (draft):**
 | # | Region | Addr range (draft) | Mode R/W/X | PMP mode |
 |---|--------|--------------------|-----------|----------|
-| 0 | BROM (measured boot) | `0x0000_0000`–`0x0000_2000` | M:RX | TOR, lock |
-| 1 | MON_CODE | `0x1000_0000`–`0x1000_8000` | M:RX | TOR, lock |
-| 2 | MON_DATA (caps, policy, log) | `0x1000_8000`–`0x1002_0000` | M:RW | TOR, Smepmp/lock |
-| 3 | SECRETS | `0x1002_0000`–`0x1002_4000` | M:RW; S/U:none | TOR, Smepmp |
-| 4 | EGRESS_MMIO (ESP32/SD/TRNG) | `0xF000_0000`–`0xF001_0000` | M:RW; S/U:none | TOR, Smepmp |
-| 5 | WARDEN | `0x2000_0000`–`0x2010_0000` | S:RWX; U:none | TOR |
-| 6 | SHARED_REQ buffer | `0x4000_0000`–`0x4000_1000` | M:RW; U:RW | TOR |
+| 0 | BROM (measured boot) | `0x0000_0000`-`0x0000_2000` | M:RX | TOR, lock |
+| 1 | MON_CODE | `0x1000_0000`-`0x1000_8000` | M:RX | TOR, lock |
+| 2 | MON_DATA (caps, policy, log) | `0x1000_8000`-`0x1002_0000` | M:RW | TOR, Smepmp/lock |
+| 3 | SECRETS | `0x1002_0000`-`0x1002_4000` | M:RW; S/U:none | TOR, Smepmp |
+| 4 | EGRESS_MMIO (ESP32/SD/TRNG) | `0xF000_0000`-`0xF001_0000` | M:RW; S/U:none | TOR, Smepmp |
+| 5 | WARDEN | `0x2000_0000`-`0x2010_0000` | S:RWX; U:none | TOR |
+| 6 | SHARED_REQ buffer | `0x4000_0000`-`0x4000_1000` | M:RW; U:RW | TOR |
 | 7..n | COMPT_k (per compartment) | in SDRAM `0x8000_0000`+ | U:RW (own) | TOR/NAPOT |
 
 If the **Sv32 MMU** is enabled in WARDEN, it provides finer per-compartment U-isolation
@@ -117,9 +117,9 @@ If the **Sv32 MMU** is enabled in WARDEN, it provides finer per-compartment U-is
    [15] and compares to `H_expected` baked into the bitstream (a BRAM constant). Mismatch →
    halt (measured boot establishes MONITOR as the measured software root, per TEE
    attestation practice [16]).
-3. MONITOR runs: it programs `pmpaddr*/pmpcfg*` for entries 0–6 per §3, sets the lock/Smepmp
+3. MONITOR runs: it programs `pmpaddr*/pmpcfg*` for entries 0-6 per §3, sets the lock/Smepmp
    bits, initializes SECRETS and the TRNG (§9.4), and installs trap handling
-   (`medeleg` does **not** delegate `ecall`-from-S/U, so they trap to M — §5.2).
+   (`medeleg` does **not** delegate `ecall`-from-S/U, so they trap to M - §5.2).
 4. MONITOR compiles the policy manifest (§7) into decision tables in MON_DATA and creates
    the initial session capability space (§6).
 5. MONITOR `mret`s to WARDEN (S). WARDEN starts ENDPOINT and driver compartments (U).
@@ -165,13 +165,13 @@ cap_handle, tool_id, args[], in_labels[]}`.
 5. **Information-flow.** `flow_check(flow_table[cap.flow_ref], in_labels, cap)` per §10.
    Violation → `DENY_FLOW`.
 6. **Perform.** Execute the effect on the M-owned engine (§9), **injecting** any
-   `cap.secret_ref` (e.g., as an HTTP header) — secret bytes never enter the response path.
+   `cap.secret_ref` (e.g., as an HTTP header) - secret bytes never enter the response path.
    Label the result (network/file → `UNTRUSTED`).
 7. **Audit + signal.** Append a hash-chained log entry (§12); on any `DENY`, drive
    OLED/LED with the reason code.
 
-**Bounds.** Steps 1–5 are O(args × clauses) over compiled tables, `≤ MAX_ARGS × MAX_CLAUSES
-(=64)` — constant-bounded, no allocation, no unbounded loops. This preserves the
+**Bounds.** Steps 1-5 are O(args × clauses) over compiled tables, `≤ MAX_ARGS × MAX_CLAUSES
+(=64)` - constant-bounded, no allocation, no unbounded loops. This preserves the
 "verifiable, always-terminating monitor" property.
 
 ### 5.4 Status / reason codes
@@ -189,7 +189,7 @@ cap_handle, tool_id, args[], in_labels[]}`.
 Modeled on seL4's capability discipline [18][19] but deliberately **flat and fixed-size**
 (no CDT graph, no untyped-retype) to keep the TCB tiny.
 
-### 6.1 Capability entry (16 bytes, fixed — cf. seL4's 16-byte slots [18])
+### 6.1 Capability entry (16 bytes, fixed - cf. seL4's 16-byte slots [18])
 ```
 struct Cap {                      // 128 bits
   u8   ctype;      // 0=Empty 1=Net 2=File 3=Secret 4=Tool
@@ -211,7 +211,7 @@ installs.)
 ### 6.3 Derivation / attenuation
 `cap_derive(src, narrower_pred_ref)` creates a new entry whose predicate is a **subset** of
 `src`'s (checked at compile time by the manifest compiler, §7). `rights` may only clear
-bits. There is **no** operation that widens authority — rights amplification is structurally
+bits. There is **no** operation that widens authority - rights amplification is structurally
 impossible.
 
 ### 6.4 Revocation
@@ -228,7 +228,7 @@ key material [6].)
 
 ## 7. Policy manifest & compilation
 
-### 7.1 Grammar (EBNF, illustrative — to finalize §16.1)
+### 7.1 Grammar (EBNF, illustrative - to finalize §16.1)
 ```
 manifest   = "session" STRING "{" { capability } "}" ;
 capability = "capability" IDENT "=" captype "{" { clause } "}" ;
@@ -249,7 +249,7 @@ op ∈ { EQ, IN_SET, PREFIX, SUFFIX, HOST_IN_SET, SCHEME_EQ, RANGE, LEN_LE }
 ```
 `operand_ref` indexes an interned constant pool (allowlists, ranges) in MON_DATA. Evaluation
 is a fixed loop (`≤ MAX_CLAUSES`). This is a *total* language (no loops/recursion), so the
-verdict is guaranteed to terminate and is auditable — the opposite of an eval-anything
+verdict is guaranteed to terminate and is auditable - the opposite of an eval-anything
 policy engine.
 
 ### 7.3 Example (compiles to the tables above)
@@ -285,7 +285,7 @@ Frame = len:u16 | ver:u8 | type:u8 | payload[len] | crc32:u32   (then COBS-encod
 incremented. ENDPOINT (T2) does framing only; it never decides.
 
 ### 8.2 TypedArg TLV
-Arguments cross as *typed* values, not text (this closes the parser-mismatch bug class —
+Arguments cross as *typed* values, not text (this closes the parser-mismatch bug class -
 e.g., the curl `%2e` / MCP-SSRF lineage where a filter and consumer disagreed on parsing):
 ```
 TypedArg = tag:u8 | len:u16 | value[len]
@@ -343,7 +343,7 @@ A minimal **Denning-style lattice** [23], tracked at the mediation boundary:
 - **Hostile-input marking:** egress results are labeled `I=UNTRUSTED`, propagating to the
   host so downstream consumers treat them as attacker-controlled.
 - **Declassification only via capability:** lowering `C` requires a cap explicitly granting
-  it — no implicit declassification (cf. DIFC in HiStar/Flume [24][25]).
+  it - no implicit declassification (cf. DIFC in HiStar/Flume [24][25]).
 
 **Honest scope.** Redoubt sees only what crosses the boundary; it does **not** track flows
 *inside* the host LLM. It therefore enforces *boundary* IFC (what enters/leaves via tool
@@ -389,12 +389,12 @@ compartments, host stack, ESP32, peripheral drivers not on the decision path.
 
 ## 14. Security analysis
 - **Complete mediation (property §1):** every egress effect requires touching EGRESS_MMIO,
-  which is M-only (PMP entries #3,#4 locked at boot before T1/T2 run, §3–4). The only path
-  into M is the `ecall` ABI (§5.2), which runs steps 1–6. Therefore no effect bypasses the
-  checks — even under A4/A5. ∎ (sketch; a small formal model is future work, §16.)
+  which is M-only (PMP entries #3,#4 locked at boot before T1/T2 run, §3-4). The only path
+  into M is the `ecall` ABI (§5.2), which runs steps 1-6. Therefore no effect bypasses the
+  checks - even under A4/A5. ∎ (sketch; a small formal model is future work, §16.)
 - **Secret confidentiality:** SECRETS is M-only; no ABI returns secret bytes (§6.5). A
   hijacked agent that requests exfil is stopped at step 4 (`DENY_ARG`) or step 5
-  (`DENY_FLOW`) — the §15 demo.
+  (`DENY_FLOW`) - the §15 demo.
 - **OWASP Agentic Top-10 [8] (v1 honest coverage):** ASI01 goal-hijack → *contained*;
   tool poisoning/misuse → *mitigated* (predicate + binding + no ambient authority);
   data exfiltration → *mitigated* (allowlist + IFC); privilege abuse → *mitigated* (least
@@ -425,15 +425,15 @@ audit head-hash advances.** Fully-compromised agent, zero authority gained.
 6. Apple *Platform Security* (SEP, key wrapping) & SPTM deep-dive arXiv:2510.09272. https://support.apple.com/guide/security/ · https://arxiv.org/abs/2510.09272
 7. *ActPlane: Programmable OS-Level Policy Enforcement for Agent Harnesses.* arXiv:2606.25189. https://arxiv.org/pdf/2606.25189
 8. OWASP *Top 10 for Agentic Applications 2026.* https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/
-9. seL4 confidentiality vs. Spectre — NSF Formal-Methods-for-Security report. https://arxiv.org/pdf/1608.00678
+9. seL4 confidentiality vs. Spectre - NSF Formal-Methods-for-Security report. https://arxiv.org/pdf/1608.00678
 10. *Bypassing Isolated Execution on RISC-V with Fault Injection.* eprint 2020/1193. https://eprint.iacr.org/2020/1193.pdf
-11. RISC-V *Privileged ISA* — PMP (pmpcfg/pmpaddr, TOR/NAPOT, L bit). https://docs.openhwgroup.org/projects/cva6-user-manual/06_cv64a6_mmu/riscv/priv.html
+11. RISC-V *Privileged ISA* - PMP (pmpcfg/pmpaddr, TOR/NAPOT, L bit). https://docs.openhwgroup.org/projects/cva6-user-manual/06_cv64a6_mmu/riscv/priv.html
 12. *Verifying RISC-V Physical Memory Protection.* arXiv:2211.02179. https://arxiv.org/pdf/2211.02179
 13. RISC-V *Smepmp* extension v1.0. https://docs.riscv.org/reference/isa/priv/smepmp.html
-14. VexRiscv (SpinalHDL) — PmpPlugin/MmuPlugin/CsrPlugin. https://github.com/SpinalHDL/VexRiscv
+14. VexRiscv (SpinalHDL) - PmpPlugin/MmuPlugin/CsrPlugin. https://github.com/SpinalHDL/VexRiscv
 15. M-J. Saarinen, N. Aumasson, *BLAKE2* (RFC 7693). https://www.rfc-editor.org/rfc/rfc7693
 16. *Attestation Mechanisms for TEEs Demystified.* arXiv:2206.03780. https://arxiv.org/pdf/2206.03780
-17. RISC-V *Calling Convention* (ecall / a0–a7). https://github.com/riscv-non-isa/riscv-elf-psabi-doc
+17. RISC-V *Calling Convention* (ecall / a0-a7). https://github.com/riscv-non-isa/riscv-elf-psabi-doc
 18. *seL4 Reference Manual* (CNode/CSpace, 16-byte slots, capabilities). https://sel4.systems/Info/Docs/seL4-manual-latest.pdf
 19. *seL4 Capability System* (derivation tree, revoke). https://www.cl.cam.ac.uk/research/security/ctsrd/cheri/workshops/pdfs/20160423-sel4-capabilities.pdf
 20. S. Cheshire, M. Baker, *Consistent Overhead Byte Stuffing (COBS).* https://www.stuartcheshire.org/papers/COBSforToN.pdf

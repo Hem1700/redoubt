@@ -5,10 +5,24 @@ use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+mod synth;
+
 fn main() -> anyhow::Result<()> {
     let mut args = std::env::args().skip(1);
     match args.next().as_deref() {
         Some("loc-gate") => loc_gate(),
+        Some("synth") => {
+            let rest: Vec<String> = args.filter(|a| a != "--").collect();
+            synth::synth(&rest)
+        }
+        Some("kani") => {
+            // Machine-checked (bounded model checking) proofs over the
+            // monitor. Separate, slower run: NOT part of `cargo test` or
+            // `cargo clippy`. Extra args (e.g. `--harness <name>`) pass
+            // through to `cargo kani`.
+            let rest: Vec<String> = args.filter(|a| a != "--").collect();
+            kani(&rest)
+        }
         Some("qemu") => {
             // `cargo xtask qemu -- mediate` reaches us as ["qemu", "--",
             // "mediate"] (the alias contributes one `--`). Drop any `--`
@@ -27,9 +41,23 @@ fn main() -> anyhow::Result<()> {
         }
         Some(other) => anyhow::bail!("unknown xtask command: {other}"),
         None => anyhow::bail!(
-            "usage: cargo xtask <loc-gate|qemu [-- mediate]|verilator -- <boot|pmp|measure|mediate|endpoint|warden>>"
+            "usage: cargo xtask <loc-gate|kani [-- --harness NAME]|synth [-- --device 85F|45F]|qemu [-- mediate]|verilator -- <boot|pmp|measure|mediate|endpoint|warden|egress-gate|egress-gate-negctl>>"
         ),
     }
+}
+
+/// Runs the Kani proof harnesses in `crates/monitor/src/proofs.rs`
+/// (`cfg(kani)` only). Requires `cargo install --locked kani-verifier &&
+/// cargo kani setup`. `-Z stubbing` is needed by the harnesses that stub
+/// audit hashing / the predicate stage (see docs/architecture/PROOFS.md).
+fn kani(extra: &[String]) -> anyhow::Result<()> {
+    let status = Command::new("cargo")
+        .args(["kani", "-Z", "stubbing", "-p", "monitor"])
+        .args(extra)
+        .status()
+        .context("failed to run `cargo kani` (is kani-verifier installed? `cargo install --locked kani-verifier && cargo kani setup`)")?;
+    anyhow::ensure!(status.success(), "cargo kani reported a failing or unverified harness");
+    Ok(())
 }
 
 /// Counts non-blank, non-comment-only lines of Rust source under `path`.
@@ -158,7 +186,7 @@ fn loc_gate() -> anyhow::Result<()> {
 const BOOT_BANNER: &str = "redoubt: monitor online";
 const QEMU_TIMEOUT: Duration = Duration::from_secs(15);
 
-/// The exact UART lines the `mediate` scenario must emit — the three
+/// The exact UART lines the `mediate` scenario must emit - the three
 /// containment demo verdicts, proof the injected secret went outbound but
 /// not into the response, and the interrupt-masking (Review-Focus 7) frame
 /// check. Asserted by `cargo xtask qemu -- mediate`.
@@ -385,6 +413,8 @@ const VERILATOR_RUN_TIMEOUT: Duration = Duration::from_secs(90);
 /// EGRESS_MMIO (0xf000_0000) is intentionally absent: it is uncached IO and
 /// this VexRiscv-secure core bypasses PMP for uncached accesses, so it is not
 /// PMP-deniable (egress is monitor-mediated instead). See the V2 report.
+/// (Phase-5 H1: the CPU D-bus path into it is now blocked for U by the RTL
+/// EgressGate; see `EGRESS_GATE_EXPECTED_LINES` / the `egress-gate` scenario.)
 const PMP_EXPECTED_LINES: &[&str] = &[
     "PMP-LOCK=OK",
     "PMP-IMMUTABLE=OK",
@@ -399,7 +429,7 @@ const PMP_EXPECTED_LINES: &[&str] = &[
     "PMP-DONE",
 ];
 
-/// Lines that, if seen, mean a wall failed open or a control read went wrong —
+/// Lines that, if seen, mean a wall failed open or a control read went wrong -
 /// the scenario must fail if any appears.
 const PMP_FORBIDDEN_LINES: &[&str] = &[
     "PMP-IMMUTABLE=FAIL",
@@ -475,7 +505,7 @@ const SIM_WARDEN_EXPECTED_LINES: &[&str] = &[
     "WARDEN-DONE",
 ];
 
-/// Any of these means liveness-without-trust (or the harness) failed — fail
+/// Any of these means liveness-without-trust (or the harness) failed - fail
 /// closed. A DENY turned into an ALLOW, a secret leak, an M-mode fault, or a
 /// compromised scheduler effect would each break the whole point of the task.
 const SIM_WARDEN_FORBIDDEN_LINES: &[&str] = &[
@@ -487,7 +517,38 @@ const SIM_WARDEN_FORBIDDEN_LINES: &[&str] = &[
     "PMP-FAIL",
 ];
 
-/// Any of these means containment (or the harness) failed — fail closed.
+/// UART lines the Verilated `egress-gate` scenario (Phase-5 H1) must observe. The
+/// U prober (no PMP grant to egress; EGRESS_MMIO is PMP-bypassing uncached IO)
+/// attacks the egress window; the custom RTL gate (patched-netlist privilege tap)
+/// must stop it at the bus. Closes the Phase-2 gap documented at `PMP_EXPECTED_LINES`.
+///
+/// `EGRESS-GATE-FAULT` x2 = U loads of the egress record and of the gate's own
+/// audit counter faulted (mcause 5; the gate returns ERR on blocked reads);
+/// `U-WRITE=DROPPED` = U's store to the egress record (and its UART store, via the
+/// forbidden `~` check) had no effect (this core cannot fault an uncached store);
+/// `BLOCKED=4` = the gate counted exactly the four U transactions;
+/// `EGRESS-M=OK` = the monitor's own egress write + readback passes the gate.
+const EGRESS_GATE_EXPECTED_LINES: &[&str] = &[
+    "EGRESS-GATE-ARMED",
+    "EGRESS-GATE-FAULT mcause=5 addr=0xf0002000", // U load of egress_rec00
+    "EGRESS-GATE-FAULT mcause=5 addr=0xf0002800", // U load of the gate audit counter
+    "EGRESS-GATE-U-WRITE=DROPPED",
+    "EGRESS-GATE-BLOCKED=4",
+    "EGRESS-M=OK",
+    "EGRESS-GATE-DONE",
+];
+
+const EGRESS_GATE_FORBIDDEN_LINES: &[&str] = &[
+    "EGRESS-GATE-FAIL",
+    "EGRESS-GATE-U-WRITE=LEAK",
+    "EGRESS-M=BAD",
+    "PMP-FAIL",
+    "M-FAULT",
+    "mcause=7", // pins drop-not-fault store semantics: a U store must never trap
+    "~", // U's byte pushed through the UART data register must never appear
+];
+
+/// Any of these means containment (or the harness) failed - fail closed.
 const SIM_MEDIATE_FORBIDDEN_LINES: &[&str] = &[
     "MEDIATE-FAIL",
     "outbound-MISSING",
@@ -498,17 +559,19 @@ const SIM_MEDIATE_FORBIDDEN_LINES: &[&str] = &[
 ];
 
 fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
-    let (pmp, mediate, endpoint, warden) = match scenario {
-        Some("boot") => (false, false, false, false),
-        Some("pmp") => (true, false, false, false),
-        Some("mediate") => (false, true, false, false),
-        Some("endpoint") => (false, false, true, false),
-        Some("warden") => (false, false, false, true),
+    let negctl = scenario == Some("egress-gate-negctl");
+    let (pmp, mediate, endpoint, warden, egress) = match scenario {
+        Some("boot") => (false, false, false, false, false),
+        Some("pmp") => (true, false, false, false, false),
+        Some("mediate") => (false, true, false, false, false),
+        Some("endpoint") => (false, false, true, false, false),
+        Some("warden") => (false, false, false, true, false),
+        Some("egress-gate") | Some("egress-gate-negctl") => (false, false, false, false, true),
         None => anyhow::bail!(
-            "usage: cargo xtask verilator -- <boot|pmp|measure|mediate|endpoint|warden>"
+            "usage: cargo xtask verilator -- <boot|pmp|measure|mediate|endpoint|warden|egress-gate|egress-gate-negctl>"
         ),
         Some(other) => anyhow::bail!(
-            "unknown verilator scenario: {other} (expected `boot`, `pmp`, `measure`, `mediate`, `endpoint` or `warden`)"
+            "unknown verilator scenario: {other} (expected `boot`, `pmp`, `measure`, `mediate`, `endpoint`, `warden`, `egress-gate` or `egress-gate-negctl`)"
         ),
     };
 
@@ -516,19 +579,19 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
 
     // Preflight: the locally-provisioned toolchain must be present.
     anyhow::ensure!(p.venv_python().is_file(),
-        "missing LiteX venv Python at {} — see sim/README.md", p.venv_python().display());
+        "missing LiteX venv Python at {} - see sim/README.md", p.venv_python().display());
     anyhow::ensure!(p.verilator_root().is_dir(),
-        "missing Verilator at {} — see sim/README.md", p.verilator_root().display());
+        "missing Verilator at {} - see sim/README.md", p.verilator_root().display());
     anyhow::ensure!(p.simdeps_lib().is_dir(),
-        "missing arm64 json-c/libevent at {} — build them per sim/README.md", p.simdeps_lib().display());
+        "missing arm64 json-c/libevent at {} - build them per sim/README.md", p.simdeps_lib().display());
 
     // --- Step 1: build the SIM monitor image (rv32ima, compressed-free). ---
     // nightly + build-std/core for the tier-3 riscv32ima target; link-sim.ld
     // via per-image rustflags (ruling P2-1); its own target dir so the QEMU
     // (imac) artifact is never touched.
     // (Ruling P2-3: nightly pinned inside `nightly_build` so the compressed-free
-    // guarantee — stable ignores `-C target-feature=-c`; the `secure` core has no
-    // C decoder — can't drift.) The `mediate` image is built `--release` in its
+    // guarantee - stable ignores `-C target-feature=-c`; the `secure` core has no
+    // C decoder - can't drift.) The `mediate` image is built `--release` in its
     // own target dir: the debug `monitor::mediate` pipeline + BLAKE2 is ~220 KiB,
     // far past the 128 KiB mon_ram; release fits with ample headroom.
     println!("cargo xtask verilator: building sim monitor image (riscv32ima, build-std)...");
@@ -547,6 +610,8 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
     } else if mediate {
         let dir = p.repo.join("target/sim-mediate");
         (dir.join("riscv32ima-unknown-none-elf/release/monitor-bin"), "mediate", true, dir)
+    } else if egress {
+        (p.sim_elf(), "egressgate", false, p.sim_target_dir())
     } else {
         (p.sim_elf(), "sim", false, p.sim_target_dir())
     };
@@ -565,6 +630,8 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
             "--image", sim_elf.to_str().unwrap(),
             "--output-dir", p.build_dir().to_str().unwrap(),
         ])
+        // Negative control: build the SoC with the egress gate bypassed.
+        .args(if negctl { &["--egress-gate-off"][..] } else { &[][..] })
         .status()
         .context("failed to run redoubt_soc.py (LiteX generate)")?;
     anyhow::ensure!(gen.success(), "redoubt_soc.py generate failed");
@@ -625,7 +692,9 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
 
     // Wait for the scenario's terminal sentinel (boot: the banner; pmp: the
     // prober's final `PMP-DONE`), then kill. The sim never self-terminates.
-    let done_marker = if warden {
+    let done_marker = if egress {
+        "EGRESS-GATE-DONE"
+    } else if warden {
         "WARDEN-DONE"
     } else if endpoint {
         "ENDPOINT-DONE"
@@ -644,7 +713,8 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
             .lock()
             .map(|s| s.contains(done_marker) || (mediate && s.contains("MEDIATE-FAIL"))
                     || (endpoint && s.contains("ENDPOINT-FAIL"))
-                    || (warden && s.contains("WARDEN-FAIL")))
+                    || (warden && s.contains("WARDEN-FAIL"))
+                    || (egress && !negctl && s.contains("EGRESS-GATE-FAIL")))
             .unwrap_or(false)
         {
             saw_done = true;
@@ -677,17 +747,80 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
         VERILATOR_RUN_TIMEOUT
     );
 
+    if negctl {
+        // EXPECT-FAIL semantics: with the gate bypassed the very same prober MUST
+        // leak. Passing here proves the `egress-gate` assertions are not vacuous.
+        anyhow::ensure!(
+            saw_done,
+            "egress-gate-negctl: gate-off run did not reach `EGRESS-GATE-DONE`; UART:\n{stdout}"
+        );
+        for needle in [
+            "~",                                   // U's UART byte got out
+            "EGRESS-GATE-U-WRITE=LEAK",            // U's store reached the egress record
+            "EGRESS-GATE-BLOCKED=0",               // the gate blocked nothing
+            "EGRESS-GATE-FAIL blocked-count",      // the normal test's own check trips
+        ] {
+            anyhow::ensure!(
+                stdout.contains(needle),
+                "egress-gate-negctl: expected leak marker {needle:?} missing; the gate-off \
+                 build did NOT leak as expected, so the egress-gate test may be vacuous.\nUART:\n{stdout}"
+            );
+        }
+        anyhow::ensure!(
+            !stdout.contains("EGRESS-GATE-FAULT"),
+            "egress-gate-negctl: a U load faulted with the gate off.\nUART:\n{stdout}"
+        );
+        println!(
+            "\ncargo xtask verilator -- egress-gate-negctl: PASS (expect-fail: with the gate \
+             bypassed the U prober leaked a UART byte and wrote the egress record, blocked=0, \
+             no faults; so the egress-gate test catches a real leak)"
+        );
+        return Ok(());
+    }
+
+    if egress {
+        for bad in EGRESS_GATE_FORBIDDEN_LINES {
+            anyhow::ensure!(
+                !stdout.contains(bad),
+                "egress-gate: observed failure marker {bad:?}: the gate did not hold \
+                 (fail closed).\nUART:\n{stdout}"
+            );
+        }
+        anyhow::ensure!(
+            saw_done,
+            "egress-gate: monitor did not reach `EGRESS-GATE-DONE` within {:?}; \
+             UART so far:\n{stdout}",
+            VERILATOR_RUN_TIMEOUT
+        );
+        for line in EGRESS_GATE_EXPECTED_LINES {
+            anyhow::ensure!(
+                stdout.lines().any(|l| l == *line),
+                "egress-gate: missing expected UART line {line:?}.\nUART:\n{stdout}"
+            );
+        }
+        println!(
+            "\ncargo xtask verilator -- egress-gate: PASS (custom RTL egress gate: a U-mode \
+             load from the egress window faulted at the bus (mcause 5), U stores to the egress \
+             record and the UART data register were swallowed with no effect, U could not read \
+             the gate's audit counter, and the gate counted exactly 4 blocked transactions; the \
+             monitor's (M) egress write+readback still passed, all {} lines observed. Custom \
+             RTL gate on a patched-netlist privilege tap, not an off-the-shelf IOPMP)",
+            EGRESS_GATE_EXPECTED_LINES.len()
+        );
+        return Ok(());
+    }
+
     if warden {
         for bad in SIM_WARDEN_FORBIDDEN_LINES {
             anyhow::ensure!(
                 !stdout.contains(bad),
-                "warden: observed failure marker {bad:?} — liveness-without-trust \
+                "warden: observed failure marker {bad:?} - liveness-without-trust \
                  did not hold (fail closed).\nUART:\n{stdout}"
             );
         }
         anyhow::ensure!(
             saw_done,
-            "warden: monitor did not reach `WARDEN-DONE` within {:?} — the \
+            "warden: monitor did not reach `WARDEN-DONE` within {:?} - the \
              scheduler / preempt path stalled; UART so far:\n{stdout}",
             VERILATOR_RUN_TIMEOUT
         );
@@ -707,7 +840,7 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
              DENY_ARG; no-escalation is structural (by-construction: M decides \
              and performs/withholds the effect before the scheduler sees a \
              status), with sink-calls=2 and secret=absent confirming the effect \
-             is unchanged — all {} lines observed)",
+             is unchanged - all {} lines observed)",
             SIM_WARDEN_EXPECTED_LINES.len()
         );
         return Ok(());
@@ -745,7 +878,7 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
             "\ncargo xtask verilator -- endpoint: PASS (U-mode Endpoint deframes SERIAL_IN on RTL: \
              valid benign frame -> ALLOW; CRC-corrupt / COBS-invalid / truncated frames dropped \
              (dropped=3) and never mediated; garbage inner -> DENY_MALFORMED and wrong-host \
-             attack -> DENY_ARG — the Endpoint holds no authority; all {} lines observed)",
+             attack -> DENY_ARG - the Endpoint holds no authority; all {} lines observed)",
             SIM_ENDPOINT_EXPECTED_LINES.len()
         );
         return Ok(());
@@ -755,13 +888,13 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
         for bad in SIM_MEDIATE_FORBIDDEN_LINES {
             anyhow::ensure!(
                 !stdout.contains(bad),
-                "mediate: observed failure marker {bad:?} — containment did not hold \
+                "mediate: observed failure marker {bad:?} - containment did not hold \
                  (fail closed).\nUART:\n{stdout}"
             );
         }
         anyhow::ensure!(
             saw_done,
-            "mediate: monitor did not reach `MEDIATE-DONE` within {:?} — the U \
+            "mediate: monitor did not reach `MEDIATE-DONE` within {:?} - the U \
              compartment / mediate path stalled; UART so far:\n{stdout}",
             VERILATOR_RUN_TIMEOUT
         );
@@ -774,7 +907,7 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
         println!(
             "\ncargo xtask verilator -- mediate: PASS (U-compartment -> M `mediate` on RTL: \
              benign=ALLOW with the secret in the EGRESS_MMIO record and absent from U-visible \
-             memory; wrong-host=DENY_ARG and secret-to-public=DENY_FLOW never drove the sink — \
+             memory; wrong-host=DENY_ARG and secret-to-public=DENY_FLOW never drove the sink - \
              all {} lines observed)",
             SIM_MEDIATE_EXPECTED_LINES.len()
         );
@@ -797,28 +930,28 @@ fn verilator(scenario: Option<&str>) -> anyhow::Result<()> {
     // --- pmp scenario assertions (fail closed) ---------------------------
     anyhow::ensure!(
         saw_done,
-        "pmp: monitor did not reach `PMP-DONE` within {:?} — the prober or a \
+        "pmp: monitor did not reach `PMP-DONE` within {:?} - the prober or a \
          PMP fault path stalled; UART so far:\n{stdout}",
         VERILATOR_RUN_TIMEOUT
     );
     for bad in PMP_FORBIDDEN_LINES {
         anyhow::ensure!(
             !stdout.contains(bad),
-            "pmp: observed failure marker {bad:?} — a PMP wall did not hold as \
+            "pmp: observed failure marker {bad:?} - a PMP wall did not hold as \
              expected (fail closed).\nUART:\n{stdout}"
         );
     }
     for line in PMP_EXPECTED_LINES {
         anyhow::ensure!(
             stdout.contains(line),
-            "pmp: missing expected UART line {line:?} — the corresponding PMP \
+            "pmp: missing expected UART line {line:?} - the corresponding PMP \
              assertion did not hold.\nUART:\n{stdout}"
         );
     }
     println!(
         "\ncargo xtask verilator -- pmp: PASS (PMP locked + immutable; every \
          forbidden U-mode access faulted, own region worked, undescribed gap + \
-         boundary denied — all {} lines observed)",
+         boundary denied - all {} lines observed)",
         PMP_EXPECTED_LINES.len()
     );
     Ok(())
@@ -978,17 +1111,17 @@ fn verilator_measure() -> anyhow::Result<()> {
     // Preflight: the locally-provisioned toolchain must be present.
     anyhow::ensure!(
         p.venv_python().is_file(),
-        "missing LiteX venv Python at {} — see sim/README.md",
+        "missing LiteX venv Python at {} - see sim/README.md",
         p.venv_python().display()
     );
     anyhow::ensure!(
         p.verilator_root().is_dir(),
-        "missing Verilator at {} — see sim/README.md",
+        "missing Verilator at {} - see sim/README.md",
         p.verilator_root().display()
     );
     anyhow::ensure!(
         p.simdeps_lib().is_dir(),
-        "missing arm64 json-c/libevent at {} — see sim/README.md",
+        "missing arm64 json-c/libevent at {} - see sim/README.md",
         p.simdeps_lib().display()
     );
 
@@ -1070,7 +1203,7 @@ fn verilator_measure() -> anyhow::Result<()> {
     println!("measure[1/3] good boot: PASS (BROM-MEASURE-OK + banner)");
 
     // --- Sub-test 2: tamper -> BROM halts before the monitor. ----------------
-    // Flip a byte at 0x9000 — in the `.text` tail that the OLD fixed-0x8000
+    // Flip a byte at 0x9000 - in the `.text` tail that the OLD fixed-0x8000
     // measurement did NOT cover. That this now halts proves the measurement
     // spans the full executed image (the round-1 review finding).
     println!("\nmeasure[2/3] tamper: flip one .text byte at 0x9000 (past the old 0x8000)...");
@@ -1084,7 +1217,7 @@ fn verilator_measure() -> anyhow::Result<()> {
     anyhow::ensure!(saw2 && out2.contains("BROM-TAMPER-HALT"),
         "measure tamper: BROM did not print its tamper-halt line\nUART:\n{out2}");
     anyhow::ensure!(!out2.contains(BOOT_BANNER),
-        "measure tamper: the monitor banner appeared — the BROM failed OPEN past a tampered image\nUART:\n{out2}");
+        "measure tamper: the monitor banner appeared - the BROM failed OPEN past a tampered image\nUART:\n{out2}");
     anyhow::ensure!(!out2.contains("BROM-MEASURE-OK"),
         "measure tamper: BROM reported a good measurement on a tampered image\nUART:\n{out2}");
     println!("measure[2/3] tamper: PASS (BROM-TAMPER-HALT, no monitor banner)");
@@ -1101,7 +1234,7 @@ fn verilator_measure() -> anyhow::Result<()> {
     let (out3, saw3) = run_vsim(&p, &["M-HALT"])?;
     print!("{out3}");
     anyhow::ensure!(out3.contains(BOOT_BANNER),
-        "measure stack-overflow: banner absent — BROM did not measure+jump the stackflow image\nUART:\n{out3}");
+        "measure stack-overflow: banner absent - BROM did not measure+jump the stackflow image\nUART:\n{out3}");
     anyhow::ensure!(out3.contains("STACK-GUARD-ARMED"),
         "measure stack-overflow: guard was never armed\nUART:\n{out3}");
     anyhow::ensure!(saw3 && out3.contains("M-FAULT mcause=7"),
@@ -1109,7 +1242,7 @@ fn verilator_measure() -> anyhow::Result<()> {
     anyhow::ensure!(out3.contains("addr=0x10018"),
         "measure stack-overflow: the fault did not land in the guard page (0x10018xxx)\nUART:\n{out3}");
     anyhow::ensure!(!out3.contains("PMP-DONE"),
-        "measure stack-overflow: control resumed past the M fault (PMP-DONE seen) — fail OPEN\nUART:\n{out3}");
+        "measure stack-overflow: control resumed past the M fault (PMP-DONE seen) - fail OPEN\nUART:\n{out3}");
     println!("measure[3/3] stack overflow: PASS (banner + M-FAULT at guard, no resume)");
 
     println!(

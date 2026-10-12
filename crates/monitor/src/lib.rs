@@ -13,6 +13,11 @@ pub mod parse;
 pub mod policy;
 pub mod predicate;
 
+// Kani bounded-model-checking harnesses. Compiled ONLY under `cargo kani`
+// (`cfg(kani)`); invisible to normal builds, `cargo test` and clippy.
+#[cfg(kani)]
+mod proofs;
+
 pub use policy::Policy;
 
 use audit::{Audit, Entry};

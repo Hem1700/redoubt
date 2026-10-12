@@ -280,7 +280,7 @@ you read only one thing in the chapter.</p>
   <text x="430" y="334" text-anchor="middle" font-size="7.5" class="t-mut">reason codes: A→DENY_ARG · B→DENY_FLOW · C→no such call · D→DENY_NO_CAP · E→hardware fault, no software path</text>
 
   <!-- note strip -->
-  <text x="18" y="372" font-size="8.5" class="t-mut">Branches A–D are refused by the Monitor's decision pipeline (Chapter 9). Branch E never reaches software at all:</text>
+  <text x="18" y="372" font-size="8.5" class="t-mut">Branches A-D are refused by the Monitor's decision pipeline (Chapter 9). Branch E never reaches software at all:</text>
   <text x="18" y="386" font-size="8.5" class="t-mut">the network and storage addresses are outside every memory region a lower tier is permitted to touch, so the</text>
   <text x="18" y="400" font-size="8.5" class="t-mut">attempt faults in silicon. That is why A5 (a compromised Warden) does not widen the attacker's reach.</text>
 </svg>
@@ -334,7 +334,7 @@ breaking the promise.</p>
 <tr><td><b>T0</b></td><td>Monitor + boot ROM + PMP configuration</td><td>Machine (M)</td><td><b>yes</b></td><td>The security property, the secrets, the egress. This is the whole trusted base.</td></tr>
 <tr><td>T1</td><td>Warden microkernel</td><td>Supervisor (S)</td><td>no</td><td>Liveness and scheduling only. A subverted Warden (A5) cannot break the property.</td></tr>
 <tr><td>T2</td><td>Endpoint, egress drivers</td><td>User (U)</td><td>no</td><td>Nothing security-relevant. They frame and format; they never decide.</td></tr>
-<tr><td>, </td><td>Host: LLM, agent, tools</td><td>off-device</td><td>no</td><td>Nothing. Conceded to the attacker in full (A1–A3).</td></tr>
+<tr><td>, </td><td>Host: LLM, agent, tools</td><td>off-device</td><td>no</td><td>Nothing. Conceded to the attacker in full (A1-A3).</td></tr>
 </tbody>
 </table>
 </div>

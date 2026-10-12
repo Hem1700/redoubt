@@ -11,7 +11,7 @@
 //!   Ruling R7):** a sink dials the exact `scheme`/`host`/`port` from the
 //!   already-parsed, typed `UrlParts` obtained via `predicate::Args::url_parts`.
 //!   There is no URL *string* anywhere in this module to parse, re-parse, or
-//!   split — only structured fields. An `Args` with no `Url`-typed `url` slot
+//!   split - only structured fields. An `Args` with no `Url`-typed `url` slot
 //!   yields `url_parts() == None`, and a sink must fail closed
 //!   (`ReasonCode::ErrInternal`) rather than guess a target.
 //!
@@ -23,7 +23,13 @@ use crate::predicate::Args;
 use abi::{Label, ReasonCode};
 
 /// Max bytes of a tool result body the monitor will hold (fixed, no alloc).
+#[cfg(not(kani))]
 pub const RESP_BODY_MAX: usize = 512;
+/// MODEL BOUND (Kani only): a 16-byte response body keeps the by-value
+/// moves of `ResponseView`/`Response` tractable for CBMC. Production
+/// (`not(kani)`) is unchanged at 512. See docs/architecture/PROOFS.md.
+#[cfg(kani)]
+pub const RESP_BODY_MAX: usize = 16;
 
 /// The result of a completed (successful) egress call.
 ///

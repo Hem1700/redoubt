@@ -2,19 +2,19 @@
 
 - **Date:** 2026-09-22
 - **Purpose:** Study two reference security architectures *before* designing anything.
-  Findings and extracted design principles only — **no design conclusions in this
+  Findings and extracted design principles only - **no design conclusions in this
   document.** Conclusions come after discussion.
 - **Sources:** linked inline.
 
 ---
 
-## Part 1 — Baochip-1x (bunnie Huang) — the open, small, high-assurance blueprint
+## Part 1 - Baochip-1x (bunnie Huang) - the open, small, high-assurance blueprint
 
 Source: [bunnie's blog](https://www.bunniestudios.com/blog/2026/baochip-1x-a-mostly-open-22nm-soc-for-high-assurance-applications/),
 [Xous @ 39c3](https://fahrplan.events.ccc.de/congress/2025/fahrplan/event/xous-a-pure-rust-rethink-of-the-embedded-operating-system)
 
 ### Compute
-- **Main CPU:** 350 MHz **VexRiscv (RV32) with an MMU** — notable because it's "the first
+- **Main CPU:** 350 MHz **VexRiscv (RV32) with an MMU** - notable because it's "the first
   microcontroller in its class with an MMU," enabling per-application virtual address
   spaces ("secure, loadable apps, each in its own virtual memory space"). Descends from
   the Precursor FPGA soft-core.
@@ -40,26 +40,26 @@ Source: [bunnie's blog](https://www.bunniestudios.com/blog/2026/baochip-1x-a-mos
 ### Openness & verifiability
 - **"Mostly open":** all *computational / data-transforming* RTL is open on GitHub; the
   closed parts are "effectively wires" (AXI fabric, USB PHY, analog PLL/regulators/pads).
-- **IRIS** — non-destructive infra-red silicon inspection to verify the fabricated
+- **IRIS** - non-destructive infra-red silicon inspection to verify the fabricated
   silicon matches the design ("shine IR through it").
 - 22 nm TSMC, production-qualified.
 
 ### OS: Xous
 - Pure-Rust microkernel, **capability-based**, **message-passing**, **MMU-enforced**
-  process isolation, small footprint (fits 2–6 MiB RAM).
+  process isolation, small footprint (fits 2-6 MiB RAM).
 - Replaces RTOS patterns with a capability security model.
 
 ### Principles Baochip embodies
 1. **Inspectability over absolute openness** (pragmatic: open the parts that transform
    data; verify silicon optically).
-2. **MMU-based isolation even in an MCU** — hardware isolation, not language-only.
+2. **MMU-based isolation even in an MCU** - hardware isolation, not language-only.
 3. **Keys never in software** (hardware key slots).
 4. **Physical-attack resistance is first-class** (glitch sensors, mesh).
 5. **Small, auditable, Rust, capability-based OS** matched to the hardware.
 
 ---
 
-## Part 2 — Apple platform security — best-executed HW/SW co-design at scale
+## Part 2 - Apple platform security - best-executed HW/SW co-design at scale
 
 ### 2.1 Secure Enclave Processor (SEP)
 Sources: [Apple SoC security](https://support.apple.com/en-om/guide/security/sec87716a080/web),
@@ -69,10 +69,10 @@ Sources: [Apple SoC security](https://support.apple.com/en-om/guide/security/sec
 - **Own immutable Boot ROM** = hardware root of trust; the SEP **executes directly from
   secure ROM** (no copy to modifiable RAM), ROM inaccessible outside SEP.
 - **Secure mailbox:** the *only* interface between the app processor and SEP is a
-  hardware-controlled mailbox — AP writes a message, SEP reads/responds; no other access
+  hardware-controlled mailbox - AP writes a message, SEP reads/responds; no other access
   in production silicon.
 - **Key wrapping:** software only ever receives *wrapped* (encrypted) keys; the raw key
-  is delivered in hardware to the crypto engine — insecure software never sees it.
+  is delivered in hardware to the crypto engine - insecure software never sees it.
 - Runs an **Apple-customized L4 microkernel** (SEP OS), signed and verified by SEP Boot ROM.
 
 ### 2.2 Memory safety: PAC → MIE (EMTE + type-aware allocators)
@@ -80,7 +80,7 @@ Sources: [Apple MIE blog](https://security.apple.com/blog/memory-integrity-enfor
 [8ksec MIE deep dive](https://www.8ksec.io/mie-deep-dive-kernel/)
 - **PAC (Pointer Authentication, 2018, A12):** cryptographic signatures on pointers →
   breaks ROP/JOP by making forged code pointers detectable.
-- **MIE (A19/M5, 2025) — three pillars:**
+- **MIE (A19/M5, 2025) - three pillars:**
   1. **Secure type-aware allocators** (`kalloc_type` 2022, `xzone malloc`, WebKit
      `libpas`): use *type information* to place allocations so attackers can't create
      "overlapping interpretations of memory." Page-granularity segregation.
@@ -110,7 +110,7 @@ Sources: [Apple OS integrity](https://support.apple.com/guide/security/operating
   moved *out of* XNU into an isolated monitor. Privilege separation means a **TXM
   compromise ≠ SPTM bypass.**
 - **Exclaves:** sensitive services (microphone, camera, sensors) isolated into
-  `SK_DOMAIN` compartments under a **Secure Kernel (GL1)** — the monolithic kernel is no
+  `SK_DOMAIN` compartments under a **Secure Kernel (GL1)** - the monolithic kernel is no
   longer omnipotent. Apple is moving XNU toward a **compartmentalized, microkernel-inspired**
   model.
 
@@ -119,16 +119,16 @@ Sources: [Apple OS integrity](https://support.apple.com/guide/security/operating
    (page tables, code signing) lives in *small components more privileged/isolated than
    the kernel* (SPTM, TXM, SEP). Compromising the big kernel does not grant those powers.
 2. **Assume memory-corruption bugs exist; neutralize the exploitation strategy** (MIE).
-3. **Hardware/software co-design** — silicon feature (EMTE, GL levels, SEP) + OS designed
+3. **Hardware/software co-design** - silicon feature (EMTE, GL levels, SEP) + OS designed
    to use it; co-design removes the performance tax.
 4. **Synchronous, always-on enforcement** (no race windows).
-5. **Compartmentalize the monolith** (Exclaves) — reduce the blast radius of any one
+5. **Compartmentalize the monolith** (Exclaves) - reduce the blast radius of any one
    compromise.
 6. **Root of trust in immutable minimal ROM**, verified boot chain.
 
 ---
 
-## Part 3 — Cross-cutting patterns observed in BOTH (grounded, not conclusions)
+## Part 3 - Cross-cutting patterns observed in BOTH (grounded, not conclusions)
 
 1. **Isolation is hardware-enforced, never language-only.** Baochip: MMU. Apple: MMU +
    GL privilege levels + EMTE + SEP separation.
@@ -146,18 +146,18 @@ Sources: [Apple OS integrity](https://support.apple.com/guide/security/operating
 
 ---
 
-## Part 4 — Honest observations & open questions (for discussion, NOT conclusions)
+## Part 4 - Honest observations & open questions (for discussion, NOT conclusions)
 
 - Both architectures independently converged on the **same two moves**: (a) a *tiny,
   hyper-privileged monitor beneath/around the kernel* (Apple SPTM/SEP), and (b)
   *compartmentalizing the kernel's power* (Apple Exclaves; Xous servers). This is the
-  dominant modern pattern — worth understanding deeply before deviating.
+  dominant modern pattern - worth understanding deeply before deviating.
 - **Apple's memory-safety enforcement is now hardware-tag-centric (EMTE),** but that's
   ARM-MTE-derived and closed. On **open RISC-V**, hardware memory tagging is *research*
-  (HDFI, HyperFlow, TMDFI, Raft), not standardized — so anyone open-source wanting
+  (HDFI, HyperFlow, TMDFI, Raft), not standardized - so anyone open-source wanting
   Apple-grade memory safety has to build or adapt the tagging hardware themselves.
 - **Baochip proves a small team can ship the open, inspectable, MMU-isolated,
-  capability-OS stack** — but it does **not** have EMTE-style hardware memory tagging or
+  capability-OS stack** - but it does **not** have EMTE-style hardware memory tagging or
   an SPTM-style page-table monitor. Its memory-safety story is "Rust + MMU isolation,"
   not hardware tag enforcement.
 - **Apple's SPTM idea (a page-table/enforcement monitor more privileged than the kernel)
@@ -167,10 +167,10 @@ Sources: [Apple OS integrity](https://support.apple.com/guide/security/operating
   - Which of these principles matter for *our* threat model (hostile-input parsing),
     and which are for different threats (physical, spyware persistence)?
   - Where is the honest gap between "what Apple does (closed, huge silicon budget)" and
-    "what Baochip does (open, tiny)" — and is that gap a place to contribute or a place
+    "what Baochip does (open, tiny)" - and is that gap a place to contribute or a place
     that's gapped *for good reasons*?
   - How much of Apple's design depends on resources (silicon area, a fabbed SEP, ARM MTE)
     that an FPGA soft-core simply cannot replicate?
 
-*Next step: discuss these findings together and decide where to go deeper — no
+*Next step: discuss these findings together and decide where to go deeper - no
 architecture chosen yet.*

@@ -88,8 +88,8 @@
   <p class="eyebrow">Architecture Manual · v1 · Revision 2026-09</p>
   <h1 style="font-size:2.6rem;font-weight:800;margin:.2rem 0">Redoubt</h1>
   <p class="lede">A hardware-rooted reference-monitor operating system for AI agents. This manual
-  specifies the whole system — the trusted Monitor, the untrusted stack around it, the hardware it
-  runs on, the protocols it speaks, and the assurance argument that ties them together — to the
+  specifies the whole system - the trusted Monitor, the untrusted stack around it, the hardware it
+  runs on, the protocols it speaks, and the assurance argument that ties them together - to the
   level of data-structure fields, ABI codes, and register configuration.</p>
   <div class="metagrid">
     <span>Target · <b>ULX3S (ECP5-85F)</b></span>
@@ -162,14 +162,14 @@
 <section id="s0" class="prose">
 <h2><span class="n">0</span>Problem &amp; motivation</h2>
 <p>An autonomous AI agent does something no earlier program did routinely: it takes
-<em>attacker-influenceable</em> instructions — a prompt, a fetched web page, a tool's output — and,
+<em>attacker-influenceable</em> instructions - a prompt, a fetched web page, a tool's output - and,
 on the strength of them, <em>acts</em>: it calls tools, sends network requests, reads and writes
 files, spends credentials. It cannot reliably distinguish a legitimate instruction from a malicious
 one [8]. We therefore assume the agent's reasoning can be hijacked at any moment and design as if it
 already has been.</p>
 <p>Every existing secure OS was built for a different principal. seL4, Qubes, and bunnie's
 Xous/Baochip all assume the user has <em>stable, honest intent</em> and protect <em>its</em>
-secrets — they are <b>vaults</b>. An agent is the inverse case: it is simultaneously the user
+secrets - they are <b>vaults</b>. An agent is the inverse case: it is simultaneously the user
 <em>and</em> the threat, and running untrusted tools is its normal mode of operation. The missing
 artifact is not another vault but a <b>hazmat lab</b>: an environment where a compromised agent can
 run and still touch nothing it was not explicitly permitted to.</p>
@@ -179,23 +179,23 @@ logic, situated below the agent, that the agent cannot bypass.</b> The rest is e
 commitment into open silicon.</p>
 <h4>Why not a software policy layer on Linux?</h4>
 <p>The current agent-security tools (Progent [2], IFC-for-agents [3], ActPlane [7], Governed-MCP,
-and the Microsoft/NVIDIA runtimes) implement exactly this kind of mediation — but <em>in software,
+and the Microsoft/NVIDIA runtimes) implement exactly this kind of mediation - but <em>in software,
 on Linux</em>. Their reference monitor runs at the same or lower privilege than the multi-million
 line kernel it shares with the agent; a single local-privilege-escalation bug in that kernel voids
 the whole guarantee. Redoubt's contribution is to move the monitor <em>below</em> the agent runtime
-into a small, inspectable, hardware-enforced trust anchor — so the guarantee holds even if the agent
+into a small, inspectable, hardware-enforced trust anchor - so the guarantee holds even if the agent
 and the OS above it are fully compromised.</p>
 </section>
 
 <section id="s1">
 <h2><span class="n">1</span>System overview &amp; components</h2>
 <div class="prose">
-<p>The mental model is an embassy. Staff inside — the agent and its tools — can <em>ask</em> to send
+<p>The mental model is an embassy. Staff inside - the agent and its tools - can <em>ask</em> to send
 a cable or open the gate, but they never hold the keys or touch the wire; a single guard at the one
 door checks each request against written orders and performs it on their behalf. Compromise the
 whole staff and the guard still won't send a cable to the wrong country. Redoubt is that guard,
 implemented as the most-privileged code on the chip.</p>
-<p>The language model and agent loop run on an ordinary <b>host</b> — too heavy for a soft-core, and
+<p>The language model and agent loop run on an ordinary <b>host</b> - too heavy for a soft-core, and
 deliberately untrusted. Redoubt runs on the <b>FPGA</b>, owns the network egress, storage, and
 secrets, and exposes only a narrow request interface.</p>
 </div>
@@ -207,7 +207,7 @@ secrets, and exposes only a narrow request interface.</p>
     <marker id="ahA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="mk-acc"/></marker>
   </defs>
   <rect x="14" y="70" width="200" height="150" rx="10" class="f-none s-den" stroke-width="1.5"/>
-  <text x="114" y="60" text-anchor="middle" font-size="12" class="t-den">HOST — untrusted</text>
+  <text x="114" y="60" text-anchor="middle" font-size="12" class="t-den">HOST - untrusted</text>
   <text x="114" y="112" text-anchor="middle" font-size="12">LLM</text>
   <text x="114" y="140" text-anchor="middle" font-size="12">agent loop</text>
   <text x="114" y="168" text-anchor="middle" font-size="12">tool shims</text>
@@ -222,7 +222,7 @@ secrets, and exposes only a narrow request interface.</p>
   <rect x="320" y="58" width="290" height="40" rx="7" class="f-s2 s-ln"/>
   <text x="330" y="83" font-size="11">ENDPOINT</text><text x="600" y="83" text-anchor="end" font-size="10" class="t-mut">U · T2</text>
   <rect x="320" y="106" width="290" height="40" rx="7" class="f-s2 s-ln"/>
-  <text x="330" y="131" font-size="11">WARDEN — sched / IPC</text><text x="600" y="131" text-anchor="end" font-size="10" class="t-warn">S · T1</text>
+  <text x="330" y="131" font-size="11">WARDEN - sched / IPC</text><text x="600" y="131" text-anchor="end" font-size="10" class="t-warn">S · T1</text>
   <rect x="320" y="154" width="290" height="96" rx="7" class="f-acc s-acc" stroke-width="2"/>
   <text x="330" y="176" font-size="12" font-weight="600" class="t-acc">REDOUBT MONITOR</text><text x="600" y="176" text-anchor="end" font-size="10" class="t-acc">M · T0 · TCB</text>
   <text x="330" y="198" font-size="10">caps · arg predicates · IFC labels</text>
@@ -238,7 +238,7 @@ secrets, and exposes only a narrow request interface.</p>
   <text x="801" y="208" text-anchor="middle" font-size="11">ESP32 · network</text>
   <text x="801" y="232" text-anchor="middle" font-size="11">microSD · storage</text>
 </svg>
-<figcaption><b>Figure 1 — System topology.</b> The agent can only ask; the <span class="tier t0">M·T0</span>
+<figcaption><b>Figure 1 - System topology.</b> The agent can only ask; the <span class="tier t0">M·T0</span>
 Monitor alone touches egress or secrets, enforced by PMP (§6). Effectively an HSM + firewall for tool calls.</figcaption>
 </figure>
 
@@ -252,7 +252,7 @@ Monitor alone touches egress or secrets, enforced by PMP (§6). Effectively an H
 <tr><td>Endpoint</td><td>U-mode</td><td><span class="tier t2">T2</span></td><td>USB framing; forwards requests to the Monitor</td><td>~800</td></tr>
 <tr><td>Net driver</td><td>U-mode</td><td><span class="tier t2">T2</span></td><td>formats payloads for the ESP32 link (cannot send)</td><td>~600</td></tr>
 <tr><td>Storage driver</td><td>U-mode</td><td><span class="tier t2">T2</span></td><td>block framing for microSD (cannot commit)</td><td>~500</td></tr>
-<tr><td>Host SDK</td><td>host</td><td>—</td><td>library the agent uses to issue requests; untrusted</td><td>n/a</td></tr>
+<tr><td>Host SDK</td><td>host</td><td>-</td><td>library the agent uses to issue requests; untrusted</td><td>n/a</td></tr>
 </tbody>
 </table></div>
 <p class="muted">Only the first two rows are inside the TCB. Everything else can crash but cannot change a verdict.</p>
@@ -260,10 +260,10 @@ Monitor alone touches egress or secrets, enforced by PMP (§6). Effectively an H
 
 <section id="s2">
 <h2><span class="n">2</span>Design principles</h2>
-<p class="muted prose">Earned from studying what works — Apple platform security [6], Baochip [22], seL4 [18], the RISC-V TEE monitors [4][5] — not assumed.</p>
+<p class="muted prose">Earned from studying what works - Apple platform security [6], Baochip [22], seL4 [18], the RISC-V TEE monitors [4][5] - not assumed.</p>
 <div class="grid2">
-  <div class="cardbox"><h4>One load-bearing primitive</h4><p>Security rests on a single mechanism —
-  <em>complete mediation of the agent→world boundary by a capability reference monitor</em> — not a
+  <div class="cardbox"><h4>One load-bearing primitive</h4><p>Security rests on a single mechanism -
+  <em>complete mediation of the agent→world boundary by a capability reference monitor</em> - not a
   pile of overlapping features. <span class="muted">Implication: every other subsystem exists only
   to make that one mechanism unbypassable, small, and correct.</span></p></div>
   <div class="cardbox"><h4>Deterministic verdicts only</h4><p>Decisions are made by non-AI logic over
@@ -278,8 +278,8 @@ Monitor alone touches egress or secrets, enforced by PMP (§6). Effectively an H
   session can do nothing until a capability is granted.</span></p></div>
   <div class="cardbox"><h4>Inspectable &amp; measured</h4><p>The TCB is small enough to audit, its
   size is a build-gated metric (§20), the Monitor is measured at boot, and the design is open.</p></div>
-  <div class="cardbox"><h4>Honest about scope</h4><p>Where a defense does not hold — side channels,
-  the ESP32 firmware, host-side agent memory — the manual says so (§21) rather than implying coverage.</p></div>
+  <div class="cardbox"><h4>Honest about scope</h4><p>Where a defense does not hold - side channels,
+  the ESP32 firmware, host-side agent memory - the manual says so (§21) rather than implying coverage.</p></div>
 </div>
 </section>
 
@@ -289,7 +289,7 @@ Monitor alone touches egress or secrets, enforced by PMP (§6). Effectively an H
   <li><b>XLEN = 32.</b> VexRiscv is a 32-bit core; all addresses and registers are 32-bit.</li>
   <li><b>Endianness.</b> All multi-byte on-wire and in-memory fields are little-endian (RISC-V native) unless stated.</li>
   <li><b>Bit ranges</b> are written <code>[hi:lo]</code>, inclusive.</li>
-  <li><b>Tiers</b> <code>T0</code>–<code>T2</code> and modes <code>M/S/U</code> are defined in §5.</li>
+  <li><b>Tiers</b> <code>T0</code>-<code>T2</code> and modes <code>M/S/U</code> are defined in §5.</li>
   <li><b>"Effect"</b> = an externally observable action on egress (a network send, a storage write, a secret use). Mediation is defined over effects.</li>
   <li><b>"Session"</b> = one bounded run of one agent, with its own capability space and epoch (§17).</li>
   <li>Citations <code>[n]</code> resolve in §28.</li>
@@ -305,18 +305,18 @@ hold under all of them simultaneously.</p></div>
 <div class="tblwrap"><table>
 <thead><tr><th>ID</th><th>Assumed capability</th><th>Source</th></tr></thead>
 <tbody>
-<tr><td><b>A1</b></td><td>Full agent hijack — arbitrary prompt/goal injection; the agent emits any <code>(tool_id, args)</code> in any order.</td><td>OWASP ASI01 [8]</td></tr>
+<tr><td><b>A1</b></td><td>Full agent hijack - arbitrary prompt/goal injection; the agent emits any <code>(tool_id, args)</code> in any order.</td><td>OWASP ASI01 [8]</td></tr>
 <tr><td><b>A2</b></td><td>Malicious / poisoned tools on the host (crafted tool descriptions and behavior).</td><td>OWASP tool poisoning [8]</td></tr>
-<tr><td><b>A3</b></td><td>Arbitrary code on the host, including the USB driver and the Host SDK.</td><td>—</td></tr>
-<tr><td><b>A4</b></td><td>Full control of the U-mode compartments (Endpoint, drivers).</td><td>—</td></tr>
-<tr><td><b>A5</b></td><td><i>Stretch:</i> a compromised S-mode Warden.</td><td>—</td></tr>
+<tr><td><b>A3</b></td><td>Arbitrary code on the host, including the USB driver and the Host SDK.</td><td>-</td></tr>
+<tr><td><b>A4</b></td><td>Full control of the U-mode compartments (Endpoint, drivers).</td><td>-</td></tr>
+<tr><td><b>A5</b></td><td><i>Stretch:</i> a compromised S-mode Warden.</td><td>-</td></tr>
 </tbody>
 </table></div>
 <h4>Assets</h4>
 <ul class="tight">
-  <li><b>Secrets / credentials</b> — usable by tools, never disclosed to the agent.</li>
-  <li><b>Egress authority</b> — which hosts/paths the agent's tools may reach.</li>
-  <li><b>Confidential data</b> — must not leave to unauthorized sinks.</li>
+  <li><b>Secrets / credentials</b> - usable by tools, never disclosed to the agent.</li>
+  <li><b>Egress authority</b> - which hosts/paths the agent's tools may reach.</li>
+  <li><b>Confidential data</b> - must not leave to unauthorized sinks.</li>
   <li><b>Monitor &amp; policy integrity.</b></li>
 </ul>
 <h4>Attack-tree sketch (exfiltrate the API key)</h4>
@@ -327,7 +327,7 @@ hold under all of them simultaneously.</p></div>
 ├─ forge a capability handle ............... resolves to Empty → DENY_NO_CAP (step 2)
 ├─ write MMIO to the ESP32 from U/S ........ faults: EGRESS_MMIO is M-only PMP (§6)
 └─ tamper the Monitor / policy ............. faults: MON_* is M-only PMP; measured at boot (§8)</code></pre>
-<h4>Out of scope (v1) — stated, not hidden</h4>
+<h4>Out of scope (v1) - stated, not hidden</h4>
 <ul class="tight muted">
   <li>Microarchitectural / timing side channels [9]; physical &amp; fault-injection attacks [10].</li>
   <li>FPGA bitstream authenticity (v2 RoT); ESP32 firmware integrity (§19).</li>
@@ -343,13 +343,13 @@ hold under all of them simultaneously.</p></div>
 <tr><td><span class="tier t0">T0</span></td><td>Monitor + BROM + PMP config</td><td>M</td><td><b>yes</b></td><td>the security property, secrets, egress</td></tr>
 <tr><td><span class="tier t1">T1</span></td><td>Warden</td><td>S</td><td>no</td><td>liveness / scheduling only</td></tr>
 <tr><td><span class="tier t2">T2</span></td><td>Endpoint, drivers</td><td>U</td><td>no</td><td>nothing security-relevant</td></tr>
-<tr><td>—</td><td>Host</td><td>—</td><td>no</td><td>nothing</td></tr>
+<tr><td>-</td><td>Host</td><td>-</td><td>no</td><td>nothing</td></tr>
 </tbody>
 </table></div>
 <div class="callout"><b>Security property.</b> For every external effect <code>e</code> on egress
 there exists a capability <code>c</code> in the <em>active session</em> such that
 <code>bind(c)=tool(e)</code>, <code>predicate(c)(args(e))=true</code>, and
-<code>flow_ok(c, labels(e))=true</code> — and this holds for <em>arbitrary</em> behavior of the host,
+<code>flow_ok(c, labels(e))=true</code> - and this holds for <em>arbitrary</em> behavior of the host,
 T2, and even a compromised T1 (A5). This is Anderson's reference-monitor guarantee [1] instantiated
 for a typed tool call and a hijackable agent. The argument that it holds is in §21.</div>
 </section>
@@ -357,7 +357,7 @@ for a typed tool call and a hijackable agent. The argument that it holds is in �
 <p class="part">Part III · Hardware substrate</p>
 
 <section id="s6">
-<h2><span class="n">6</span>Privilege &amp; isolation — RISC-V PMP</h2>
+<h2><span class="n">6</span>Privilege &amp; isolation - RISC-V PMP</h2>
 <div class="prose">
 <p>RISC-V has three privilege modes, most to least: <b>M</b>achine &gt; <b>S</b>upervisor &gt;
 <b>U</b>ser. Redoubt maps its tiers straight onto them. What makes that mapping <em>enforceable</em>
@@ -369,7 +369,7 @@ with an 8-bit config field packed four-per-<code>pmpcfg</code> CSR on RV32:</p>
 </div>
 <pre><code>pmpcfg byte:  [7] L (lock)   [6:5] rsvd   [4:3] A (0 off · 1 TOR · 2 NA4 · 3 NAPOT)
               [2] X          [1] W        [0] R
-TOR entry i matches [ pmpaddr(i-1), pmpaddr(i) )     — no alignment constraint
+TOR entry i matches [ pmpaddr(i-1), pmpaddr(i) )     - no alignment constraint
 Lock (L=1): rule enforced on ALL modes incl. M, and immutable until hart reset
 Smepmp:     lets a rule be enforced on non-M and denied to M without the all-modes lock</code></pre>
 <div class="prose">
@@ -400,10 +400,10 @@ PMP, reconfiguring on entry [4][5].</p>
     <text x="40" y="259">SHARED_REQ buffer</text><text x="470" y="259" text-anchor="middle" class="t-mut">R W</text><text x="600" y="259" text-anchor="middle" class="t-mut">·</text><text x="730" y="259" text-anchor="middle">R W</text>
   </g>
   <line x1="30" y1="272" x2="820" y2="272" class="s-ln"/>
-  <text x="30" y="296" font-size="10" class="t-mut">Highlighted rows: reachable only from M-mode — PMP (Smepmp / locked), set before T1/T2 run.</text>
+  <text x="30" y="296" font-size="10" class="t-mut">Highlighted rows: reachable only from M-mode - PMP (Smepmp / locked), set before T1/T2 run.</text>
 </svg>
-<figcaption><b>Figure 2 — PMP access matrix.</b> The two rows carrying all the risk — <b>secrets</b>
-and <b>egress MMIO</b> — are physically unreachable from S/U. That is what makes "the agent can't
+<figcaption><b>Figure 2 - PMP access matrix.</b> The two rows carrying all the risk - <b>secrets</b>
+and <b>egress MMIO</b> - are physically unreachable from S/U. That is what makes "the agent can't
 bypass the Monitor" a hardware fact.</figcaption>
 </figure>
 </section>
@@ -455,7 +455,7 @@ hardware while it still has sole control.</p></div>
   </g>
   <g class="s-cur" stroke-width="1.4" marker-end="url(#ah2)"><line x1="148" y1="68" x2="186" y2="68"/><line x1="338" y1="68" x2="376" y2="68"/><line x1="548" y1="68" x2="586" y2="68"/><line x1="718" y1="68" x2="746" y2="68"/></g>
 </svg>
-<figcaption><b>Figure 3 — Boot chain.</b> The Monitor is the measured root of the software TCB [15][16];
+<figcaption><b>Figure 3 - Boot chain.</b> The Monitor is the measured root of the software TCB [15][16];
 it programs and locks PMP <em>before</em> any lower-trust code runs.</figcaption>
 </figure>
 <h4>8.1 Detailed sequence</h4>
@@ -499,13 +499,13 @@ secrets in M-only PMP regions), and <b>verifiable</b> (small, single-purpose, me
 <h4>9.2 Trap handling</h4>
 <p><code>mtvec</code> points at the Monitor's trap vector. Causes handled: <code>ecall-from-U (8)</code>
 and <code>ecall-from-S (9)</code> → mediation/relay dispatch on <code>a7</code>; access faults from
-M-only regions raised by T1/T2 are impossible (they fault in their own mode) — a fault reaching M
+M-only regions raised by T1/T2 are impossible (they fault in their own mode) - a fault reaching M
 indicates a Monitor bug and triggers a safe halt with a logged code.</p>
 </section>
 
 <section id="s10">
 <h2><span class="n">10</span>Mediation ABI reference</h2>
-<div class="prose"><p>The Monitor exposes a deliberately tiny call surface — every entry is attack
+<div class="prose"><p>The Monitor exposes a deliberately tiny call surface - every entry is attack
 surface. Requests use the standard RISC-V calling convention [17]: opcode in <code>a7</code>,
 arguments in <code>a0..a6</code>.</p></div>
 <h4>10.1 Calls</h4>
@@ -552,7 +552,7 @@ h_i   = BLAKE2s-256( h_{i-1} ‖ Entry )          [15]   // head hash exported v
   </g>
   <g class="s-cur" stroke-width="1.4" marker-end="url(#ahd)"><line x1="200" y1="48" x2="200" y2="64"/><line x1="200" y1="102" x2="200" y2="122"/><line x1="200" y1="160" x2="200" y2="180"/><line x1="200" y1="218" x2="200" y2="238"/><line x1="200" y1="276" x2="200" y2="296"/><line x1="200" y1="334" x2="200" y2="354"/><line x1="200" y1="402" x2="200" y2="426"/></g>
 </svg>
-<figcaption><b>Figure 4 — Decision pipeline.</b> Six sequential, bounded checks over compiled tables; the first failure returns a specific reason code and drives the OLED/LED.</figcaption>
+<figcaption><b>Figure 4 - Decision pipeline.</b> Six sequential, bounded checks over compiled tables; the first failure returns a specific reason code and drives the OLED/LED.</figcaption>
 </figure>
 <h4>11.1 Reference algorithm</h4>
 <pre><code>fn mediate(req_ptr, req_len) -> Status {
@@ -577,9 +577,9 @@ h_i   = BLAKE2s-256( h_{i-1} ‖ Entry )          [15]   // head hash exported v
   audit_append(r, ALLOW);
   ALLOW
 }</code></pre>
-<p class="prose"><b>Complexity.</b> Steps 1–5 are O(<code>n_args</code> × <code>clauses</code>) ≤
+<p class="prose"><b>Complexity.</b> Steps 1-5 are O(<code>n_args</code> × <code>clauses</code>) ≤
 <code>MAX_ARGS × MAX_CLAUSES</code> (64), no allocation, no unbounded loops. The Monitor therefore
-always terminates — a prerequisite for the reference-monitor property.</p>
+always terminates - a prerequisite for the reference-monitor property.</p>
 </section>
 
 <section id="s12">
@@ -614,7 +614,7 @@ no untyped-retype) to keep the TCB tiny.</p></div>
     <text x="316" y="212">flow_ref → deny SECRET→PUBLIC   epoch=E</text>
   </g>
 </svg>
-<figcaption><b>Figure 5 — Capability resolution.</b> Authority lives in fixed 16-byte slots inside
+<figcaption><b>Figure 5 - Capability resolution.</b> Authority lives in fixed 16-byte slots inside
 the Monitor; the host holds only an index.</figcaption>
 </figure>
 <h4>12.1 Cap layout (16 bytes)</h4>
@@ -628,10 +628,10 @@ the Monitor; the host holds only an index.</figcaption>
   aux:u16       // type-specific (e.g. allowlist_ref)
   epoch:u16     // must equal session.epoch else stale (revocation)
 }</code></pre>
-<h4>12.2–12.5 Operations</h4>
+<h4>12.2-12.5 Operations</h4>
 <dl class="defs">
   <dt>resolve(handle)</dt><dd>bounds-check into <code>cspace</code>; Empty/stale → <code>DENY_NO_CAP</code>. O(1).</dd>
-  <dt>cap_derive(src, narrower_pred)</dt><dd>new slot whose predicate is a compile-checked <em>subset</em> of <code>src</code>'s; <code>rights</code> may only clear bits. No widening — rights amplification is structurally impossible.</dd>
+  <dt>cap_derive(src, narrower_pred)</dt><dd>new slot whose predicate is a compile-checked <em>subset</em> of <code>src</code>'s; <code>rights</code> may only clear bits. No widening - rights amplification is structurally impossible.</dd>
   <dt>revoke(session)</dt><dd>bump <code>session.epoch</code>; all old-epoch caps go stale in O(1) (a coarse but tiny alternative to seL4's CDT walk [19]).</dd>
   <dt>secrets (use-only)</dt><dd>a <code>Secret</code> cap lets the Monitor <em>inject</em> a secret into an effect; no operation returns its bytes to any caller (cf. SEP key-wrapping [6]).</dd>
 </dl>
@@ -640,8 +640,8 @@ the Monitor; the host holds only an index.</figcaption>
 <section id="s13">
 <h2><span class="n">13</span>Policy model &amp; compiler</h2>
 <div class="prose"><p>The operator declares what a session may do in a small declarative manifest.
-It is a <em>total</em> language — bounded predicates over typed fields, a fixed label lattice, no
-loops or general computation — so the compiled decision always terminates and the policy is
+It is a <em>total</em> language - bounded predicates over typed fields, a fixed label lattice, no
+loops or general computation - so the compiled decision always terminates and the policy is
 auditable.</p></div>
 <h4>13.1 Grammar (EBNF)</h4>
 <pre><code>manifest   = "session" STRING "{" { capability } "}" ;
@@ -690,20 +690,20 @@ Label = 2 bits (C,I) carried per TypedArg and per result (in_labels / out_labels
 Rules (step 5):
   • SECRET value may enter an effect only if cap.flow clears that sink; never a PUBLIC sink
   • egress results are stamped UNTRUSTED (propagate to host: treat as attacker-controlled)
-  • declassification (lowering C) requires an explicit cap — no implicit declassification  [24][25]</code></pre>
+  • declassification (lowering C) requires an explicit cap - no implicit declassification  [24][25]</code></pre>
 <div class="callout"><b>Honest scope.</b> Redoubt sees only what crosses the wire, so it enforces
 <em>boundary</em> IFC (what enters/leaves via tool calls). It does <b>not</b> track flows inside the
 host LLM and does not claim end-to-end IFC through the agent's reasoning. Boundary IFC is the
-deterministic, checkable part — so it is the part we enforce.</div>
+deterministic, checkable part - so it is the part we enforce.</div>
 </section>
 
 <p class="part">Part V · The untrusted stack</p>
 
 <section id="s15">
-<h2><span class="n">15</span>Warden — scheduling &amp; IPC (S-mode)</h2>
+<h2><span class="n">15</span>Warden - scheduling &amp; IPC (S-mode)</h2>
 <div class="prose"><p>Warden is a minimal S-mode microkernel. It is <span class="tier t1">T1</span>:
 trusted for liveness, <em>not</em> for the security verdict. A Warden compromise (A5) must not breach
-the Monitor — which holds because the Monitor's regions are M-only PMP (§6) and the verdict runs in M.</p></div>
+the Monitor - which holds because the Monitor's regions are M-only PMP (§6) and the verdict runs in M.</p></div>
 <h4>15.1 Responsibilities</h4>
 <ul class="tight">
   <li><b>Threads &amp; scheduling.</b> A small round-robin scheduler with timer preemption
@@ -720,7 +720,7 @@ the Monitor — which holds because the Monitor's regions are M-only PMP (§6) a
 </ul>
 <h4>15.2 Why IPC is synchronous</h4>
 <p class="prose">Rendezvous IPC has no kernel-side buffering, no queue management, and no
-allocation — the smallest correct design, following seL4 [18]. Throughput is not the goal; a small,
+allocation - the smallest correct design, following seL4 [18]. Throughput is not the goal; a small,
 obviously-correct T1 is.</p>
 </section>
 
@@ -733,8 +733,8 @@ verdict.</p></div>
 <thead><tr><th>Compartment</th><th>Does</th><th>Cannot</th></tr></thead>
 <tbody>
 <tr><td><b>Endpoint</b></td><td>de-frames USB (COBS/CRC, §18), forwards typed requests via Warden→Monitor</td><td>decide a verdict; touch secrets/egress</td></tr>
-<tr><td><b>Net driver</b></td><td>formats HTTP/TLS payloads for the ESP32 link</td><td>send — the send is a Monitor action</td></tr>
-<tr><td><b>Storage driver</b></td><td>prepares SD block requests</td><td>commit — the write is a Monitor action</td></tr>
+<tr><td><b>Net driver</b></td><td>formats HTTP/TLS payloads for the ESP32 link</td><td>send - the send is a Monitor action</td></tr>
+<tr><td><b>Storage driver</b></td><td>prepares SD block requests</td><td>commit - the write is a Monitor action</td></tr>
 </tbody>
 </table></div>
 <p class="prose">The split is deliberate: drivers do the <em>bulky, bug-prone formatting</em> work in
@@ -745,7 +745,7 @@ compromise buys the attacker nothing it did not already have as the (untrusted) 
 <section id="s17">
 <h2><span class="n">17</span>Session lifecycle</h2>
 <div class="prose"><p>A <b>session</b> is one bounded run of one agent, with its own capability space
-and <code>epoch</code>. Sessions are how Redoubt scopes authority in time — revoke a session and every
+and <code>epoch</code>. Sessions are how Redoubt scopes authority in time - revoke a session and every
 capability it held goes stale at once.</p></div>
 <figure>
 <svg viewBox="0 0 820 150" role="img" aria-label="Session state machine: Created transitions on provision to Provisioned, on start to Active; Active loops on mediate; on revoke or close it moves to Draining then Destroyed; a revoke bumps the epoch so in-flight capabilities become stale.">
@@ -771,7 +771,7 @@ capability it held goes stale at once.</p></div>
   </g>
   <text x="360" y="128" font-size="9" class="t-mut">SESSION_REVOKE bumps epoch → all issued capabilities become stale (DENY_REVOKED) atomically.</text>
 </svg>
-<figcaption><b>Figure 6 — Session state machine.</b> Authority is time-scoped: revocation is an O(1)
+<figcaption><b>Figure 6 - Session state machine.</b> Authority is time-scoped: revocation is an O(1)
 epoch bump that instantly stales every capability the session held.</figcaption>
 </figure>
 <ul class="tight">
@@ -790,7 +790,7 @@ epoch bump that instantly stales every capability the session held.</figcaption>
 <section id="s18">
 <h2><span class="n">18</span>Wire protocol</h2>
 <div class="prose"><p>Requests arrive over USB CDC-ACM, COBS-framed [20] with CRC32. The decisive choice
-is that arguments cross as <b>typed values, not text</b> — closing the class of bugs where a filter
+is that arguments cross as <b>typed values, not text</b> - closing the class of bugs where a filter
 and the consumer disagree on parsing (e.g. the <code>%2e</code> SSRF bypass).</p></div>
 <figure>
 <svg viewBox="0 0 860 196" role="img" aria-label="Wire frame layout: an outer COBS frame with length, version, type, payload, CRC32; the Request payload is a fixed header followed by typed-argument TLVs.">
@@ -809,10 +809,10 @@ and the consumer disagree on parsing (e.g. the <code>%2e</code> SSRF bypass).</p
     <rect x="308" y="114" width="70" height="36" class="f-s1 s-ln"/><text x="343" y="136" text-anchor="middle">tool_id</text>
     <rect x="378" y="114" width="64" height="36" class="f-s1 s-ln"/><text x="410" y="136" text-anchor="middle">n_args</text>
     <rect x="442" y="114" width="394" height="36" class="f-acc s-acc"/><text x="639" y="136" text-anchor="middle" class="t-acc">args : TypedArg[n_args] (tag u8 · len u16 · value)</text>
-    <text x="20" y="180" font-size="9" class="t-mut">TypedArg tags — 0x01 URL{scheme,host,port,path} · 0x02 PATH · 0x03 ENUM · 0x04 INT · 0x05 BYTES · 0x06 LABELSET</text>
+    <text x="20" y="180" font-size="9" class="t-mut">TypedArg tags - 0x01 URL{scheme,host,port,path} · 0x02 PATH · 0x03 ENUM · 0x04 INT · 0x05 BYTES · 0x06 LABELSET</text>
   </g>
 </svg>
-<figcaption><b>Figure 7 — Wire frame.</b> The Endpoint does framing only; the Monitor re-derives
+<figcaption><b>Figure 7 - Wire frame.</b> The Endpoint does framing only; the Monitor re-derives
 security-relevant fields from the typed form, so a lying host cannot smuggle a value past the predicate.</figcaption>
 </figure>
 <h4>18.1 Framing &amp; errors</h4>
@@ -824,7 +824,7 @@ security-relevant fields from the typed form, so a lying host cannot smuggle a v
 <section id="s19">
 <h2><span class="n">19</span>Egress &amp; secrets</h2>
 <figure>
-<svg viewBox="0 0 860 210" role="img" aria-label="Egress sequence across four lifelines — Endpoint, Warden, Monitor, ESP32. The Endpoint forwards a request, Warden relays via ecall, the Monitor runs checks and injects the secret then drives the ESP32 to send, and the labeled result returns back up the chain.">
+<svg viewBox="0 0 860 210" role="img" aria-label="Egress sequence across four lifelines - Endpoint, Warden, Monitor, ESP32. The Endpoint forwards a request, Warden relays via ecall, the Monitor runs checks and injects the secret then drives the ESP32 to send, and the labeled result returns back up the chain.">
   <defs><marker id="ahe" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk"/></marker></defs>
   <g font-size="10" text-anchor="middle">
     <text x="90" y="20">Endpoint (U)</text><text x="320" y="20">Warden (S)</text><text x="540" y="20" class="t-acc">Monitor (M)</text><text x="780" y="20">ESP32</text>
@@ -834,14 +834,14 @@ security-relevant fields from the typed form, so a lying host cannot smuggle a v
     <line x1="90" y1="46" x2="318" y2="46"/><text x="204" y="40" text-anchor="middle">forward req</text>
     <line x1="320" y1="70" x2="538" y2="70"/><text x="430" y="64" text-anchor="middle">ecall MEDIATE</text>
   </g>
-  <rect x="500" y="86" width="80" height="52" rx="6" class="f-acc s-acc"/><text x="540" y="104" text-anchor="middle" font-size="8" class="t-acc">checks 1–5</text><text x="540" y="118" text-anchor="middle" font-size="8" class="t-acc">inject secret</text><text x="540" y="132" text-anchor="middle" font-size="8" class="t-acc">(SECRETS)</text>
+  <rect x="500" y="86" width="80" height="52" rx="6" class="f-acc s-acc"/><text x="540" y="104" text-anchor="middle" font-size="8" class="t-acc">checks 1-5</text><text x="540" y="118" text-anchor="middle" font-size="8" class="t-acc">inject secret</text><text x="540" y="132" text-anchor="middle" font-size="8" class="t-acc">(SECRETS)</text>
   <g class="s-acc" stroke-width="1.4" marker-end="url(#ahe)" font-size="9"><line x1="580" y1="150" x2="778" y2="150"/><text x="680" y="144" text-anchor="middle" class="t-acc">send (auth header)</text></g>
   <g class="s-cur" stroke-width="1.3" marker-end="url(#ahe)" font-size="9">
     <line x1="778" y1="172" x2="542" y2="172"/><text x="660" y="166" text-anchor="middle">response</text>
     <line x1="538" y1="190" x2="92" y2="190"/><text x="300" y="184" text-anchor="middle">result (labeled UNTRUSTED)</text>
   </g>
 </svg>
-<figcaption><b>Figure 8 — Egress sequence.</b> The secret is read from SECRETS and injected only inside
+<figcaption><b>Figure 8 - Egress sequence.</b> The secret is read from SECRETS and injected only inside
 the Monitor's perform step; it is never returned up the chain. The response comes back stamped
 <code>UNTRUSTED</code>.</figcaption>
 </figure>
@@ -863,7 +863,7 @@ exposes them into an effect, never to a caller (cf. SEP key-wrapping [6]).</p>
 
 <section id="s20">
 <h2><span class="n">20</span>TCB accounting</h2>
-<div class="prose"><p>The TCB is <b>Monitor + BROM + PMP config</b> — nothing else. Warden, compartments,
+<div class="prose"><p>The TCB is <b>Monitor + BROM + PMP config</b> - nothing else. Warden, compartments,
 host stack, ESP32, and peripheral drivers are outside it: they can crash the system but cannot change
 a verdict. TCB size is the headline metric and a build gate.</p></div>
 <div class="grid2">
@@ -879,7 +879,7 @@ a verdict. TCB size is the headline metric and a build gate.</p></div>
 <h2><span class="n">21</span>Security analysis</h2>
 <h4>21.1 Complete-mediation argument (sketch)</h4>
 <p class="prose">Every egress effect must touch EGRESS_MMIO, which is M-only (PMP entries locked at
-boot, before T1/T2 run — §6, §8). The only entry to M is the ecall ABI (§10), which runs the six
+boot, before T1/T2 run - §6, §8). The only entry to M is the ecall ABI (§10), which runs the six
 checks (§11). Therefore no effect bypasses the checks, even under a Warden compromise (A5). Secret
 confidentiality follows from SECRETS being M-only and no ABI returning secret bytes (§12.5). A small
 formal model of the pipeline and a machine-checked mediation proof are future work (§26).</p>
@@ -901,18 +901,18 @@ formal model of the pipeline and a machine-checked mediation proof are future wo
 <section id="s22">
 <h2><span class="n">22</span>Verification &amp; test plan</h2>
 <ul class="tight">
-  <li><b>Host unit tests</b> — capability-table ops, PMP-address math, predicate evaluation, label
+  <li><b>Host unit tests</b> - capability-table ops, PMP-address math, predicate evaluation, label
   lattice, wire (de)framing, compiled against the host target.</li>
-  <li><b>Verilator SoC sim</b> — run the Monitor+Warden on a simulated VexRiscv; assert PMP faults
+  <li><b>Verilator SoC sim</b> - run the Monitor+Warden on a simulated VexRiscv; assert PMP faults
   when T1/T2 touch M-only regions (the isolation invariant).</li>
-  <li><b>QEMU integration</b> — headless boot; scenario-driven; assert on status codes / console:
+  <li><b>QEMU integration</b> - headless boot; scenario-driven; assert on status codes / console:
   <code>test_boot</code>, <code>test_mediate_roundtrip</code>, and the containment suite below.</li>
-  <li><b>Containment suite (the point)</b> — for each attack in the §4 tree, assert the exact
+  <li><b>Containment suite (the point)</b> - for each attack in the §4 tree, assert the exact
   <code>DENY_*</code> and that no egress occurred: <code>deny_host</code>, <code>deny_flow_secret</code>,
   <code>deny_forged_handle</code>, <code>fault_egress_from_U</code>, <code>fault_tamper_monitor</code>.</li>
-  <li><b>Fuzzing</b> — fuzz the Endpoint's frame parser and the TypedArg decoder (untrusted input),
+  <li><b>Fuzzing</b> - fuzz the Endpoint's frame parser and the TypedArg decoder (untrusted input),
   with ASan on the host build; the Monitor's parser is fuzzed against <code>MAX_REQ</code> bounds.</li>
-  <li><b>CI gates</b> — TCB LoC ≤ budget; all containment tests green; no <code>unsafe</code> outside
+  <li><b>CI gates</b> - TCB LoC ≤ budget; all containment tests green; no <code>unsafe</code> outside
   the one sanctioned module (checked by <code>cargo-geiger</code>).</li>
 </ul>
 </section>
@@ -922,9 +922,9 @@ formal model of the pipeline and a machine-checked mediation proof are future wo
 <div class="tblwrap"><table>
 <thead><tr><th>Dimension</th><th>Estimate (v1)</th><th>Note</th></tr></thead>
 <tbody>
-<tr><td>FPGA logic</td><td>VexRiscv+LiteX ~20–35K LUT of 85K</td><td>comfortable headroom on ECP5-85F</td></tr>
+<tr><td>FPGA logic</td><td>VexRiscv+LiteX ~20-35K LUT of 85K</td><td>comfortable headroom on ECP5-85F</td></tr>
 <tr><td>BRAM</td><td>caches + BROM + FIFOs</td><td>ECP5 has ample EBR; SECRETS/MON_DATA in SDRAM-backed M region</td></tr>
-<tr><td>Mediation latency</td><td>dominated by egress (ESP32 RTT), not the checks</td><td>steps 1–5 are ~hundreds of cycles</td></tr>
+<tr><td>Mediation latency</td><td>dominated by egress (ESP32 RTT), not the checks</td><td>steps 1-5 are ~hundreds of cycles</td></tr>
 <tr><td>Clock</td><td>~50 MHz</td><td>not throughput-bound; correctness-first</td></tr>
 </tbody>
 </table></div>
@@ -952,7 +952,7 @@ verilator sim: assert PMP isolation; qemu-system-riscv32: run containment suite<
 </section>
 
 <section id="s25">
-<h2><span class="n">25</span>Worked example — the demo</h2>
+<h2><span class="n">25</span>Worked example - the demo</h2>
 <figure>
 <svg viewBox="0 0 860 250" role="img" aria-label="The demo: a prompt-injected agent POSTs the API key to evil.tld and is denied at the argument check; a benign GET to the allowed host is performed with the key injected.">
   <defs><marker id="ahx" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk"/></marker><marker id="ahxr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk-den"/></marker><marker id="ahxg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="mk-al"/></marker></defs>
@@ -963,12 +963,12 @@ verilator sim: assert PMP isolation; qemu-system-riscv32: run containment suite<
   <rect x="640" y="30" width="206" height="44" rx="8" class="f-none s-den" stroke-width="1.6"/><text x="743" y="49" text-anchor="middle" font-size="12" class="t-den">DENY_ARG</text><text x="743" y="66" text-anchor="middle" font-size="9">key never leaves · OLED “DENIED”</text>
   <rect x="14" y="150" width="252" height="52" rx="8" class="f-none s-al"/><text x="26" y="170" font-size="10" class="t-al">benign request:</text><text x="26" y="188" font-size="10">GET https://api.example.com/x</text>
   <line x1="266" y1="176" x2="330" y2="176" class="s-cur" stroke-width="1.4" marker-end="url(#ahx)"/>
-  <rect x="330" y="150" width="230" height="52" rx="8" class="f-acc s-acc" stroke-width="1.4"/><text x="445" y="172" text-anchor="middle" font-size="10" class="t-acc">MONITOR · steps 1–6 pass</text><text x="445" y="190" text-anchor="middle" font-size="10">inject API_KEY header</text>
+  <rect x="330" y="150" width="230" height="52" rx="8" class="f-acc s-acc" stroke-width="1.4"/><text x="445" y="172" text-anchor="middle" font-size="10" class="t-acc">MONITOR · steps 1-6 pass</text><text x="445" y="190" text-anchor="middle" font-size="10">inject API_KEY header</text>
   <line x1="560" y1="176" x2="638" y2="176" class="s-al" stroke-width="1.6" marker-end="url(#ahxg)"/>
   <rect x="640" y="154" width="206" height="44" rx="8" class="f-none s-al" stroke-width="1.6"/><text x="743" y="173" text-anchor="middle" font-size="12" class="t-al">ALLOW → sent</text><text x="743" y="190" text-anchor="middle" font-size="9">agent never saw the key</text>
-  <text x="20" y="234" font-size="10" class="t-mut">Same capability, same session — the structured argument is the whole difference between the two outcomes.</text>
+  <text x="20" y="234" font-size="10" class="t-mut">Same capability, same session - the structured argument is the whole difference between the two outcomes.</text>
 </svg>
-<figcaption><b>Figure 9 — Containment, demonstrated.</b> Fully compromised agent, zero authority
+<figcaption><b>Figure 9 - Containment, demonstrated.</b> Fully compromised agent, zero authority
 gained: the exfil dies at the arg check, and even the correct host with the secret in the body dies
 at the IFC check. The thesis, on hardware.</figcaption>
 </figure>
@@ -977,7 +977,7 @@ at the IFC check. The thesis, on hardware.</figcaption>
 <section id="s26">
 <h2><span class="n">26</span>Roadmap</h2>
 <ul class="tight">
-  <li><b>v2 · RTL mediation gate</b> — a LiteX peripheral on the egress bus enforcing caps in
+  <li><b>v2 · RTL mediation gate</b> - a LiteX peripheral on the egress bus enforcing caps in
   hardware, so even a compromised M-mode Monitor cannot bypass it (the distinctive silicon).</li>
   <li><b>Wired-Ethernet egress</b> (ECPIX-5 / Colorlight) so the Monitor owns the MAC directly.</li>
   <li><b>Formal model</b> of the decision pipeline; machine-checked complete-mediation proof.</li>
@@ -990,13 +990,13 @@ at the IFC check. The thesis, on hardware.</figcaption>
 <h2><span class="n">27</span>Glossary</h2>
 <dl class="defs">
   <dt>Reference monitor</dt><dd>A component that is always invoked, tamper-proof, and small enough to verify, mediating all security-relevant operations [1].</dd>
-  <dt>PMP</dt><dd>Physical Memory Protection — M-mode-only RISC-V registers whitelisting physical access for lower modes [11].</dd>
+  <dt>PMP</dt><dd>Physical Memory Protection - M-mode-only RISC-V registers whitelisting physical access for lower modes [11].</dd>
   <dt>Smepmp</dt><dd>PMP extension allowing a region to be denied to M-mode without the all-modes lock [13].</dd>
   <dt>Capability</dt><dd>An unforgeable reference that <em>is</em> the authority to perform a specific operation.</dd>
   <dt>Session / epoch</dt><dd>A bounded agent run; bumping its epoch revokes all its capabilities at once.</dd>
   <dt>Compartment</dt><dd>An isolated U-mode process with no ambient authority.</dd>
   <dt>Boundary IFC</dt><dd>Information-flow control enforced on data crossing the tool-call boundary (not inside the host LLM).</dd>
-  <dt>TCB</dt><dd>Trusted Computing Base — here, Monitor + BROM + PMP config.</dd>
+  <dt>TCB</dt><dd>Trusted Computing Base - here, Monitor + BROM + PMP config.</dd>
 </dl>
 </section>
 
@@ -1011,22 +1011,22 @@ at the IFC check. The thesis, on hardware.</figcaption>
   <li>Apple <i>Platform Security</i> (SEP) &amp; SPTM/TXM/Exclaves, arXiv:2510.09272.</li>
   <li><i>ActPlane: Programmable OS-Level Policy Enforcement for Agent Harnesses.</i> arXiv:2606.25189.</li>
   <li>OWASP <i>Top 10 for Agentic Applications 2026.</i> genai.owasp.org</li>
-  <li>seL4 confidentiality vs. Spectre — NSF Formal-Methods-for-Security report. arXiv:1608.00678.</li>
+  <li>seL4 confidentiality vs. Spectre - NSF Formal-Methods-for-Security report. arXiv:1608.00678.</li>
   <li><i>Bypassing Isolated Execution on RISC-V with Fault Injection.</i> IACR eprint 2020/1193.</li>
-  <li>RISC-V <i>Privileged ISA</i> — PMP (pmpcfg/pmpaddr, TOR/NAPOT, L).</li>
+  <li>RISC-V <i>Privileged ISA</i> - PMP (pmpcfg/pmpaddr, TOR/NAPOT, L).</li>
   <li><i>Verifying RISC-V Physical Memory Protection.</i> arXiv:2211.02179.</li>
   <li>RISC-V <i>Smepmp</i> extension v1.0. docs.riscv.org</li>
   <li>VexRiscv (SpinalHDL). github.com/SpinalHDL/VexRiscv</li>
   <li>Saarinen &amp; Aumasson, <i>BLAKE2</i> (RFC 7693).</li>
   <li><i>Attestation Mechanisms for TEEs Demystified.</i> arXiv:2206.03780.</li>
-  <li>RISC-V Calling Convention (ecall / a0–a7). riscv-non-isa/riscv-elf-psabi-doc</li>
+  <li>RISC-V Calling Convention (ecall / a0-a7). riscv-non-isa/riscv-elf-psabi-doc</li>
   <li><i>seL4 Reference Manual</i> (CNode/CSpace, 16-byte slots).</li>
   <li><i>The seL4 Capability System</i> (derivation tree, revoke).</li>
   <li>Cheshire &amp; Baker, <i>Consistent Overhead Byte Stuffing (COBS).</i></li>
   <li>NIST <i>SP 800-90B</i> (entropy source health tests).</li>
   <li>bunnie, <i>Baochip-1x</i>. bunniestudios.com</li>
   <li>D. E. Denning, <i>A Lattice Model of Secure Information Flow</i>, CACM 1976.</li>
-  <li><i>HiStar</i> — Making Information Flow Explicit.</li>
+  <li><i>HiStar</i> - Making Information Flow Explicit.</li>
   <li><i>Flume: Information Flow Control for Standard OS Abstractions.</i> SOSP 2007.</li>
   <li>LiteX SoC builder. github.com/enjoy-digital/litex</li>
 </ol>

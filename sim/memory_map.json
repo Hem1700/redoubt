@@ -14,7 +14,8 @@
     "egress_rec": 4026540032,
     "egress_words": 32,
     "egress_len": 4026540164,
-    "egress_calls": 4026540160
+    "egress_calls": 4026540160,
+    "egress_gate_blocked": 4026542080
   },
   "regions": [
     {

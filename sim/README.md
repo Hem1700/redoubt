@@ -1,4 +1,4 @@
-# Redoubt Phase 2 — simulated RISC-V SoC (VexRiscv + PMP, Verilator)
+# Redoubt Phase 2: simulated RISC-V SoC (VexRiscv + PMP, Verilator)
 
 This directory stands up a **simulated SoC** built around the prebuilt VexRiscv
 `secure` core (rv32ima + PMP: 16 regions) in LiteX/Verilator, and boots the
@@ -9,8 +9,8 @@ round-trip (V4).
 **Hardware findings that shaped Phase 2 (verified against `VexRiscv_Secure.v`):**
 - **PMP is NAPOT-only with a *nonstandard* encoding on this core** (region is ¼ the
   standard size; `pmpaddr = (base>>2) | ((size>>1)-1)`, 4×-size alignment; 128 B
-  granularity). TOR never matches here — do not use it. See `pmp::napot()`.
-- **This core is M+U only — there is NO Supervisor mode.** So Redoubt runs a
+  granularity). TOR never matches here, do not use it. See `pmp::napot()`.
+- **This core is M+U only, there is NO Supervisor mode.** So Redoubt runs a
   Keystone/Sanctorum-style two-tier model here (M-mode Monitor = TCB; U = compartments);
   the manual's three-tier "S-mode Warden" is deferred/folded (a manual-narrative edit).
 - **CPU uncached-MMIO accesses (`addr[31]=1`) BYPASS the PMP permission check** on this
@@ -34,16 +34,16 @@ banner `redoubt: monitor online` appears on the simulated UART.
 | File | Role |
 |------|------|
 | `redoubt_soc.py`  | The SoC generator **and** the single source of truth for the memory map (ruling P2-2). Defines `MEMORY_MAP`, emits `memory_map.json`, builds the LiteX SoC (secure CPU, canonical regions, EGRESS_MMIO=CSR window with the UART, reset vector at MON_CODE), and loads the monitor ELF into MON RAM. |
-| `memory_map.json` | Generated from `redoubt_soc.py`. Consumed by the Rust side (V2 `pmp.rs`, link scripts). **Do not hand-edit** — regenerate with `--emit-memory-map`. |
+| `memory_map.json` | Generated from `redoubt_soc.py`. Consumed by the Rust side (V2 `pmp.rs`, link scripts). **Do not hand-edit**, regenerate with `--emit-memory-map`. |
 | `requirements.txt`| Pinned LiteX/migen Python packages. |
 | `README.md`       | This file. |
 
 ## What's *not* committed (provisioned locally, gitignored)
 
-- `sim/.venv/`         — LiteX in a **Python 3.10** venv (3.11 breaks migen's clock-domain naming).
-- `sim/oss-cad-suite/` — the Verilator 5.053 toolchain.
-- `sim/simdeps/`       — arm64 `json-c` + `libevent` static libs the LiteX Verilator sim links against (see "Apple-silicon note").
-- `sim/build/`         — LiteX/Verilator build output (`gateware/obj_dir/Vsim`, etc.).
+- `sim/.venv/`        , LiteX in a **Python 3.10** venv (3.11 breaks migen's clock-domain naming).
+- `sim/oss-cad-suite/`, the Verilator 5.053 toolchain.
+- `sim/simdeps/`      , arm64 `json-c` + `libevent` static libs the LiteX Verilator sim links against (see "Apple-silicon note").
+- `sim/build/`        , LiteX/Verilator build output (`gateware/obj_dir/Vsim`, etc.).
 
 ## Toolchain recipe
 
@@ -112,17 +112,17 @@ is unnecessary and the default `-I/-L` can be empty.
 
 ## How `cargo xtask verilator -- boot` works
 
-1. **Build the sim image** — `rustup run nightly cargo build -p monitor-bin
+1. **Build the sim image**, `rustup run nightly cargo build -p monitor-bin
    --features sim --target riscv32ima-unknown-none-elf -Z build-std=core`, linked
    with `crates/monitor-bin/link-sim.ld` (per-image `RUSTFLAGS`, own
-   `CARGO_TARGET_DIR=target/sim`; the QEMU image is untouched — ruling P2-1).
+   `CARGO_TARGET_DIR=target/sim`; the QEMU image is untouched, ruling P2-1).
 2. **Emit** `sim/memory_map.json` and **generate** the SoC Verilog with the ELF
    baked into MON RAM (`sim/.venv/bin/python redoubt_soc.py --emit-memory-map …
    --generate --image <elf>`).
 3. **Verilate** `sim/build/gateware/build_sim.sh` natively, with the Verilator env
    and the `sim/simdeps` include/lib paths, producing `gateware/obj_dir/Vsim`.
 4. **Run** `Vsim`, stream the UART, assert the banner `redoubt: monitor online`,
-   then kill it — the LiteX sim has no sifive finisher, so a UART sentinel is the
+   then kill it, the LiteX sim has no sifive finisher, so a UART sentinel is the
    pass criterion.
 
 A full run Verilates the whole SoC and takes a few minutes; be patient.
@@ -133,14 +133,56 @@ Canonical, defined once in `redoubt_soc.py` and emitted to `memory_map.json`:
 
 | Region | Range | M | S | U |
 |--------|-------|---|---|---|
-| BROM        | `0x0000_0000`–`0x0000_2000` | R-X | — | — |
-| MON_CODE    | `0x1000_0000`–`0x1000_8000` | R-X | — | — |
-| MON_DATA    | `0x1000_8000`–`0x1002_0000` | RW- | — | — |
-| SECRETS     | `0x1002_0000`–`0x1002_4000` | RW- | — | — |
-| WARDEN      | `0x2000_0000`–`0x2010_0000` | RWX | RWX | — |
-| COMPT_0     | `0x3000_0000`–`0x3010_0000` | — | — | RW- (SDRAM-backed, V4) |
-| SHARED_REQ  | `0x4000_0000`–`0x4000_1000` | RW- | — | RW- |
-| EGRESS_MMIO | `0xF000_0000`–`0xF001_0000` | RW- | — | — (= LiteX CSR window; UART lives here). **Caveat: CPU MMIO bypasses PMP on this core — the "S/U denied" here is the *intended* policy, NOT a hardware wall; U can reach these registers. Egress is contained by monitor mediation, not PMP. See the Hardware findings note above.** |
+| BROM        | `0x0000_0000`-`0x0000_2000` | R-X |, |, |
+| MON_CODE    | `0x1000_0000`-`0x1000_8000` | R-X |, |, |
+| MON_DATA    | `0x1000_8000`-`0x1002_0000` | RW- |, |, |
+| SECRETS     | `0x1002_0000`-`0x1002_4000` | RW- |, |, |
+| WARDEN      | `0x2000_0000`-`0x2010_0000` | RWX | RWX |, |
+| COMPT_0     | `0x3000_0000`-`0x3010_0000` |, |, | RW- (SDRAM-backed, V4) |
+| SHARED_REQ  | `0x4000_0000`-`0x4000_1000` | RW- |, | RW- |
+| EGRESS_MMIO | `0xF000_0000`-`0xF001_0000` | RW- |, |, (= LiteX CSR window; UART lives here). **Caveat: CPU MMIO bypasses PMP on this core, the "S/U denied" here is the *intended* policy, NOT a hardware wall; U can reach these registers. Egress is contained by monitor mediation, not PMP. See the Hardware findings note above.** |
 
 Reset vector for V1 is **MON_CODE** (`0x1000_0000`); the measured-boot BROM at
 `0x0` arrives in V3.
+
+## ULX3S (ECP5) synthesis: `cargo xtask synth` (Phase 4 F1)
+
+`sim/redoubt_ulx3s.py` re-targets the SAME SoC (VexRiscv `secure`, the 8-region
+map, EGRESS_MMIO CSR window, all imported from `redoubt_soc.py`) to the
+ULX3S: real UART, 25 MHz osc -> PLL (`sys_clk` 50 MHz), LiteDRAM (SDR SDRAM) as
+COMPT_0 backing at `0x8000_0000`. No board needed to synthesise.
+
+Board specifics:
+- **Platform module:** `litex_boards.platforms.radiona_ulx3s` (the module is
+  `radiona_ulx3s`, not `ulx3s`).
+- **SDRAM part:** the board's chip is `MT48LC16M16` (32 MB), which is the default;
+  newer ULX3S revisions ship a 64 MB `AS4C32M16`, selectable with
+  `--sdram-module AS4C32M16`. Either works (COMPT_0 is SDRAM-backed).
+- **Warden backing (ECP5 block-RAM limit):** the ECP5 has ~468 KiB of block RAM,
+  so only the low **128 KiB of the 1 MiB WARDEN region is BRAM-backed** on the FPGA.
+  The region keeps its canonical base/size in the memory map; an access to the
+  unbacked tail is a bus error (fail-closed). Sizing the real Warden working set to
+  the backed window is a later Warden-on-FPGA task, not F1.
+
+Extra setup beyond the sim toolchain:
+
+```
+# litex-boards (PyPI only has 2023.12; the 2024.12 tag matches litex 2024.12).
+# Clone natively (the x86_64 venv's git shim is broken) and install from the dir:
+git clone --depth 1 --branch 2024.12 https://github.com/litex-hub/litex-boards /tmp/lb
+sim/.venv/bin/pip install --no-deps /tmp/lb
+```
+
+The ECP5 tools (`yosys`, `nextpnr-ecp5`, `ecppack`, prjtrellis data) come from
+the same `sim/oss-cad-suite`. Then:
+
+```
+cargo xtask synth                    # LFE5U-85F (default)
+cargo xtask synth -- --device 45F    # does it fit the cheaper 45F?
+```
+
+It builds the monitor (`crates/monitor-bin/link-fpga.ld`, `sim` feature) and
+BROM, elaborates the SoC, runs yosys + nextpnr-ecp5 + ecppack (20-40+ min),
+writes `sim/build-ulx3s-<85F|45F>/{synth.log,report.txt,gateware/*.bit}`
+(gitignored), prints utilisation + Fmax-vs-target, and FAILS if any clock
+misses its target (LiteX passes `--timing-allow-fail`; the gate is the xtask).

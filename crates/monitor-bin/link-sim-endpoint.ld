@@ -1,10 +1,10 @@
-/* Phase-3 W2 — linker script for the `endpoint` sim image ONLY. A copy of
+/* Phase-3 W2 - linker script for the `endpoint` sim image ONLY. A copy of
  * link-sim.ld with three changes, kept separate so every Phase-2 image
  * (boot/pmp/measure/mediate) links byte-for-byte as before:
  *   1. the U-executable window is 4 KiB (pmp::UTEXT_SIZE under `endpoint`), and
  *      .bss starts past it (0x1001_1000);
  *   2. wire's .text/.rodata and compiler_builtins' .text (memcpy) are linked INTO
- *      that window — the Endpoint is U-mode Rust calling `wire::deframe`, and U
+ *      that window - the Endpoint is U-mode Rust calling `wire::deframe`, and U
  *      can only fetch/read the window, SHARED_REQ and SERIAL_IN;
  *   3. they are excluded from the M-only .text/.rodata.
  * Everything else below is unchanged from link-sim.ld. */
@@ -21,7 +21,7 @@
  *
  * Phase-2 V2 note on the single region below: the `secure` core is plain-PMP
  * (no Smepmp), so MON_CODE and MON_DATA are BOTH realised as M-only *by
- * omission* — neither gets a PMP entry, so both are denied to U and reached by
+ * omission* - neither gets a PMP entry, so both are denied to U and reached by
  * M by exemption (see crates/monitor-bin/src/pmp.rs). The MON_CODE/MON_DATA
  * split is therefore invisible to the PMP in V2, and the debug `build-std`
  * image's .text exceeds 32 KiB; so we link against the whole 128 KiB mon_ram
@@ -38,7 +38,7 @@ SECTIONS {
   .text : {
     *(.text._start)
     /* Phase-3 W2: the wire crate and compiler_builtins' mem* helpers are linked
-     * into the U-executable window (.utext below) instead — the Endpoint is U-mode
+     * into the U-executable window (.utext below) instead - the Endpoint is U-mode
      * Rust that calls `wire::deframe` and cannot fetch from M-only .text. Inert
      * (no input) in every image that does not reference them. */
     *(EXCLUDE_FILE(*libwire* *libcompiler_builtins*) .text*)
@@ -52,7 +52,7 @@ SECTIONS {
 
   /* V3 (measured-boot completeness): the U-mode prober window (UTEXT) is placed
    * at a fixed 8 KiB-aligned address JUST above .rodata/.data, so the whole
-   * EXECUTED/READ image — .text, .rodata, .data and .utext (U executes it) —
+   * EXECUTED/READ image - .text, .rodata, .data and .utext (U executes it) -
    * lies in one measured extent [0x1000_0000, _image_end). .bss
    * (runtime-mutable, not executed) is placed AFTER the UTEXT window, deliberately
    * OUTSIDE the measured range, so the measurement never spans the non-deterministic
@@ -75,11 +75,11 @@ SECTIONS {
   .bss 0x10011000 : { *(.bss*) *(COMMON) } >MON_RAM
   _bss_end = .;
 
-  /* Phase-2 V3 (carry V3-2) — M-stack guard page.
+  /* Phase-2 V3 (carry V3-2) - M-stack guard page.
    *
    * The M stack grows DOWN from _stack_top (0x1001E000). This LOCKED, no-access
    * PMP guard sits below the stack's lowest safe extent so a stack OVERFLOW hits
-   * it (M-mode store fault) before it can corrupt .bss/.data — the first proof a
+   * it (M-mode store fault) before it can corrupt .bss/.data - the first proof a
    * locked entry faults M (pmp::lock_regions programs it, sim_trap_rust HALTs on
    * an M-origin fault). This core's nonstandard NAPOT needs the region base
    * aligned to 4x its size, so a 4 KiB guard must be 16 KiB-aligned: 0x10018000

@@ -1,4 +1,4 @@
-//! Phase-2 V4 — the U-compartment -> M-monitor `mediate` round trip on the
+//! Phase-2 V4 - the U-compartment -> M-monitor `mediate` round trip on the
 //! Verilated SoC (`cargo xtask verilator -- mediate`).
 //!
 //! # Model: M + U (ruling P2-5)
@@ -14,7 +14,7 @@
 //!        `fixtures::case_request` the QEMU/host demos use) in a U-readable
 //!        template slot inside SHARED_REQ and returns its address+length;
 //!      - copies those bytes into the request slot (SHARED_REQ[0..len]) with
-//!        its own loads/stores — U really places the request;
+//!        its own loads/stores - U really places the request;
 //!      - `ecall MEDIATE(a0=0, a1=len)`: M runs `monitor::mediate` (the
 //!        `EgressMmioSink` injecting the secret on the egress leg), stamps the
 //!        result, writes the response body into a U-visible slot, and returns
@@ -23,7 +23,7 @@
 //!        `mediate: <name>=<verdict>` line and verifies the properties below.
 //!   3. `ecall FN_MDONE`: M prints `MEDIATE-DONE` (or `MEDIATE-FAIL`) and halts.
 //!
-//! # What this proves, and what it does NOT (F2 — honest scope)
+//! # What this proves, and what it does NOT (F2 - honest scope)
 //! It proves the mediation LOGIC on RTL (correct verdicts at the right stage)
 //! and the capability-model properties: the injected secret appears in the
 //! egress record (M-driven MMIO) yet NOWHERE in U-visible memory; a denied
@@ -98,7 +98,7 @@ fn append(rec: &mut [u8], at: usize, bytes: &[u8]) -> usize {
 
 /// The sim egress sink: drives the M-only EGRESS_MMIO record buffer with the
 /// outbound bytes (host + path + injected secret), then bumps the call counter.
-/// The returned body is the fixed non-leaking `RESPONSE_BODY` — the secret goes
+/// The returned body is the fixed non-leaking `RESPONSE_BODY` - the secret goes
 /// ONLY to the egress record, never into anything U can read.
 pub struct EgressMmioSink;
 

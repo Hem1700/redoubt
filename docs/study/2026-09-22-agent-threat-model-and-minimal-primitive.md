@@ -6,14 +6,14 @@
   deterministic* enforcement primitive a tiny trust anchor can check. Research first.
 
 ## 1. The threat model is already standardized (OWASP Agentic Top 10, 2026)
-OWASP published **Top 10 for Agentic Applications 2026** (ASI01–ASI10): treats an agent as
+OWASP published **Top 10 for Agentic Applications 2026** (ASI01-ASI10): treats an agent as
 a *principal* with goals, tools, memory, and inter-agent protocols as distinct attack
 surfaces. Key items:
-- **ASI01 Agent Goal Hijack** — attacker manipulates objectives; agents cannot reliably
+- **ASI01 Agent Goal Hijack** - attacker manipulates objectives; agents cannot reliably
   distinguish legit instructions from malicious content (prompt injection, direct/indirect).
-- **Tool misuse / tool poisoning** — malicious tool descriptions/behavior (our MCP
+- **Tool misuse / tool poisoning** - malicious tool descriptions/behavior (our MCP
   tool-poisoning-scanner territory).
-- **Memory poisoning** — persistent corruption of agent memory across sessions.
+- **Memory poisoning** - persistent corruption of agent memory across sessions.
 - **Identity/privilege abuse → ASI10 Rogue Agents.**
 Refs: [OWASP GenAI](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/),
 [MATRA attack-surface modeling](https://arxiv.org/pdf/2605.10763),
@@ -50,13 +50,13 @@ Ref: [Governed MCP](https://arxiv.org/pdf/2604.16870),
 [formal policy enforcement for agentic systems](https://arxiv.org/pdf/2602.16708).
 
 What the monitor enforces (deterministic, checkable):
-- **Capabilities** — the agent/tool holds only unforgeable grants for specific tools,
+- **Capabilities** - the agent/tool holds only unforgeable grants for specific tools,
   endpoints, files, secrets. No ambient authority.
-- **Typed-argument constraints** — the *arguments* of a tool call must satisfy a policy
-  (e.g., `http.get(url)` only to an allowlisted origin — echoes our MCP SSRF CVE).
-- **Information-flow labels** — data carries confidentiality/integrity labels; the monitor
+- **Typed-argument constraints** - the *arguments* of a tool call must satisfy a policy
+  (e.g., `http.get(url)` only to an allowlisted origin - echoes our MCP SSRF CVE).
+- **Information-flow labels** - data carries confidentiality/integrity labels; the monitor
   blocks flows that violate policy (e.g., a secret must not flow to an outbound tool).
-- **Complete mediation** — *every* tool call / external effect passes the monitor; there
+- **Complete mediation** - *every* tool call / external effect passes the monitor; there
   is no side door.
 
 **Containment guarantee (deterministic):** a fully prompt-injected / goal-hijacked agent
@@ -64,7 +64,7 @@ What the monitor enforces (deterministic, checkable):
 structured call, decided by non-AI logic.
 
 ## 4. Why this unifies everything we studied (and stays minimal)
-- **Reference monitor = the "tiny trust anchor below the kernel"** — Apple SPTM, the
+- **Reference monitor = the "tiny trust anchor below the kernel"** - Apple SPTM, the
   RISC-V M-mode security monitor (Keystone/Dorami), *the redoubt itself.*
 - **Deterministic enforcement at a structured boundary** = Hem's own rule ("verdict must
   be deterministic, never AI-judged"), now applied to agents.
@@ -78,25 +78,25 @@ structured call, decided by non-AI logic.
 Progent, IFC-for-agents, ActPlane, Governed MCP, MS/NVIDIA all build the reference
 monitor **in software, on Linux** (huge, unverifiable TCB; the monitor runs at the same or
 lower trust than the thing it polices). **Redoubt's novelty:** the reference monitor is the
-**hardware-rooted, tiny, inspectable trust anchor** — more privileged than the agent
-runtime and the OS above it — so it holds even if the agent *and* the upper OS are fully
+**hardware-rooted, tiny, inspectable trust anchor** - more privileged than the agent
+runtime and the OS above it - so it holds even if the agent *and* the upper OS are fully
 compromised. Nobody has built the *hardware-rooted, open, tiny-TCB* agent reference monitor.
 
 ## 6. The thesis (for review)
 > **Redoubt is a hardware-rooted reference-monitor OS for AI agents: a tiny, inspectable,
 > unbypassable trust anchor on an open RISC-V soft-core that mediates every tool call and
-> external effect an agent makes — enforcing capabilities, typed-argument constraints, and
-> information-flow labels deterministically — so a fully hijacked agent still cannot exceed
+> external effect an agent makes - enforcing capabilities, typed-argument constraints, and
+> information-flow labels deterministically - so a fully hijacked agent still cannot exceed
 > its granted authority.**
 
 ## 7. Open questions (next research/design, not concluded)
 - **Scope the threat model precisely:** which OWASP items are in-scope for v1 (goal hijack
   + tool misuse + exfiltration look core; memory poisoning and multi-agent collusion maybe
   later)?
-- **Where does the agent's "brain" (the LLM) run** — off-device (host) with Redoubt as the
+- **Where does the agent's "brain" (the LLM) run** - off-device (host) with Redoubt as the
   mediating trust anchor for its tool calls, or on-device? (Off-device is realistic and
   keeps the FPGA's job small and sharp.)
 - **What is the minimal policy language** the monitor evaluates (capabilities + arg
   predicates + labels) that stays deterministic and tiny?
 - **What's the killer demo:** "prompt-inject the agent live; watch Redoubt deny the
-  exfiltration/tool call it wasn't granted" — visible containment.
+  exfiltration/tool call it wasn't granted" - visible containment.
